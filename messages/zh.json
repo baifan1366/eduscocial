@@ -1,0 +1,43 @@
+{
+  "Index": {
+    "title": "欢迎来到教育社交",
+    "description": "一个专为教育社区打造的社交平台",
+    "getStarted": "开始使用",
+    "signIn": "登录",
+    "welcomeBack": "欢迎回来，{name}！",
+    "exploreBoards": "浏览板块",
+    "viewProfile": "查看个人资料"
+  },
+  "ExamplePage": {
+    "pageTitle": "示例页面 - 教育社交",
+    "pageDescription": "这是一个展示页面结构的示例页面。",
+    "heading": "示例页面",
+    "content": "这是一个带有翻译的示例页面内容。"
+  },
+  "Auth": {
+    "Login": {
+      "title": "登录您的账户",
+      "createAccount": "或创建新账户",
+      "emailLabel": "电子邮件地址",
+      "passwordLabel": "密码",
+      "submitButton": "登录",
+      "googleButton": "使用谷歌账户登录",
+      "error": "无效的邮箱或密码",
+      "continueWith": "或继续使用"
+    },
+    "Register": {
+      "title": "创建您的账户",
+      "alreadyHaveAccount": "或登录现有账户",
+      "nameLabel": "全名",
+      "emailLabel": "教育电子邮箱地址",
+      "emailHint": "请使用您的教育机构电子邮箱",
+      "universityLabel": "大学/学院（可选）",
+      "fieldOfStudyLabel": "学习领域（可选）",
+      "passwordLabel": "密码",
+      "confirmPasswordLabel": "确认密码",
+      "submitButton": "创建账户",
+      "googleButton": "使用谷歌账户注册",
+      "continueWith": "或继续使用"
+    }
+  }
+} 
