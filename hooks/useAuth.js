@@ -1,69 +1,121 @@
 'use client';
 
-import { useSession, signIn, signOut } from 'next-auth/react';
-import { isAdmin, isModerator } from '@/lib/auth';
+import { useState, useEffect, createContext, useContext } from 'react';
+import { useRouter } from 'next/navigation';
 
-/**
- * Custom authentication hook for NextAuth.js
- * 
- * @returns {object} Authentication utilities and user data
- */
-export function useAuth() {
-  const { data: session, status } = useSession();
-  
-  const user = session?.user;
-  const loading = status === 'loading';
-  const authenticated = status === 'authenticated';
-  
-  /**
-   * Login with credentials
-   * @param {string} email - User email
-   * @param {string} password - User password
-   * @returns {Promise} Login result
-   */
+const AuthContext = createContext();
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  // Check if user is already authenticated on mount
+  useEffect(() => {
+    async function loadUserFromSession() {
+      try {
+        const res = await fetch('/api/auth/refresh-token');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setUser(data.user);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load user session', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadUserFromSession();
+  }, []);
+
   const login = async (email, password) => {
-    return signIn('credentials', { email, password });
-  };
-  
-  /**
-   * Login with Google
-   * @param {object} options - SignIn options
-   * @returns {Promise} Login result
-   */
-  const loginWithGoogle = (options = {}) => {
-    return signIn('google', options);
-  };
-  
-  /**
-   * Logout the current user
-   * @returns {Promise} Logout result
-   */
-  const logout = () => {
-    return signOut();
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      setUser(data.user);
+      return { success: true, user: data.user };
+    } catch (error) {
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /**
-   * Check if user has admin role
-   * @returns {boolean} Is admin
-   */
-  const checkIsAdmin = () => isAdmin(session);
+  const logout = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
 
-  /**
-   * Check if user has moderator role
-   * @returns {boolean} Is moderator
-   */
-  const checkIsModerator = () => isModerator(session);
-  
-  return {
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Logout failed');
+      }
+
+      setUser(null);
+      router.push('/login');
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (userData) => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed');
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const value = {
     user,
-    session,
-    status,
     loading,
-    authenticated,
     login,
-    loginWithGoogle,
     logout,
-    isAdmin: checkIsAdmin(),
-    isModerator: checkIsModerator(),
+    register,
+    isAuthenticated: !!user,
   };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export default function useAuth() {
+  return useContext(AuthContext);
 } 
