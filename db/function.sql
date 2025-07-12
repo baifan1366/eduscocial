@@ -266,3 +266,80 @@ CREATE TRIGGER trg_set_matched_date
 BEFORE INSERT OR UPDATE ON daily_matches
 FOR EACH ROW
 EXECUTE FUNCTION set_matched_date();
+
+-- Function to trigger cache invalidation
+CREATE OR REPLACE FUNCTION trigger_cache_invalidation()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO cache_invalidation_queue (object_type, object_id, operation)
+    VALUES (TG_TABLE_NAME, NEW.id, TG_OP);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply the trigger to relevant tables
+CREATE TRIGGER cache_invalidation_posts AFTER INSERT OR UPDATE OR DELETE ON posts FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
+CREATE TRIGGER cache_invalidation_comments AFTER INSERT OR UPDATE OR DELETE ON comments FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
+CREATE TRIGGER cache_invalidation_boards AFTER INSERT OR UPDATE OR DELETE ON boards FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
+
+-- Content Versioning Trigger
+CREATE OR REPLACE FUNCTION track_content_versions()
+RETURNS TRIGGER AS $$
+DECLARE
+    next_version INTEGER;
+BEGIN
+    -- Get the next version number
+    SELECT COALESCE(MAX(version_number), 0) + 1 INTO next_version 
+    FROM content_versions 
+    WHERE content_type = TG_TABLE_NAME AND content_id = NEW.id;
+    
+    -- Insert the new version
+    INSERT INTO content_versions (
+        content_type, content_id, version_number, content, edited_by, edited_at
+    ) VALUES (
+        TG_TABLE_NAME, NEW.id, next_version, 
+        CASE WHEN TG_TABLE_NAME = 'posts' THEN NEW.content ELSE NEW.content END,
+        NEW.created_by, NOW()
+    );
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER track_post_versions AFTER UPDATE OF content ON posts FOR EACH ROW EXECUTE FUNCTION track_content_versions();
+CREATE TRIGGER track_comment_versions AFTER UPDATE OF content ON comments FOR EACH ROW EXECUTE FUNCTION track_content_versions();
+
+-- Anonymous message handling
+CREATE OR REPLACE FUNCTION assign_message_anonymous_avatar()
+RETURNS TRIGGER AS $$
+DECLARE
+    available_avatar_id UUID;
+    is_premium_user BOOLEAN;
+BEGIN
+    IF NEW.is_anonymous = TRUE THEN
+        -- Check if premium user
+        SELECT EXISTS (
+            SELECT 1 FROM subscriptions 
+            WHERE user_id = NEW.sender_id 
+            AND status = 'active' 
+            AND end_at > NOW()
+        ) INTO is_premium_user;
+        
+        -- Select avatar
+        IF is_premium_user THEN
+            SELECT id INTO available_avatar_id FROM anonymous_avatars ORDER BY RANDOM() LIMIT 1;
+        ELSE
+            SELECT id INTO available_avatar_id FROM anonymous_avatars WHERE is_premium_only = FALSE ORDER BY RANDOM() LIMIT 1;
+        END IF;
+        
+        -- Assign avatar to message
+        NEW.anonymous_avatar_id = available_avatar_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER assign_anonymous_avatar_to_message 
+BEFORE INSERT ON messages 
+FOR EACH ROW WHEN (NEW.is_anonymous = TRUE) 
+EXECUTE FUNCTION assign_message_anonymous_avatar();

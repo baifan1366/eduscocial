@@ -53,7 +53,8 @@ CREATE TABLE boards (
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    language TEXT DEFAULT 'zh-TW'
 );
 
 CREATE TABLE posts (
@@ -75,7 +76,14 @@ CREATE TABLE posts (
     comment_count INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_draft BOOLEAN DEFAULT FALSE,
+    scheduled_publish_at TIMESTAMPTZ,
+    language TEXT DEFAULT 'zh-TW',
+    is_ad BOOLEAN DEFAULT FALSE,
+    ad_metadata JSONB,
+    ad_position INTEGER,
+    ad_target_audience JSONB
 );
 
 CREATE TABLE comments (
@@ -93,7 +101,8 @@ CREATE TABLE comments (
     dislike_count INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    language TEXT DEFAULT 'zh-TW'
 );
 
 CREATE TABLE votes (
@@ -210,7 +219,20 @@ CREATE TABLE messages (
     is_read BOOLEAN DEFAULT FALSE,
     sent_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    created_by UUID REFERENCES users(id)
+    created_by UUID REFERENCES users(id),
+    is_anonymous BOOLEAN DEFAULT FALSE,
+    anonymous_avatar_id UUID REFERENCES anonymous_avatars(id)
+);
+
+CREATE TABLE message_read_status (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    is_read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(message_id, user_id)
 );
 
 CREATE TABLE blocked_users (
@@ -748,3 +770,74 @@ CREATE TABLE chat_messages (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE user_interests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tag_id UUID REFERENCES hashtags(id) ON DELETE CASCADE,
+    topic_id UUID REFERENCES topics(id) ON DELETE CASCADE,
+    weight FLOAT DEFAULT 1.0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES users(id),
+    CONSTRAINT tag_or_topic_required CHECK (
+        (tag_id IS NOT NULL AND topic_id IS NULL) OR
+        (tag_id IS NULL AND topic_id IS NOT NULL)
+    ),
+    UNIQUE(user_id, tag_id, topic_id)
+);
+
+CREATE TABLE cache_invalidation_queue (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    object_type TEXT NOT NULL CHECK (object_type IN ('post', 'comment', 'user', 'board', 'hashtag')),
+    object_id UUID NOT NULL,
+    operation TEXT NOT NULL CHECK (operation IN ('create', 'update', 'delete')),
+    processed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE content_versions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    content_type TEXT NOT NULL CHECK (content_type IN ('post', 'comment')),
+    content_id UUID NOT NULL,
+    version_number INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    edited_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    edited_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(content_type, content_id, version_number)
+);
+
+-- User OAuth Provider Information
+CREATE TABLE user_providers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider_name TEXT NOT NULL, -- 'google', 'github', etc.
+    provider_user_id TEXT NOT NULL, -- The ID from the provider
+    provider_email TEXT,
+    profile_data JSONB, -- Store profile information from provider
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES users(id),
+    UNIQUE(provider_name, provider_user_id)
+);
+
+-- Redis token structure documentation
+CREATE TABLE redis_token_structure (
+    id SERIAL PRIMARY KEY,
+    key_pattern TEXT NOT NULL,
+    description TEXT NOT NULL,
+    example TEXT,
+    ttl_seconds INTEGER,
+    notes TEXT
+);
+
+-- Insert documentation for Redis token patterns
+-- Update existing session entry or add a new one with more specific details
+INSERT INTO redis_token_structure (key_pattern, description, example, ttl_seconds, notes) VALUES
+('user:{userId}:session', 'User session hash with authentication and profile data', 'user:c3b66c34-6fb5-4c4d-b42e-49745097b0b7:session', 82800, 'Redis Hash containing email, loginTime, name, role fields. TTL 23h (82800 sec)');
+-- Add examples for specific session fields
+INSERT INTO redis_token_structure (key_pattern, description, example, ttl_seconds, notes) VALUES
+('user:{userId}:session:fields', 'Common fields in session hash', 'email: student@edu.com, loginTime: timestamp, name: "User Name", role: USER', 82800, 'These fields should be consistently maintained across all session hashes');
+-- Add entry for session expiration/refresh mechanism
+INSERT INTO redis_token_structure (key_pattern, description, example, ttl_seconds, notes) VALUES
+('user:{userId}:session:refresh', 'Mechanism to refresh session before expiration', 'Set by refresh-token API endpoint', 82800, 'When refreshed, the entire hash TTL is reset to 23h');

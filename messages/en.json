@@ -14,7 +14,20 @@
     "heading": "Example Page",
     "content": "This is an example page content with translations."
   },
-  "Auth": {
+  "auth": {
+    "loginTitle": "Login to EduSocial",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "signIn": "Sign In",
+    "signingIn": "Signing in...",
+    "loginFailed": "Failed to login. Please try again.",
+    "unexpectedError": "An unexpected error occurred. Please try again.",
+    "noAccount": "Don't have an account?",
+    "signUp": "Sign up",
+    "orContinueWith": "Or continue with",
+    "oauthError": "Error signing in with {provider}",
+    
     "Login": {
       "title": "Sign in to your account",
       "createAccount": "Or create a new account",
@@ -22,6 +35,7 @@
       "passwordLabel": "Password",
       "submitButton": "Sign in",
       "googleButton": "Sign in with Google",
+      "githubButton": "Sign in with GitHub",
       "error": "Invalid email or password",
       "continueWith": "Or continue with"
     },
@@ -37,6 +51,7 @@
       "confirmPasswordLabel": "Confirm Password",
       "submitButton": "Create account",
       "googleButton": "Sign up with Google",
+      "githubButton": "Sign up with GitHub",
       "continueWith": "Or continue with"
     }
   }

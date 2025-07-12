@@ -1,35 +1,21 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext } from 'react';
+import { useSession, signOut as nextAuthSignOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { data: session, status } = useSession();
+  const isSessionLoading = status === "loading";
 
-  // Check if user is already authenticated on mount
   useEffect(() => {
-    async function loadUserFromSession() {
-      try {
-        const res = await fetch('/api/auth/refresh-token');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user) {
-            setUser(data.user);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load user session', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-    loadUserFromSession();
-  }, []);
+    // We can rely on NextAuth session loading
+    setLoading(isSessionLoading);
+  }, [isSessionLoading]);
 
   const login = async (email, password) => {
     setLoading(true);
@@ -48,7 +34,9 @@ export function AuthProvider({ children }) {
         throw new Error(data.error || 'Login failed');
       }
 
-      setUser(data.user);
+      // Refresh the session
+      router.refresh();
+      
       return { success: true, user: data.user };
     } catch (error) {
       return { success: false, error: error.message };
@@ -60,6 +48,9 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     setLoading(true);
     try {
+      await nextAuthSignOut({ redirect: false });
+      
+      // Also call our custom logout endpoint
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
       });
@@ -69,7 +60,6 @@ export function AuthProvider({ children }) {
         throw new Error(data.error || 'Logout failed');
       }
 
-      setUser(null);
       router.push('/login');
       return { success: true };
     } catch (error) {
@@ -105,12 +95,13 @@ export function AuthProvider({ children }) {
   };
 
   const value = {
-    user,
-    loading,
+    user: session?.user || null,
+    loading: loading || isSessionLoading,
     login,
     logout,
     register,
-    isAuthenticated: !!user,
+    isAuthenticated: !!session?.user,
+    session
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

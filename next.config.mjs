@@ -26,7 +26,11 @@ const nextConfig = {
     ]
   },
   images: {
-    domains: ['api.qrserver.com'],
+    domains: [
+      'api.qrserver.com',
+      'lh3.googleusercontent.com', // Google profile images
+      'avatars.githubusercontent.com' // GitHub avatars
+    ],
     unoptimized: true
   }
 };
