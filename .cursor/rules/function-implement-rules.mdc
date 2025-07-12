@@ -1,0 +1,17 @@
+- name: "Check schema before coding"
+  description: "Before implementing any function, ensure that `db/schema.sql` is checked or updated accordingly to reflect the data model."
+
+- name: "Context7 MCP documentation reference"
+  description: "Use context7 MCP to fetch and review the latest design documents or function descriptions before starting any logic."
+
+- name: "Redis and PostgreSQL consistency"
+  description: "When using Redis, ensure consistency with PostgreSQL through cache invalidation, write-through, or appropriate syncing."
+
+- name: "API-only database manipulation"
+  description: "All database logic must be handled inside `/api/*` routes. Never directly use Prisma or fetch from the frontend."
+
+- name: "Update feature documentation"
+  description: "Every new function or API must include markdown documentation in the `docs/` directory explaining its usage and structure."
+
+alwaysApply: false
+---

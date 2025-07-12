@@ -1,0 +1,20 @@
+- name: "Meta data with Head"
+  description: "Each page component must use Next.js `<Head>` to define title, description, and social meta tags for SEO."
+
+- name: "Internationalization"
+  description: "Use `next-intl` to translate all visible text content via `t('...')`. Avoid hardcoding strings."
+
+- name: "Tailwind dark mode"
+  description: "Ensure all style-related Tailwind classes consider dark mode using `dark:` variants."
+
+- name: "Responsive design"
+  description: "Pages must be responsive using Tailwind breakpoints (e.g., `sm:`, `md:`, `lg:`) and mobile-first layout principles."
+
+- name: "Skeleton loading state"
+  description: "Implement skeleton UI using `@/components/ui/skeleton` for all async data fetching components."
+
+- name: "Component extraction"
+  description: "UI elements must be extracted and reused in `components/` directory to ensure DRY and maintainable code."
+
+alwaysApply: false
+---

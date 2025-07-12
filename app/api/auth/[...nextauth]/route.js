@@ -1,16 +1,16 @@
-import NextAuth, { AuthOptions } from "next-auth";
-// Import mock adapter until you can install the real package
-// Replace with: import { PrismaAdapter } from "@auth/prisma-adapter"; when you can install it
-import { PrismaAdapter } from "@/lib/prisma-adapter-mock";
-import { prisma } from "@/lib/prisma";
+import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcrypt";
 import { isEducationalEmail } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 
-// Configure NextAuth
-export const authOptions: AuthOptions = {
-  adapter: PrismaAdapter(prisma) as any, // Cast to any to avoid type errors
+/**
+ * NextAuth.js configuration options
+ */
+export const authOptions = {
+  adapter: PrismaAdapter(prisma),
   providers: [
     // Email/Password authentication
     CredentialsProvider({
@@ -50,8 +50,8 @@ export const authOptions: AuthOptions = {
     
     // Google OAuth
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       profile(profile) {
         // Only allow educational emails
         if (!isEducationalEmail(profile.email)) {
@@ -71,22 +71,22 @@ export const authOptions: AuthOptions = {
     // Add other OAuth providers here as needed
   ],
   session: {
-    strategy: "jwt" as const,
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
-    signIn: '/auth/login',
-    signOut: '/auth/logout',
-    error: '/auth/error',
-    verifyRequest: '/auth/verify-request',
-    newUser: '/auth/new-user'
+    signIn: '/login',
+    signOut: '/logout',
+    error: '/error',
+    verifyRequest: '/verify-request',
+    newUser: '/register'
   },
   callbacks: {
     async jwt({ token, user, account }) {
       // Include user ID in JWT token
       if (user) {
         token.userId = user.id;
-        token.role = (user as any).role || "user";
+        token.role = user.role || "USER";
       }
       
       // If it's an OAuth login, mark as verified
@@ -99,15 +99,15 @@ export const authOptions: AuthOptions = {
     async session({ session, token }) {
       // Add user ID and role to session
       if (session.user && token) {
-        session.user.id = token.userId as string;
-        session.user.role = token.role as string;
+        session.user.id = token.userId;
+        session.user.role = token.role;
       }
       return session;
     },
     // Only allow educational emails
     async signIn({ user }) {
       // Skip check for already verified users
-      if ((user as any).emailVerified) {
+      if (user.emailVerified) {
         return true;
       }
       
@@ -130,6 +130,8 @@ export const authOptions: AuthOptions = {
   debug: process.env.NODE_ENV === "development",
 };
 
+/**
+ * Export the NextAuth.js handler
+ */
 const handler = NextAuth(authOptions);
-
 export { handler as GET, handler as POST }; 
