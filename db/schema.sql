@@ -239,12 +239,14 @@ CREATE TABLE daily_matches (
   user_a UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   user_b UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   matched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  matched_date DATE,  -- manually filled by trigger
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_by UUID REFERENCES users(id),
   accepted_a BOOLEAN DEFAULT FALSE,
   accepted_b BOOLEAN DEFAULT FALSE,
-  UNIQUE(user_a, user_b, date_trunc('day', matched_at)),
-  CHECK (user_a <> user_b)
+  CHECK (user_a <> user_b),
+  CHECK (user_a < user_b),
+  UNIQUE(user_a, user_b, matched_date)
 );
 
 CREATE TABLE subscriptions (
@@ -485,7 +487,7 @@ CREATE TABLE landing_pages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   campaign_id UUID NOT NULL REFERENCES ad_campaigns(id),
   title TEXT NOT NULL,
-  content HTML NOT NULL,
+  content TEXT NOT NULL,
   call_to_action TEXT,
   url_slug TEXT UNIQUE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
