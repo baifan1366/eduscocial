@@ -1,0 +1,43 @@
+{
+  "Index": {
+    "title": "Welcome to EduSocial",
+    "description": "A social platform for educational communities",
+    "getStarted": "Get Started",
+    "signIn": "Sign In",
+    "welcomeBack": "Welcome back, {name}!",
+    "exploreBoards": "Explore Boards",
+    "viewProfile": "View Profile"
+  },
+  "ExamplePage": {
+    "pageTitle": "Example Page - EduSocial",
+    "pageDescription": "This is an example page demonstrating the page structure.",
+    "heading": "Example Page",
+    "content": "This is an example page content with translations."
+  },
+  "Auth": {
+    "Login": {
+      "title": "Sign in to your account",
+      "createAccount": "Or create a new account",
+      "emailLabel": "Email address",
+      "passwordLabel": "Password",
+      "submitButton": "Sign in",
+      "googleButton": "Sign in with Google",
+      "error": "Invalid email or password",
+      "continueWith": "Or continue with"
+    },
+    "Register": {
+      "title": "Create your account",
+      "alreadyHaveAccount": "Or sign in to your existing account",
+      "nameLabel": "Full Name",
+      "emailLabel": "Educational Email Address",
+      "emailHint": "Please use your educational institution email",
+      "universityLabel": "University/Institution (Optional)",
+      "fieldOfStudyLabel": "Field of Study (Optional)",
+      "passwordLabel": "Password",
+      "confirmPasswordLabel": "Confirm Password",
+      "submitButton": "Create account",
+      "googleButton": "Sign up with Google",
+      "continueWith": "Or continue with"
+    }
+  }
+}
