@@ -1,17 +1,15 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcrypt";
 import { isEducationalEmail, storeOAuthTokens } from "@/lib/auth";
 import { updateUserOnlineStatus } from "@/lib/redis/redisUtils";
-import prisma from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 
 /**
  * NextAuth.js configuration options
  */
 export const authOptions = {
-  adapter: PrismaAdapter(prisma),
   providers: [
     // Email/Password authentication
     CredentialsProvider({
@@ -25,30 +23,37 @@ export const authOptions = {
           return null;
         }
 
-        // Find user by email
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
-        });
+        try {
+          // Find user by email
+          const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', credentials.email)
+            .single();
 
-        // If no user or no password (OAuth account)
-        if (!user || !user.password) {
+          // If no user or no password (OAuth account)
+          if (error || !user || !user.password) {
+            return null;
+          }
+
+          // Verify password
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            return null;
+          }
+
+          // Update user's online status in Redis
+          await updateUserOnlineStatus(user.id, true);
+
+          return user;
+        } catch (error) {
+          console.error('Authorization error:', error);
           return null;
         }
-
-        // Verify password
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          return null;
-        }
-
-        // Update user's online status in Redis
-        await updateUserOnlineStatus(user.id, true);
-
-        return user;
       }
     }),
     
@@ -143,14 +148,22 @@ export const authOptions = {
       console.log(`New user created: ${user.email}`);
     },
     async signIn({ user }) {
-      // Update user's last login time
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { last_login_at: new Date() }
-      });
-      
-      // Update user's online status
-      await updateUserOnlineStatus(user.id, true);
+      try {
+        // Update user's last login time
+        const { error } = await supabase
+          .from('users')
+          .update({ last_login_at: new Date() })
+          .eq('id', user.id);
+        
+        if (error) {
+          console.error('Error updating last login time:', error);
+        }
+        
+        // Update user's online status
+        await updateUserOnlineStatus(user.id, true);
+      } catch (error) {
+        console.error('Error updating last login time:', error);
+      }
     },
     async signOut({ token }) {
       // Update user's online status
