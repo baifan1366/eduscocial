@@ -1,163 +1,166 @@
-# NextAuth.js Configuration
+# Authentication Documentation
 
-This document describes the authentication configuration using NextAuth.js for the EduSocial application.
+This document describes the authentication system implemented in the EduSocial application.
 
 ## Overview
 
-EduSocial uses NextAuth.js for authentication and session management. The configuration supports both credential-based (username/password) authentication and OAuth providers (currently Google).
+The authentication system in EduSocial is built using NextAuth.js and enhanced with Redis for session management and online status tracking. It provides:
 
-## Configuration Files
+- Email/password authentication
+- OAuth authentication with various providers (Google, etc.)
+- Session management with Redis
+- Online status tracking
+- Provider token storage for OAuth
 
-### Main Configuration
+## Authentication Methods
 
-The NextAuth.js configuration is defined in `app/api/auth/[...nextauth]/route.js`:
+### Email/Password Authentication
 
-```js
-import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
-// ... other imports
-
-export const authOptions = {
-  adapter: PrismaAdapter(prisma),
-  providers: [
-    CredentialsProvider({ /* ... */ }),
-    GoogleProvider({ /* ... */ }),
-  ],
-  // ... other configuration options
-};
-
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
-```
-
-### Authentication Provider Component
-
-The application is wrapped with the NextAuth SessionProvider in `components/auth/AuthProvider.jsx`:
-
-```jsx
-import { SessionProvider } from "next-auth/react";
-
-export default function AuthProvider({ children }) {
-  return <SessionProvider>{children}</SessionProvider>;
-}
-```
-
-### Authentication Hook
-
-A custom hook for accessing authentication functionality is provided in `hooks/useAuth.js`:
+Traditional email and password-based authentication:
 
 ```js
-import { useSession, signIn, signOut } from 'next-auth/react';
-import { isAdmin, isModerator } from '@/lib/auth';
+import { loginUser } from '@/lib/auth';
 
-export function useAuth() {
-  const { data: session, status } = useSession();
-  // ... authentication utilities
-  
-  return {
-    user,
-    session,
-    // ... other auth-related values and functions
-  };
-}
+// Login user
+const { user, session } = await loginUser({
+  email: 'student@university.edu',
+  password: 'securepassword'
+});
 ```
 
-### Authentication Middleware
+### OAuth Authentication
 
-Route protection is implemented in `middleware.js`:
+OAuth-based authentication with various providers:
+
+- Google
+- (Other providers can be added)
+
+## User Session Management
+
+User sessions are managed in Redis for real-time access and improved performance.
+
+### How it works:
+
+1. When a user logs in (either with credentials or OAuth), their session data is stored in Redis
+2. The session data includes user information and authentication details
+3. Sessions have a configurable TTL (default: 24 hours)
+4. User online status is updated with each session action
+5. On logout, the session is removed from Redis
+
+### Key Redis functions:
 
 ```js
-import { NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-// ... other imports
+import { storeUserSession, getUserSession, removeUserSession } from '@/lib/redis/redisUtils';
 
-export async function middleware(request) {
-  // ... authentication and authorization checks
-}
+// Store a user session
+await storeUserSession(userId, sessionData);
+
+// Get an existing session
+const session = await getUserSession(userId);
+
+// Remove a session on logout
+await removeUserSession(userId);
 ```
 
-## Environment Variables
+## Online Status Tracking
 
-The NextAuth.js configuration requires the following environment variables:
+User online status is tracked in real-time using Redis:
 
-```
-# NextAuth
-NEXTAUTH_SECRET=your-secret-key-here
+```js
+import { updateUserOnlineStatus, isUserOnline, getOnlineUsers } from '@/lib/redis/redisUtils';
 
-# OAuth Providers
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
+// Update status
+await updateUserOnlineStatus(userId, true); // Online
+await updateUserOnlineStatus(userId, false); // Offline
 
-# Database (for PrismaAdapter)
-DATABASE_URL=your-database-url
-```
+// Check if a user is online
+const online = await isUserOnline(userId);
 
-## Usage Examples
-
-### Client-Side Authentication
-
-```jsx
-'use client';
-import { useAuth } from '@/hooks/useAuth';
-
-export default function ProfilePage() {
-  const { user, loading, isAdmin, logout } = useAuth();
-  
-  if (loading) return <div>Loading...</div>;
-  
-  return (
-    <div>
-      <h1>Welcome, {user?.name}</h1>
-      {isAdmin && <div>Admin Panel</div>}
-      <button onClick={logout}>Logout</button>
-    </div>
-  );
-}
+// Get all online users
+const onlineUsers = await getOnlineUsers();
 ```
 
-### Server-Side Authentication
+## OAuth Token Management
 
-```jsx
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+OAuth tokens are securely stored in Redis with appropriate expiration times:
 
-export async function getServerSideProps(context) {
-  const session = await getServerSession(context.req, context.res, authOptions);
-  
-  if (!session) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: false,
-      },
-    };
-  }
-  
-  return {
-    props: {
-      user: session.user,
-    },
-  };
-}
+```js
+import { storeProviderTokens, getProviderTokens } from '@/lib/redis/redisUtils';
+
+// Store tokens
+await storeProviderTokens(userId, 'google', {
+  access_token: 'abc123',
+  refresh_token: 'xyz789',
+  expires_at: 1644271847,
+  token_type: 'Bearer'
+});
+
+// Get tokens
+const tokens = await getProviderTokens(userId, 'google');
 ```
 
-## Route Protection
+## Authentication Flow
 
-The middleware automatically protects routes defined in the `protectedRoutes` array:
+### Login Flow:
 
-- `/dashboard/*`
-- `/profile/*`
-- `/settings/*`
+1. User submits credentials (email/password) or authenticates with OAuth
+2. User is authenticated against the database
+3. If successful:
+   - User session is stored in Redis
+   - Online status is updated to "online"
+   - For OAuth, provider tokens are stored in Redis
+   - User info is returned to client
+4. If unsuccessful, an error is returned
 
-Admin-only routes are defined in the `adminRoutes` array:
+### Logout Flow:
 
-- `/admin/*`
+1. User requests to logout
+2. User session is removed from Redis
+3. Online status is updated to "offline"
+4. Success response is sent to client
 
-## Educational Email Restriction
+## Educational Email Requirement
 
-The application restricts registration to educational email addresses only. This is enforced in:
+EduSocial restricts registration to users with educational email addresses:
 
-1. The `isEducationalEmail` function in `lib/auth.js`
-2. The OAuth provider configurations
-3. The registration API endpoint 
+```js
+import { isEducationalEmail } from '@/lib/auth';
+
+// Check if email is from an educational institution
+const isEdu = isEducationalEmail('student@university.edu'); // true
+const isNotEdu = isEducationalEmail('user@gmail.com'); // false
+```
+
+The system checks for common educational domains like `.edu`, `.ac.`, and keywords like "university", "school", etc.
+
+## API Routes
+
+### Login:
+```
+POST /api/auth/login
+Body: { email, password }
+```
+
+### Logout:
+```
+POST /api/auth/logout
+```
+
+### Register:
+```
+POST /api/auth/register
+Body: { name, email, password }
+```
+
+### NextAuth Routes:
+```
+GET/POST /api/auth/[...nextauth]
+```
+
+## Security Considerations
+
+- Passwords are hashed using bcrypt
+- Sessions are stored with TTL to prevent stale sessions
+- OAuth tokens have appropriate expiration
+- Only educational emails are allowed
+- JWT tokens are secured with a secret key 

@@ -3,7 +3,8 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcrypt";
-import { isEducationalEmail } from "@/lib/auth";
+import { isEducationalEmail, storeOAuthTokens } from "@/lib/auth";
+import { updateUserOnlineStatus } from "@/lib/redis/redisUtils";
 import prisma from "@/lib/prisma";
 
 /**
@@ -43,6 +44,9 @@ export const authOptions = {
         if (!isPasswordValid) {
           return null;
         }
+
+        // Update user's online status in Redis
+        await updateUserOnlineStatus(user.id, true);
 
         return user;
       }
@@ -92,6 +96,19 @@ export const authOptions = {
       // If it's an OAuth login, mark as verified
       if (account && account.provider !== "credentials") {
         token.emailVerified = true;
+        
+        // Store OAuth tokens in Redis
+        if (user && account.access_token) {
+          await storeOAuthTokens(user.id, account.provider, {
+            access_token: account.access_token,
+            refresh_token: account.refresh_token,
+            expires_at: account.expires_at,
+            token_type: account.token_type
+          });
+          
+          // Update user's online status
+          await updateUserOnlineStatus(user.id, true);
+        }
       }
       
       return token;
@@ -124,6 +141,22 @@ export const authOptions = {
     async createUser({ user }) {
       // Any additional actions on user creation
       console.log(`New user created: ${user.email}`);
+    },
+    async signIn({ user }) {
+      // Update user's last login time
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { last_login_at: new Date() }
+      });
+      
+      // Update user's online status
+      await updateUserOnlineStatus(user.id, true);
+    },
+    async signOut({ token }) {
+      // Update user's online status
+      if (token?.userId) {
+        await updateUserOnlineStatus(token.userId, false);
+      }
     },
   },
   secret: process.env.NEXTAUTH_SECRET,

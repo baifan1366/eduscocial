@@ -70,6 +70,65 @@ const onlineUsers = await getOnlineUsers();
 ### Key format:
 - Online users hash: `online_users`
 
+## User Session Management
+
+Manages user sessions in Redis for quick access and real-time status updates.
+
+```js
+import { storeUserSession, getUserSession, removeUserSession } from 'lib/redisUtils';
+
+// Store user session
+await storeUserSession('user-123', { 
+  email: 'user@university.edu',
+  name: 'User Name',
+  role: 'USER',
+  loginTime: Date.now()
+});
+
+// Get user session
+const session = await getUserSession('user-123');
+
+// Remove user session (on logout)
+await removeUserSession('user-123');
+```
+
+### How it works:
+
+1. Stores session data in Redis with configurable TTL (default: 24 hours)
+2. Updates online status whenever session is accessed or created
+3. Removes session and updates online status on logout
+
+### Key format:
+- User session: `user:{userId}:session`
+
+## OAuth Provider Token Management
+
+Stores OAuth provider tokens securely in Redis with appropriate expiration times.
+
+```js
+import { storeProviderTokens, getProviderTokens } from 'lib/redisUtils';
+
+// Store tokens from OAuth provider
+await storeProviderTokens('user-123', 'google', {
+  access_token: 'abc123',
+  refresh_token: 'xyz789',
+  expires_at: 1644271847, // Unix timestamp in seconds
+  token_type: 'Bearer'
+});
+
+// Get tokens for a provider
+const tokens = await getProviderTokens('user-123', 'google');
+```
+
+### How it works:
+
+1. Stores provider tokens as Redis hashes
+2. Sets appropriate expiration based on token expiry info
+3. Allows quick access to tokens for API calls without database queries
+
+### Key format:
+- Provider tokens: `user:{userId}:tokens:{provider}`
+
 ## Implementation Notes
 
 - All functions are optimized for high performance and low latency
