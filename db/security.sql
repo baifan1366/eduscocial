@@ -1,0 +1,1 @@
+-- Enable Row Level Security on tables
