@@ -13,17 +13,22 @@ export async function POST(request) {
       );
     }
     
-    const { user } = await loginUser({ email, password });
+    const { user, session } = await loginUser({ email, password });
     
+    // Don't expose sensitive data
     return NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
+        name: user.name || user.username,
+        role: user.role || "USER",
+        isOnline: true
       },
+      success: true
     });
     
   } catch (error) {
+    console.error('Login error:', error.message);
     return NextResponse.json(
       { error: error.message || "Login failed" },
       { status: 401 }

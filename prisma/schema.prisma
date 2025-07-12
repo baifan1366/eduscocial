@@ -1,67 +1,1128 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// NextAuth Models
-model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?  @db.Text
-  access_token       String?  @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?  @db.Text
-  session_state      String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
+model action_log {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id      String?  @db.Uuid
+  action       String
+  target_table String?
+  target_id    String?  @db.Uuid
+  old_data     Json?
+  new_data     Json?
+  metadata     Json?
+  occurred_at  DateTime @default(now()) @db.Timestamptz(6)
+  users        users?   @relation(fields: [user_id], references: [id], onUpdate: NoAction)
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ad_campaigns {
+  id                 String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  request_id         String              @unique @db.Uuid
+  title              String
+  content            String
+  media_urls         String[]
+  targeting          Json
+  bid_type           String
+  bid_amount_cents   Int
+  start_at           DateTime            @db.Timestamptz(6)
+  end_at             DateTime            @db.Timestamptz(6)
+  status             String?             @default("scheduled")
+  created_at         DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?           @default(now()) @db.Timestamptz(6)
+  created_by         String?             @db.Uuid
+  users              users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  promotion_requests promotion_requests  @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  ad_performance     ad_performance[]
+  ad_pixels          ad_pixels[]
+  campaign_segments  campaign_segments[]
+  landing_pages      landing_pages[]
+  promotion_rules    promotion_rules[]
+
+  @@index([end_at], map: "idx_ad_campaigns_end_at")
+  @@index([start_at], map: "idx_ad_campaigns_start_at")
+  @@index([status], map: "idx_ad_campaigns_status")
 }
 
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  accounts      Account[]
-  sessions      Session[]
-  
-  // Custom fields for EduSocial
-  username      String?   @unique
-  bio           String?   @db.Text
-  university    String?
-  studyField    String?
-  role          String?   @default("user")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+model ad_performance {
+  id           String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  campaign_id  String       @db.Uuid
+  date         DateTime     @db.Date
+  impressions  BigInt?      @default(0)
+  clicks       BigInt?      @default(0)
+  spend_cents  BigInt?      @default(0)
+  created_at   DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime?    @default(now()) @db.Timestamptz(6)
+  created_by   String?      @db.Uuid
+  ad_campaigns ad_campaigns @relation(fields: [campaign_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        users?       @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([campaign_id, date])
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
+model ad_pixel_events {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  pixel_id    String    @db.Uuid
+  event_type  String
+  event_data  Json?
+  occurred_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+  created_by  String?   @db.Uuid
+  users       users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ad_pixels   ad_pixels @relation(fields: [pixel_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
 
-  @@unique([identifier, token])
-} 
+model ad_pixels {
+  id              String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  campaign_id     String            @db.Uuid
+  pixel_code      String
+  created_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  created_by      String?           @db.Uuid
+  ad_pixel_events ad_pixel_events[]
+  ad_campaigns    ad_campaigns      @relation(fields: [campaign_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users?            @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ad_placements {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  ad_id            String    @db.Uuid
+  placement_type   String
+  start_at         DateTime  @db.Timestamptz(6)
+  end_at           DateTime  @db.Timestamptz(6)
+  bid_amount_cents Int?
+  status           String
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime? @default(now()) @db.Timestamptz(6)
+  created_by       String?   @db.Uuid
+  ads              ads       @relation(fields: [ad_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model admin_users {
+  id                                  String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                             String               @unique @db.Uuid
+  role                                String
+  created_at                          DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at                          DateTime?            @default(now()) @db.Timestamptz(6)
+  created_by                          String?              @db.Uuid
+  users_admin_users_created_byTousers users?               @relation("admin_users_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_admin_users_user_idTousers    users                @relation("admin_users_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  content_moderation                  content_moderation[]
+  promotion_requests                  promotion_requests[]
+}
+
+model ads {
+  id            String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  advertiser_id String          @db.Uuid
+  title         String
+  content       String
+  media_urls    String[]
+  created_at    DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime?       @default(now()) @db.Timestamptz(6)
+  created_by    String?         @db.Uuid
+  ad_placements ad_placements[]
+  advertisers   advertisers     @relation(fields: [advertiser_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users         users?          @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model advertisers {
+  id                   String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                 String
+  contact_email        String
+  contact_phone        String?
+  created_at           DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?              @default(now()) @db.Timestamptz(6)
+  created_by           String?                @db.Uuid
+  ads                  ads[]
+  users                users?                 @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  influencer_campaigns influencer_campaigns[]
+  promotion_requests   promotion_requests[]
+  trial_campaigns      trial_campaigns[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model anonymous_avatar_assignments {
+  id                                                   String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                                              String            @db.Uuid
+  target_type                                          String
+  target_id                                            String            @db.Uuid
+  avatar_id                                            String            @db.Uuid
+  assigned_at                                          DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                                           DateTime?         @default(now()) @db.Timestamptz(6)
+  created_by                                           String?           @db.Uuid
+  anonymous_avatars                                    anonymous_avatars @relation(fields: [avatar_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_anonymous_avatar_assignments_created_byTousers users?            @relation("anonymous_avatar_assignments_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_anonymous_avatar_assignments_user_idTousers    users             @relation("anonymous_avatar_assignments_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, target_type, target_id])
+}
+
+model anonymous_avatars {
+  id                           String                         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  avatar_url                   String
+  description                  String?
+  is_premium_only              Boolean?                       @default(false)
+  created_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  created_by                   String?                        @db.Uuid
+  anonymous_avatar_assignments anonymous_avatar_assignments[]
+  users                        users?                         @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model audience_segments {
+  id                String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name              String
+  criteria          Json
+  created_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  created_by        String?             @db.Uuid
+  users             users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  campaign_segments campaign_segments[]
+}
+
+model badges {
+  id          String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String
+  description String?
+  icon_url    String?
+  created_at  DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime?     @default(now()) @db.Timestamptz(6)
+  created_by  String?       @db.Uuid
+  users       users?        @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_badges user_badges[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model blocked_users {
+  id                                         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                                    String?   @db.Uuid
+  blocked_user_id                            String?   @db.Uuid
+  blocked_at                                 DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                                 DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                                 String?   @db.Uuid
+  users_blocked_users_blocked_user_idTousers users?    @relation("blocked_users_blocked_user_idTousers", fields: [blocked_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_blocked_users_created_byTousers      users?    @relation("blocked_users_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_blocked_users_user_idTousers         users?    @relation("blocked_users_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, blocked_user_id], map: "unique_blocked_user")
+}
+
+model board_categories {
+  id                      String                    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                    String
+  description             String?
+  icon                    String?
+  color                   String?
+  sort_order              Int?                      @default(0)
+  parent_id               String?                   @db.Uuid
+  is_active               Boolean?                  @default(true)
+  created_at              DateTime?                 @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?                 @default(now()) @db.Timestamptz(6)
+  created_by              String?                   @db.Uuid
+  users                   users?                    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  board_categories        board_categories?         @relation("board_categoriesToboard_categories", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_board_categories  board_categories[]        @relation("board_categoriesToboard_categories")
+  board_category_mappings board_category_mappings[]
+}
+
+model board_category_mappings {
+  id               String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  board_id         String           @db.Uuid
+  category_id      String           @db.Uuid
+  created_at       DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?        @default(now()) @db.Timestamptz(6)
+  created_by       String?          @db.Uuid
+  boards           boards           @relation(fields: [board_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  board_categories board_categories @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users?           @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([board_id, category_id])
+}
+
+model board_followers {
+  id                                      String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                                 String    @db.Uuid
+  board_id                                String    @db.Uuid
+  followed_at                             DateTime? @default(now()) @db.Timestamptz(6)
+  created_at                              DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                              DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                              String?   @db.Uuid
+  boards                                  boards    @relation(fields: [board_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_board_followers_created_byTousers users?    @relation("board_followers_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_board_followers_user_idTousers    users     @relation("board_followers_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, board_id])
+  @@index([board_id], map: "idx_board_followers_board_id")
+}
+
+model boards {
+  id                      String                    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                    String
+  slug                    String                    @unique
+  description             String?
+  color                   String?
+  icon                    String?
+  is_active               Boolean?                  @default(true)
+  sort_order              Int?                      @default(0)
+  created_at              DateTime?                 @default(now()) @db.Timestamptz(6)
+  created_by              String?                   @db.Uuid
+  updated_at              DateTime?                 @default(now()) @db.Timestamptz(6)
+  search_vector           Unsupported("tsvector")?
+  board_category_mappings board_category_mappings[]
+  board_followers         board_followers[]
+  users                   users?                    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  posts                   posts[]
+
+  @@index([name], map: "idx_boards_name")
+  @@index([search_vector], map: "idx_boards_search_vector", type: Gin)
+  @@index([slug], map: "idx_boards_slug")
+}
+
+model campaign_segments {
+  id                String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  campaign_id       String            @db.Uuid
+  segment_id        String            @db.Uuid
+  created_at        DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?         @default(now()) @db.Timestamptz(6)
+  created_by        String?           @db.Uuid
+  ad_campaigns      ad_campaigns      @relation(fields: [campaign_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users             users?            @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  audience_segments audience_segments @relation(fields: [segment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model chat_messages {
+  id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  chat_room_id String     @db.Uuid
+  sender_id    String     @db.Uuid
+  message_type String     @default("text")
+  content      String?
+  attachments  String[]
+  is_edited    Boolean?   @default(false)
+  is_deleted   Boolean?   @default(false)
+  read_by      String[]   @db.Uuid
+  sent_at      DateTime?  @default(now()) @db.Timestamptz(6)
+  created_at   DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime?  @default(now()) @db.Timestamptz(6)
+  chat_rooms   chat_rooms @relation(fields: [chat_room_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        users      @relation(fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([chat_room_id], map: "idx_chat_messages_chat_room_id")
+  @@index([sender_id], map: "idx_chat_messages_sender_id")
+  @@index([sent_at], map: "idx_chat_messages_sent_at")
+}
+
+model chat_participants {
+  id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  chat_room_id String     @db.Uuid
+  user_id      String     @db.Uuid
+  joined_at    DateTime?  @default(now()) @db.Timestamptz(6)
+  left_at      DateTime?  @db.Timestamptz(6)
+  is_admin     Boolean?   @default(false)
+  last_read_at DateTime?  @db.Timestamptz(6)
+  created_at   DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime?  @default(now()) @db.Timestamptz(6)
+  chat_rooms   chat_rooms @relation(fields: [chat_room_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([chat_room_id, user_id])
+  @@index([user_id], map: "idx_chat_participants_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model chat_rooms {
+  id                String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name              String?
+  room_type         String
+  is_active         Boolean?            @default(true)
+  match_id          String?             @db.Uuid
+  created_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  created_by        String?             @db.Uuid
+  chat_messages     chat_messages[]
+  chat_participants chat_participants[]
+  users             users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  daily_matches     daily_matches?      @relation(fields: [match_id], references: [id], onUpdate: NoAction)
+
+  @@index([match_id], map: "idx_chat_rooms_match_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model comments {
+  id                               String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  post_id                          String?                  @db.Uuid
+  parent_id                        String?                  @db.Uuid
+  author_id                        String?                  @db.Uuid
+  content                          String
+  is_anonymous                     Boolean?                 @default(false)
+  gender                           String?
+  school                           String?
+  department                       String?
+  is_deleted                       Boolean?                 @default(false)
+  like_count                       Int?                     @default(0)
+  dislike_count                    Int?                     @default(0)
+  created_at                       DateTime?                @default(now()) @db.Timestamptz(6)
+  created_by                       String?                  @db.Uuid
+  updated_at                       DateTime?                @default(now()) @db.Timestamptz(6)
+  search_vector                    Unsupported("tsvector")?
+  users_comments_author_idTousers  users?                   @relation("comments_author_idTousers", fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_comments_created_byTousers users?                   @relation("comments_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  comments                         comments?                @relation("commentsTocomments", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_comments                   comments[]               @relation("commentsTocomments")
+  posts                            posts?                   @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  notifications                    notifications[]
+  reports                          reports[]
+  votes                            votes[]
+
+  @@index([author_id], map: "idx_comments_author_id")
+  @@index([created_at], map: "idx_comments_created_at")
+  @@index([parent_id], map: "idx_comments_parent_id")
+  @@index([post_id], map: "idx_comments_post_id")
+  @@index([search_vector], map: "idx_comments_search_vector", type: Gin)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model content_moderation {
+  id                 String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  content_type       String
+  content_id         String       @db.Uuid
+  moderation_type    String
+  status             String
+  rejection_reason   String?
+  flagged_categories String[]
+  confidence_scores  Json?
+  moderator_id       String?      @db.Uuid
+  moderated_at       DateTime?    @db.Timestamptz(6)
+  created_at         DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?    @default(now()) @db.Timestamptz(6)
+  admin_users        admin_users? @relation(fields: [moderator_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([content_id], map: "idx_content_moderation_content_id")
+  @@index([status], map: "idx_content_moderation_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model daily_matches {
+  id                                    String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_a                                String       @db.Uuid
+  user_b                                String       @db.Uuid
+  matched_at                            DateTime     @default(now()) @db.Timestamptz(6)
+  matched_date                          DateTime?    @db.Date
+  updated_at                            DateTime?    @default(now()) @db.Timestamptz(6)
+  created_by                            String?      @db.Uuid
+  accepted_a                            Boolean?     @default(false)
+  accepted_b                            Boolean?     @default(false)
+  chat_rooms                            chat_rooms[]
+  users_daily_matches_created_byTousers users?       @relation("daily_matches_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_daily_matches_user_aTousers     users        @relation("daily_matches_user_aTousers", fields: [user_a], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_daily_matches_user_bTousers     users        @relation("daily_matches_user_bTousers", fields: [user_b], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_a, user_b, matched_date])
+  @@index([matched_at], map: "idx_daily_matches_matched_at")
+  @@index([user_a], map: "idx_daily_matches_user_a")
+  @@index([user_b], map: "idx_daily_matches_user_b")
+}
+
+model departments {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  school_id  String?   @db.Uuid
+  name       String
+  code       String?
+  is_active  Boolean?  @default(true)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  created_by String?   @db.Uuid
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  schools    schools?  @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([name], map: "idx_departments_name")
+  @@index([school_id], map: "idx_departments_school_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model event_attendees {
+  id                                      String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  event_id                                String    @db.Uuid
+  user_id                                 String    @db.Uuid
+  rsvp_status                             String
+  responded_at                            DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                              DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                              String?   @db.Uuid
+  users_event_attendees_created_byTousers users?    @relation("event_attendees_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  events                                  events    @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_event_attendees_user_idTousers    users     @relation("event_attendees_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([event_id, user_id])
+}
+
+model events {
+  id                               String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizer_id                     String            @db.Uuid
+  title                            String
+  description                      String?
+  location                         String?
+  event_time                       DateTime          @db.Timestamptz(6)
+  max_attendees                    Int?
+  created_at                       DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime?         @default(now()) @db.Timestamptz(6)
+  created_by                       String?           @db.Uuid
+  event_attendees                  event_attendees[]
+  users_events_created_byTousers   users?            @relation("events_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_events_organizer_idTousers users             @relation("events_organizer_idTousers", fields: [organizer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model favorites {
+  id                                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                           String?   @db.Uuid
+  post_id                           String?   @db.Uuid
+  created_at                        DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                        String?   @db.Uuid
+  updated_at                        DateTime? @default(now()) @db.Timestamptz(6)
+  users_favorites_created_byTousers users?    @relation("favorites_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  posts                             posts?    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_favorites_user_idTousers    users?    @relation("favorites_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, post_id], map: "unique_user_post_favorite")
+  @@index([user_id, created_at], map: "idx_favorites_user_id_created_at")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model followers {
+  id                                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  follower_id                         String?   @db.Uuid
+  following_id                        String?   @db.Uuid
+  created_at                          DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                          String?   @db.Uuid
+  updated_at                          DateTime? @default(now()) @db.Timestamptz(6)
+  users_followers_created_byTousers   users?    @relation("followers_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_followers_follower_idTousers  users?    @relation("followers_follower_idTousers", fields: [follower_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_followers_following_idTousers users?    @relation("followers_following_idTousers", fields: [following_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([follower_id, following_id], map: "unique_follower_following")
+  @@index([follower_id], map: "idx_followers_follower_id")
+  @@index([following_id], map: "idx_followers_following_id")
+}
+
+model hashtags {
+  id            String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name          String          @unique
+  usage_count   Int?            @default(0)
+  created_at    DateTime?       @default(now()) @db.Timestamptz(6)
+  created_by    String?         @db.Uuid
+  updated_at    DateTime?       @default(now()) @db.Timestamptz(6)
+  users         users?          @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  post_hashtags post_hashtags[]
+
+  @@index([name], map: "idx_hashtags_name")
+  @@index([usage_count(sort: Desc)], map: "idx_hashtags_usage_count")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model influencer_campaigns {
+  id                                                   String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  advertiser_id                                        String      @db.Uuid
+  influencer_user_id                                   String      @db.Uuid
+  title                                                String
+  content                                              String?
+  media_urls                                           String[]
+  start_at                                             DateTime    @db.Timestamptz(6)
+  end_at                                               DateTime    @db.Timestamptz(6)
+  status                                               String?     @default("planned")
+  created_at                                           DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at                                           DateTime?   @default(now()) @db.Timestamptz(6)
+  created_by                                           String?     @db.Uuid
+  advertisers                                          advertisers @relation(fields: [advertiser_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_influencer_campaigns_created_byTousers         users?      @relation("influencer_campaigns_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_influencer_campaigns_influencer_user_idTousers users       @relation("influencer_campaigns_influencer_user_idTousers", fields: [influencer_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model landing_pages {
+  id             String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  campaign_id    String       @db.Uuid
+  title          String
+  content        String
+  call_to_action String?
+  url_slug       String       @unique
+  created_at     DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?    @default(now()) @db.Timestamptz(6)
+  created_by     String?      @db.Uuid
+  ad_campaigns   ad_campaigns @relation(fields: [campaign_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users          users?       @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model messages {
+  id                                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sender_id                         String?   @db.Uuid
+  receiver_id                       String?   @db.Uuid
+  content                           String?
+  attachments                       String[]
+  is_read                           Boolean?  @default(false)
+  sent_at                           DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                        DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                        String?   @db.Uuid
+  users_messages_created_byTousers  users?    @relation("messages_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_messages_receiver_idTousers users?    @relation("messages_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_messages_sender_idTousers   users?    @relation("messages_sender_idTousers", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notifications {
+  id                                      String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                                 String?   @db.Uuid
+  type                                    String
+  title                                   String
+  content                                 String?
+  post_id                                 String?   @db.Uuid
+  comment_id                              String?   @db.Uuid
+  triggered_by                            String?   @db.Uuid
+  is_read                                 Boolean?  @default(false)
+  created_at                              DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                              String?   @db.Uuid
+  updated_at                              DateTime? @default(now()) @db.Timestamptz(6)
+  comments                                comments? @relation(fields: [comment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_notifications_created_byTousers   users?    @relation("notifications_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  posts                                   posts?    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_notifications_triggered_byTousers users?    @relation("notifications_triggered_byTousers", fields: [triggered_by], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_notifications_user_idTousers      users?    @relation("notifications_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([is_read], map: "idx_notifications_is_read")
+  @@index([user_id], map: "idx_notifications_user_id")
+}
+
+model post_embeddings {
+  id            String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  post_id       String                 @db.Uuid
+  embedding     Unsupported("vector")?
+  model_version String
+  created_at    DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime?              @default(now()) @db.Timestamptz(6)
+  posts         posts                  @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model post_hashtags {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  post_id    String?   @db.Uuid
+  hashtag_id String?   @db.Uuid
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  created_by String?   @db.Uuid
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hashtags   hashtags? @relation(fields: [hashtag_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  posts      posts?    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([post_id, hashtag_id], map: "unique_post_hashtag")
+  @@index([hashtag_id], map: "idx_post_hashtags_hashtag_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model post_media {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  post_id    String?   @db.Uuid
+  media_type String
+  file_url   String
+  file_size  Int?
+  width      Int?
+  height     Int?
+  sort_order Int?      @default(0)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  created_by String?   @db.Uuid
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  posts      posts?    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model posts {
+  id                            String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  board_id                      String?                  @db.Uuid
+  author_id                     String?                  @db.Uuid
+  title                         String
+  content                       String
+  is_anonymous                  Boolean?                 @default(false)
+  gender                        String?
+  school                        String?
+  department                    String?
+  post_type                     String?                  @default("general")
+  is_pinned                     Boolean?                 @default(false)
+  is_deleted                    Boolean?                 @default(false)
+  view_count                    Int?                     @default(0)
+  like_count                    Int?                     @default(0)
+  dislike_count                 Int?                     @default(0)
+  comment_count                 Int?                     @default(0)
+  created_at                    DateTime?                @default(now()) @db.Timestamptz(6)
+  created_by                    String?                  @db.Uuid
+  updated_at                    DateTime?                @default(now()) @db.Timestamptz(6)
+  search_vector                 Unsupported("tsvector")?
+  comments                      comments[]
+  favorites                     favorites[]
+  notifications                 notifications[]
+  post_embeddings               post_embeddings[]
+  post_hashtags                 post_hashtags[]
+  post_media                    post_media[]
+  users_posts_author_idTousers  users?                   @relation("posts_author_idTousers", fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  boards                        boards?                  @relation(fields: [board_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_posts_created_byTousers users?                   @relation("posts_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reports                       reports[]
+  votes                         votes[]
+
+  @@index([author_id], map: "idx_posts_author_id")
+  @@index([board_id], map: "idx_posts_board_id")
+  @@index([created_at(sort: Desc)], map: "idx_posts_created_at")
+  @@index([like_count(sort: Desc)], map: "idx_posts_like_count")
+  @@index([search_vector], map: "idx_posts_search_vector", type: Gin)
+  @@index([view_count(sort: Desc)], map: "idx_posts_view_count")
+}
+
+model premium_features {
+  id                    String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  feature_key           String                  @unique
+  name                  String
+  description           String?
+  created_at            DateTime?               @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?               @default(now()) @db.Timestamptz(6)
+  created_by            String?                 @db.Uuid
+  users                 users?                  @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_premium_features user_premium_features[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model promotion_requests {
+  id                 String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  advertiser_id      String        @db.Uuid
+  requested_by_email String
+  message            String
+  attachments        String[]
+  status             String?       @default("pending")
+  admin_response     String?
+  responded_by       String?       @db.Uuid
+  responded_at       DateTime?     @db.Timestamptz(6)
+  created_at         DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?     @default(now()) @db.Timestamptz(6)
+  created_by         String?       @db.Uuid
+  ad_campaigns       ad_campaigns?
+  advertisers        advertisers   @relation(fields: [advertiser_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users              users?        @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  admin_users        admin_users?  @relation(fields: [responded_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model promotion_rules {
+  id                String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  campaign_id       String              @db.Uuid
+  rule_type         String
+  parameters        Json
+  created_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  created_by        String?             @db.Uuid
+  ad_campaigns      ad_campaigns        @relation(fields: [campaign_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users             users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  promotion_targets promotion_targets[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model promotion_targets {
+  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  rule_id         String          @db.Uuid
+  target_type     String
+  target_ids      String[]        @db.Uuid
+  created_at      DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?       @default(now()) @db.Timestamptz(6)
+  created_by      String?         @db.Uuid
+  users           users?          @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  promotion_rules promotion_rules @relation(fields: [rule_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model reports {
+  id                               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  reporter_id                      String?   @db.Uuid
+  post_id                          String?   @db.Uuid
+  comment_id                       String?   @db.Uuid
+  reason                           String
+  description                      String?
+  status                           String?   @default("pending")
+  reviewed_by                      String?   @db.Uuid
+  reviewed_at                      DateTime? @db.Timestamptz(6)
+  created_at                       DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                       String?   @db.Uuid
+  updated_at                       DateTime? @default(now()) @db.Timestamptz(6)
+  comments                         comments? @relation(fields: [comment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_reports_created_byTousers  users?    @relation("reports_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  posts                            posts?    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_reports_reporter_idTousers users?    @relation("reports_reporter_idTousers", fields: [reporter_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_reports_reviewed_byTousers users?    @relation("reports_reviewed_byTousers", fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([status], map: "idx_reports_status")
+}
+
+model schools {
+  id          String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String
+  code        String?       @unique
+  domain      String?
+  is_active   Boolean?      @default(true)
+  created_at  DateTime?     @default(now()) @db.Timestamptz(6)
+  created_by  String?       @db.Uuid
+  updated_at  DateTime?     @default(now()) @db.Timestamptz(6)
+  departments departments[]
+  users       users?        @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([name], map: "idx_schools_name")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model store_orders {
+  id                                   String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                              String         @db.Uuid
+  product_id                           String         @db.Uuid
+  quantity                             Int            @default(1)
+  total_price_cents                    Int
+  currency                             String         @default("TWD")
+  order_metadata                       Json?
+  status                               String
+  ordered_at                           DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at                           DateTime?      @default(now()) @db.Timestamptz(6)
+  created_by                           String?        @db.Uuid
+  users_store_orders_created_byTousers users?         @relation("store_orders_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  store_products                       store_products @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_store_orders_user_idTousers    users          @relation("store_orders_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model store_products {
+  id           String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name         String
+  description  String?
+  price_cents  Int
+  currency     String         @default("TWD")
+  media_urls   String[]
+  metadata     Json?
+  created_at   DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime?      @default(now()) @db.Timestamptz(6)
+  created_by   String?        @db.Uuid
+  is_active    Boolean?       @default(true)
+  store_orders store_orders[]
+  users        users?         @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model subscriptions {
+  id                                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                               String    @db.Uuid
+  plan                                  String
+  start_at                              DateTime  @default(now()) @db.Timestamptz(6)
+  end_at                                DateTime  @db.Timestamptz(6)
+  auto_renew                            Boolean?  @default(true)
+  status                                String
+  created_at                            DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                            DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                            String?   @db.Uuid
+  users_subscriptions_created_byTousers users?    @relation("subscriptions_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_subscriptions_user_idTousers    users     @relation("subscriptions_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model topics {
+  id                       String                     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                     String                     @unique
+  description              String?
+  created_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  created_by               String?                    @db.Uuid
+  users                    users?                     @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_topic_subscriptions user_topic_subscriptions[]
+}
+
+model trial_campaigns {
+  id                 String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  advertiser_id      String               @db.Uuid
+  title              String
+  description        String?
+  start_at           DateTime             @db.Timestamptz(6)
+  end_at             DateTime             @db.Timestamptz(6)
+  criteria           Json?
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  created_by         String?              @db.Uuid
+  advertisers        advertisers          @relation(fields: [advertiser_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users              users?               @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  trial_participants trial_participants[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model trial_participants {
+  id                                         String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  campaign_id                                String          @db.Uuid
+  user_id                                    String          @db.Uuid
+  applied_at                                 DateTime?       @default(now()) @db.Timestamptz(6)
+  status                                     String?         @default("applied")
+  updated_at                                 DateTime?       @default(now()) @db.Timestamptz(6)
+  created_by                                 String?         @db.Uuid
+  trial_campaigns                            trial_campaigns @relation(fields: [campaign_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_trial_participants_created_byTousers users?          @relation("trial_participants_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_trial_participants_user_idTousers    users           @relation("trial_participants_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([campaign_id, user_id])
+}
+
+model user_badges {
+  id                                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                             String    @db.Uuid
+  badge_id                            String    @db.Uuid
+  awarded_at                          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                          DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                          String?   @db.Uuid
+  badges                              badges    @relation(fields: [badge_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_user_badges_created_byTousers users?    @relation("user_badges_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_user_badges_user_idTousers    users     @relation("user_badges_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, badge_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_mfa {
+  id                               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                          String    @db.Uuid
+  mfa_type                         String
+  secret                           String?
+  backup_codes                     String[]
+  is_enabled                       Boolean?  @default(false)
+  last_used_at                     DateTime? @db.Timestamptz(6)
+  created_at                       DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                       String?   @db.Uuid
+  users_user_mfa_created_byTousers users?    @relation("user_mfa_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_user_mfa_user_idTousers    users     @relation("user_mfa_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, mfa_type])
+}
+
+model user_preferences {
+  id                                       String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                                  String?   @db.Uuid
+  settings                                 Json?
+  language                                 String?   @default("zh-TW")
+  created_at                               DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                               DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                               String?   @db.Uuid
+  users_user_preferences_created_byTousers users?    @relation("user_preferences_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_user_preferences_user_idTousers    users?    @relation("user_preferences_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_user_preferences_user_id")
+}
+
+model user_premium_features {
+  id                                            String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                                       String           @db.Uuid
+  feature_id                                    String           @db.Uuid
+  enabled                                       Boolean?         @default(true)
+  enabled_at                                    DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at                                    DateTime?        @default(now()) @db.Timestamptz(6)
+  created_by                                    String?          @db.Uuid
+  users_user_premium_features_created_byTousers users?           @relation("user_premium_features_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  premium_features                              premium_features @relation(fields: [feature_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_user_premium_features_user_idTousers    users            @relation("user_premium_features_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, feature_id])
+}
+
+model user_topic_subscriptions {
+  id                                               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                                          String    @db.Uuid
+  topic_id                                         String    @db.Uuid
+  subscribed_at                                    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                                       DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                                       String?   @db.Uuid
+  users_user_topic_subscriptions_created_byTousers users?    @relation("user_topic_subscriptions_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  topics                                           topics    @relation(fields: [topic_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_user_topic_subscriptions_user_idTousers    users     @relation("user_topic_subscriptions_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, topic_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_wall_posts {
+  id                                         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  wall_owner_id                              String    @db.Uuid
+  author_id                                  String    @db.Uuid
+  content                                    String
+  media_urls                                 String[]
+  visibility                                 String    @default("standard")
+  is_deleted                                 Boolean?  @default(false)
+  like_count                                 Int?      @default(0)
+  comment_count                              Int?      @default(0)
+  created_at                                 DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                                 DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                                 String?   @db.Uuid
+  users_user_wall_posts_author_idTousers     users     @relation("user_wall_posts_author_idTousers", fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_user_wall_posts_created_byTousers    users?    @relation("user_wall_posts_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_user_wall_posts_wall_owner_idTousers users     @relation("user_wall_posts_wall_owner_idTousers", fields: [wall_owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_wall_settings {
+  id                                         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                                    String    @unique @db.Uuid
+  privacy_level                              String    @default("friends")
+  allow_comments                             Boolean?  @default(true)
+  allow_posts                                Boolean?  @default(true)
+  theme_color                                String?
+  background_image_url                       String?
+  custom_css                                 String?
+  pinned_post_id                             String?   @db.Uuid
+  featured_posts                             String[]  @db.Uuid
+  hidden_posts                               String[]  @db.Uuid
+  created_at                                 DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                                 DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                                 String?   @db.Uuid
+  users_user_wall_settings_created_byTousers users?    @relation("user_wall_settings_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_user_wall_settings_user_idTousers    users     @relation("user_wall_settings_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                                                                          String                         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email                                                                       String                         @unique
+  username                                                                    String                         @unique
+  display_name                                                                String?
+  avatar_url                                                                  String?
+  bio                                                                         String?
+  gender                                                                      String?
+  birth_year                                                                  Int?
+  school                                                                      String?
+  department                                                                  String?
+  is_verified                                                                 Boolean?                       @default(false)
+  is_active                                                                   Boolean?                       @default(true)
+  last_login_at                                                               DateTime?                      @db.Timestamptz(6)
+  created_at                                                                  DateTime?                      @default(now()) @db.Timestamptz(6)
+  created_by                                                                  String?                        @db.Uuid
+  updated_at                                                                  DateTime?                      @default(now()) @db.Timestamptz(6)
+  search_vector                                                               Unsupported("tsvector")?
+  action_log                                                                  action_log[]
+  ad_campaigns                                                                ad_campaigns[]
+  ad_performance                                                              ad_performance[]
+  ad_pixel_events                                                             ad_pixel_events[]
+  ad_pixels                                                                   ad_pixels[]
+  ad_placements                                                               ad_placements[]
+  admin_users_admin_users_created_byTousers                                   admin_users[]                  @relation("admin_users_created_byTousers")
+  admin_users_admin_users_user_idTousers                                      admin_users?                   @relation("admin_users_user_idTousers")
+  ads                                                                         ads[]
+  advertisers                                                                 advertisers[]
+  anonymous_avatar_assignments_anonymous_avatar_assignments_created_byTousers anonymous_avatar_assignments[] @relation("anonymous_avatar_assignments_created_byTousers")
+  anonymous_avatar_assignments_anonymous_avatar_assignments_user_idTousers    anonymous_avatar_assignments[] @relation("anonymous_avatar_assignments_user_idTousers")
+  anonymous_avatars                                                           anonymous_avatars[]
+  audience_segments                                                           audience_segments[]
+  badges                                                                      badges[]
+  blocked_users_blocked_users_blocked_user_idTousers                          blocked_users[]                @relation("blocked_users_blocked_user_idTousers")
+  blocked_users_blocked_users_created_byTousers                               blocked_users[]                @relation("blocked_users_created_byTousers")
+  blocked_users_blocked_users_user_idTousers                                  blocked_users[]                @relation("blocked_users_user_idTousers")
+  board_categories                                                            board_categories[]
+  board_category_mappings                                                     board_category_mappings[]
+  board_followers_board_followers_created_byTousers                           board_followers[]              @relation("board_followers_created_byTousers")
+  board_followers_board_followers_user_idTousers                              board_followers[]              @relation("board_followers_user_idTousers")
+  boards                                                                      boards[]
+  campaign_segments                                                           campaign_segments[]
+  chat_messages                                                               chat_messages[]
+  chat_participants                                                           chat_participants[]
+  chat_rooms                                                                  chat_rooms[]
+  comments_comments_author_idTousers                                          comments[]                     @relation("comments_author_idTousers")
+  comments_comments_created_byTousers                                         comments[]                     @relation("comments_created_byTousers")
+  daily_matches_daily_matches_created_byTousers                               daily_matches[]                @relation("daily_matches_created_byTousers")
+  daily_matches_daily_matches_user_aTousers                                   daily_matches[]                @relation("daily_matches_user_aTousers")
+  daily_matches_daily_matches_user_bTousers                                   daily_matches[]                @relation("daily_matches_user_bTousers")
+  departments                                                                 departments[]
+  event_attendees_event_attendees_created_byTousers                           event_attendees[]              @relation("event_attendees_created_byTousers")
+  event_attendees_event_attendees_user_idTousers                              event_attendees[]              @relation("event_attendees_user_idTousers")
+  events_events_created_byTousers                                             events[]                       @relation("events_created_byTousers")
+  events_events_organizer_idTousers                                           events[]                       @relation("events_organizer_idTousers")
+  favorites_favorites_created_byTousers                                       favorites[]                    @relation("favorites_created_byTousers")
+  favorites_favorites_user_idTousers                                          favorites[]                    @relation("favorites_user_idTousers")
+  followers_followers_created_byTousers                                       followers[]                    @relation("followers_created_byTousers")
+  followers_followers_follower_idTousers                                      followers[]                    @relation("followers_follower_idTousers")
+  followers_followers_following_idTousers                                     followers[]                    @relation("followers_following_idTousers")
+  hashtags                                                                    hashtags[]
+  influencer_campaigns_influencer_campaigns_created_byTousers                 influencer_campaigns[]         @relation("influencer_campaigns_created_byTousers")
+  influencer_campaigns_influencer_campaigns_influencer_user_idTousers         influencer_campaigns[]         @relation("influencer_campaigns_influencer_user_idTousers")
+  landing_pages                                                               landing_pages[]
+  messages_messages_created_byTousers                                         messages[]                     @relation("messages_created_byTousers")
+  messages_messages_receiver_idTousers                                        messages[]                     @relation("messages_receiver_idTousers")
+  messages_messages_sender_idTousers                                          messages[]                     @relation("messages_sender_idTousers")
+  notifications_notifications_created_byTousers                               notifications[]                @relation("notifications_created_byTousers")
+  notifications_notifications_triggered_byTousers                             notifications[]                @relation("notifications_triggered_byTousers")
+  notifications_notifications_user_idTousers                                  notifications[]                @relation("notifications_user_idTousers")
+  post_hashtags                                                               post_hashtags[]
+  post_media                                                                  post_media[]
+  posts_posts_author_idTousers                                                posts[]                        @relation("posts_author_idTousers")
+  posts_posts_created_byTousers                                               posts[]                        @relation("posts_created_byTousers")
+  premium_features                                                            premium_features[]
+  promotion_requests                                                          promotion_requests[]
+  promotion_rules                                                             promotion_rules[]
+  promotion_targets                                                           promotion_targets[]
+  reports_reports_created_byTousers                                           reports[]                      @relation("reports_created_byTousers")
+  reports_reports_reporter_idTousers                                          reports[]                      @relation("reports_reporter_idTousers")
+  reports_reports_reviewed_byTousers                                          reports[]                      @relation("reports_reviewed_byTousers")
+  schools                                                                     schools[]
+  store_orders_store_orders_created_byTousers                                 store_orders[]                 @relation("store_orders_created_byTousers")
+  store_orders_store_orders_user_idTousers                                    store_orders[]                 @relation("store_orders_user_idTousers")
+  store_products                                                              store_products[]
+  subscriptions_subscriptions_created_byTousers                               subscriptions[]                @relation("subscriptions_created_byTousers")
+  subscriptions_subscriptions_user_idTousers                                  subscriptions[]                @relation("subscriptions_user_idTousers")
+  topics                                                                      topics[]
+  trial_campaigns                                                             trial_campaigns[]
+  trial_participants_trial_participants_created_byTousers                     trial_participants[]           @relation("trial_participants_created_byTousers")
+  trial_participants_trial_participants_user_idTousers                        trial_participants[]           @relation("trial_participants_user_idTousers")
+  user_badges_user_badges_created_byTousers                                   user_badges[]                  @relation("user_badges_created_byTousers")
+  user_badges_user_badges_user_idTousers                                      user_badges[]                  @relation("user_badges_user_idTousers")
+  user_mfa_user_mfa_created_byTousers                                         user_mfa[]                     @relation("user_mfa_created_byTousers")
+  user_mfa_user_mfa_user_idTousers                                            user_mfa[]                     @relation("user_mfa_user_idTousers")
+  user_preferences_user_preferences_created_byTousers                         user_preferences[]             @relation("user_preferences_created_byTousers")
+  user_preferences_user_preferences_user_idTousers                            user_preferences[]             @relation("user_preferences_user_idTousers")
+  user_premium_features_user_premium_features_created_byTousers               user_premium_features[]        @relation("user_premium_features_created_byTousers")
+  user_premium_features_user_premium_features_user_idTousers                  user_premium_features[]        @relation("user_premium_features_user_idTousers")
+  user_topic_subscriptions_user_topic_subscriptions_created_byTousers         user_topic_subscriptions[]     @relation("user_topic_subscriptions_created_byTousers")
+  user_topic_subscriptions_user_topic_subscriptions_user_idTousers            user_topic_subscriptions[]     @relation("user_topic_subscriptions_user_idTousers")
+  user_wall_posts_user_wall_posts_author_idTousers                            user_wall_posts[]              @relation("user_wall_posts_author_idTousers")
+  user_wall_posts_user_wall_posts_created_byTousers                           user_wall_posts[]              @relation("user_wall_posts_created_byTousers")
+  user_wall_posts_user_wall_posts_wall_owner_idTousers                        user_wall_posts[]              @relation("user_wall_posts_wall_owner_idTousers")
+  user_wall_settings_user_wall_settings_created_byTousers                     user_wall_settings[]           @relation("user_wall_settings_created_byTousers")
+  user_wall_settings_user_wall_settings_user_idTousers                        user_wall_settings?            @relation("user_wall_settings_user_idTousers")
+  users                                                                       users?                         @relation("usersTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_users                                                                 users[]                        @relation("usersTousers")
+  votes_votes_created_byTousers                                               votes[]                        @relation("votes_created_byTousers")
+  votes_votes_user_idTousers                                                  votes[]                        @relation("votes_user_idTousers")
+
+  @@index([department], map: "idx_users_department")
+  @@index([email], map: "idx_users_email")
+  @@index([school], map: "idx_users_school")
+  @@index([search_vector], map: "idx_users_search_vector", type: Gin)
+  @@index([username], map: "idx_users_username")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model votes {
+  id                            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                       String?   @db.Uuid
+  post_id                       String?   @db.Uuid
+  comment_id                    String?   @db.Uuid
+  vote_type                     String
+  created_at                    DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                    String?   @db.Uuid
+  updated_at                    DateTime? @default(now()) @db.Timestamptz(6)
+  comments                      comments? @relation(fields: [comment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_votes_created_byTousers users?    @relation("votes_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  posts                         posts?    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_votes_user_idTousers    users?    @relation("votes_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, comment_id], map: "unique_user_comment_vote")
+  @@unique([user_id, post_id], map: "unique_user_post_vote")
+  @@index([comment_id], map: "idx_votes_comment_id")
+  @@index([post_id], map: "idx_votes_post_id")
+  @@index([user_id], map: "idx_votes_user_id")
+}

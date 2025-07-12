@@ -1,0 +1,11 @@
+- name: "Use kebab-case for files"
+  description: "All new files (components, routes, utils) must be named using kebab-case (e.g., `post-list.tsx`)."
+
+- name: "RESTful API structure"
+  description: "When adding a new file under `/api`, follow REST conventions: `GET` for read, `POST` for create, `PATCH` for update, `DELETE` for remove."
+
+- name: "Folder structure consistency"
+  description: "Organize new files under appropriate folders (e.g., `components/`, `utils/`, `lib/`, `hooks/`, `pages/`, `api/`) and avoid cluttering root directory."
+
+alwaysApply: false
+---
