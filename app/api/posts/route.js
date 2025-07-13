@@ -113,7 +113,7 @@ export async function POST(request) {
             .insert({
               post_id: post.id,
               embedding,
-              model_version: 'openai-ada-002' // Update with your model version
+              model_version: 'intfloat/e5-small' // Updated model version
             });
           
           if (embeddingError) {
