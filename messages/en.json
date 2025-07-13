@@ -17,7 +17,7 @@
   "auth": {
     "login": "Login to EduSocial",
     "register": "Register to EduSocial",
-    "email": "Email",
+    "primaryEmail": "Primary Email",
     "password": "Password",
     "studentEmail": "Student e-mail",
     "enterEmail": "Enter email",
@@ -49,7 +49,9 @@
     "agreeToTerms": "I agree to the",
     "createAccount": "Create Account",
     "creatingAccount": "Creating Account...",
-    
+    "youngPeopleDiscussing": "Young people are discussing on EduSocial",
+    "dontWantToMiss": "Don't want to miss out on interesting topics?",
+    "joinUsNow": "Join us now!",
     "Login": {
       "title": "Sign in to your account",
       "createAccount": "Or create a new account",

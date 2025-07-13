@@ -28,7 +28,7 @@ export default function Navbar() {
   
   return (
     <nav 
-      className="w-full py-4 px-6 bg-[#0A1929] shadow-md"
+      className="w-full py-4 px-6 bg-[#0A1929] shadow-md h-20"
     >
       <div className="container mx-auto flex items-center justify-between">
         <Link href="/" className="text-white text-2xl font-bold flex items-center gap-2">

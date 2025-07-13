@@ -32,10 +32,10 @@ export default function HomePage() {
         </div>
         <div className="flex-1">
           <div 
-            className="bg-[#132F4C] rounded-xl p-5 relative aspect-video"
+            className="rounded-xl p-5 relative aspect-video"
           >
             <Image
-              src="/slogan-removebg-preview.png"
+              src="/metadata.png"
               alt="EduSocial Platform"
               fill
               className="object-contain"

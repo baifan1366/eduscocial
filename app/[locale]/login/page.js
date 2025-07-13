@@ -1,7 +1,7 @@
 import AuthForm from '../../../components/auth/AuthForm';
 
 export const metadata = {
-  title: 'Login to EduSocial',
+  title: 'Login | EduSocial',
   description: 'Login to EduSocial',
   openGraph: {
     title: 'Login to EduSocial',
@@ -12,7 +12,7 @@ export const metadata = {
 export default function LoginPage() {
   return (
     <main>
-      <div className="max-w-md mx-auto py-12">
+      <div className="max-w-md mx-auto py-10 min-w-[80%]">
         <AuthForm />
       </div>
     </main>

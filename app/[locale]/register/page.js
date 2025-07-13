@@ -1,7 +1,7 @@
 import AuthForm from '../../../components/auth/AuthForm';
 
 export const metadata = {
-  title: 'Register to EduSocial',
+  title: 'Register | EduSocial',
   description: 'Create your EduSocial account',
   openGraph: {
     title: 'Register to EduSocial',
@@ -12,8 +12,8 @@ export const metadata = {
 export default function RegisterPage() {
   return (
     <main>
-      <div className="max-w-md mx-auto py-12">
-        <AuthForm isRegister={true} />
+      <div className="max-w-md mx-auto py-10 min-w-[80%]">
+      <AuthForm isRegister={true} />
       </div>
     </main>
   );

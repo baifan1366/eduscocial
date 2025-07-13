@@ -6,8 +6,10 @@ import { NextIntlClientProvider } from 'next-intl';
 // Import messages for translations
 import { getMessages } from '../../messages/utils';
 
-export default async function RootLayout({ children, params }) {
-  const locale = params.locale || 'en';
+export default async function RootLayout(props) {
+  const { children } = props;
+  const { locale = 'en' } = await props.params; 
+
   const messages = await getMessages(locale);
   
   return (
@@ -18,7 +20,7 @@ export default async function RootLayout({ children, params }) {
         <NextIntlClientProvider locale={locale} messages={messages}>
           <AuthProvider>
             <Navbar />
-            <main className="container mx-auto px-4 py-8 flex-grow">
+            <main className="container mx-auto px-4 py-0 flex-grow">
               {children}
             </main>
             <footer
