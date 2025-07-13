@@ -4,16 +4,26 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import useAuth from '../../hooks/useAuth';
 import { useState } from 'react';
+import Image from 'next/image';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
+import { ChevronDown, Moon, Sun } from 'lucide-react';
+import { Button } from '../ui/button';
 
 export default function Navbar() {
   const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState('english');
+  const [darkMode, setDarkMode] = useState(true);
   
   const handleLogout = async () => {
     setIsLoggingOut(true);
     await logout();
     setIsLoggingOut(false);
+  };
+
+  const toggleMode = () => {
+    setDarkMode(!darkMode);
   };
   
   return (
@@ -21,20 +31,62 @@ export default function Navbar() {
       className="w-full py-4 px-6 bg-[#0A1929] shadow-md"
     >
       <div className="container mx-auto flex items-center justify-between">
-        <Link href="/" className="text-white text-2xl font-bold">
-          EduSocial
+        <Link href="/" className="text-white text-2xl font-bold flex items-center gap-2">
+          <Image src="/slogan-removebg-preview.png" alt="EduSocial Logo" width={48} height={48}/> 
+          <span className="text-white text-2xl font-bold">EduSocial</span>
         </Link>
         
         <div className="hidden md:flex space-x-6">
           <NavLink href="/" active={pathname === '/'}>
-            Home
+            <span className="text-white">Home</span>
           </NavLink>
           <NavLink href="/explore" active={pathname === '/explore'}>
-            Explore
+            <span className="text-white">Explore</span>
           </NavLink>
           <NavLink href="/about" active={pathname === '/about'}>
-            About
+            <span className="text-white">About</span>
           </NavLink>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div>
+            <Button
+              onClick={toggleMode}
+              className="text-white px-4 py-2 rounded-md hover:text-[#FF9A3C] border-none transition-colors focus-visible:ring-0 flex items-center gap-2"
+            >
+              {darkMode ? (
+                <>
+                  <Sun className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+          </div>
+        
+          <div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className={`text-white px-4 py-2 rounded-md hover:text-[#FF9A3C] border-none transition-colors focus-visible:ring-0`} >
+                  <span>{selectedLanguage === 'english' ? 'English' : selectedLanguage === 'malay' ? 'Bahasa Melayu' : '华文'}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem value="english" onClick={() => setSelectedLanguage('english')}>
+                  <span>{selectedLanguage === 'english' ? 'English' : selectedLanguage === 'malay' ? 'Bahasa Inggeris' : '英文'}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem value="malay" onClick={() => setSelectedLanguage('malay')}>
+                  <span>{selectedLanguage === 'english' ? 'Malay' : selectedLanguage === 'malay' ? 'Bahasa Melayu' : '马来文'}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem value="mandarin" onClick={() => setSelectedLanguage('mandarin')}>
+                  <span>{selectedLanguage === 'english' ? 'Mandarin' : selectedLanguage === 'malay' ? 'Bahasa Cina' : '华文'}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         
         <div className="flex items-center space-x-4">
