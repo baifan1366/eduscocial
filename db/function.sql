@@ -22,6 +22,7 @@ CREATE TRIGGER update_reports_updated_at BEFORE UPDATE ON reports FOR EACH ROW E
 CREATE TRIGGER update_post_media_updated_at BEFORE UPDATE ON post_media FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_hashtags_updated_at BEFORE UPDATE ON hashtags FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_post_hashtags_updated_at BEFORE UPDATE ON post_hashtags FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_files_updated_at BEFORE UPDATE ON files FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Comment counter trigger
 CREATE OR REPLACE FUNCTION update_post_counters()
@@ -316,7 +317,8 @@ DECLARE
     available_avatar_id UUID;
     is_premium_user BOOLEAN;
 BEGIN
-    IF NEW.is_anonymous = TRUE THEN
+    -- Check if this is being triggered for the messages table
+    IF TG_TABLE_NAME = 'messages' AND NEW.is_anonymous = TRUE THEN
         -- Check if premium user
         SELECT EXISTS (
             SELECT 1 FROM subscriptions 
@@ -341,5 +343,5 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER assign_anonymous_avatar_to_message 
 BEFORE INSERT ON messages 
-FOR EACH ROW WHEN (NEW.is_anonymous = TRUE) 
+FOR EACH ROW
 EXECUTE FUNCTION assign_message_anonymous_avatar();

@@ -6,7 +6,15 @@ import { NextIntlClientProvider } from 'next-intl';
 // Import messages for translations
 import { getMessages } from '../../messages/utils';
 
+// Define metadata with a proper metadataBase to fix the warning
+export const metadata = {
+  metadataBase: new URL('http://localhost:3000'),
+  title: 'EduSocial',
+  description: 'Connect with students, share knowledge, and grow together.'
+};
+
 export default async function RootLayout({ children, params }) {
+  // Properly handle the locale parameter
   const locale = params.locale || 'en';
   const messages = await getMessages(locale);
   

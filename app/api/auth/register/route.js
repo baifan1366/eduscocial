@@ -13,26 +13,41 @@ export async function POST(request) {
       );
     }
     
-    const user = await registerUser({ name, email, password });
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: "User registered successfully" 
-    });
-    
-  } catch (error) {
-    console.error('Registration error:', error.message);
-    
-    if (error.message.includes('already exists')) {
+    try {
+      const user = await registerUser({ name, email, password });
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: "User registered successfully" 
+      });
+    } catch (registrationError) {
+      console.error('Registration error in API route:', registrationError);
+      
+      if (registrationError.message.includes('already exists')) {
+        return NextResponse.json(
+          { error: registrationError.message },
+          { status: 409 }
+        );
+      }
+      
+      if (registrationError.message.includes('educational email')) {
+        return NextResponse.json(
+          { error: registrationError.message },
+          { status: 400 }
+        );
+      }
+      
       return NextResponse.json(
-        { error: error.message },
-        { status: 409 }
+        { error: registrationError.message || "Registration failed" },
+        { status: 400 }
       );
     }
+  } catch (error) {
+    console.error('Unexpected error in registration route:', error);
     
     return NextResponse.json(
-      { error: error.message || "Registration failed" },
-      { status: 400 }
+      { error: "An unexpected error occurred" },
+      { status: 500 }
     );
   }
-}
+} 

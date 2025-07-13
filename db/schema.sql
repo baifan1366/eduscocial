@@ -821,6 +821,22 @@ CREATE TABLE user_providers (
     UNIQUE(provider_name, provider_user_id)
 );
 
+CREATE TABLE files (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    file_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_type TEXT NOT NULL,
+    file_size BIGINT NOT NULL,
+    mime_type TEXT NOT NULL,
+    content_hash TEXT,
+    is_public BOOLEAN DEFAULT FALSE,
+    metadata JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES users(id)
+);
+
 -- Redis token structure documentation
 CREATE TABLE redis_token_structure (
     id SERIAL PRIMARY KEY,

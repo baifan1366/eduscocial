@@ -10,11 +10,5 @@ export const metadata = {
 };
 
 export default function LoginPage() {
-  return (
-    <main>
-      <div className="max-w-md mx-auto py-12">
-        <AuthForm />
-      </div>
-    </main>
-  );
+  return <AuthForm />;
 }
