@@ -1,4 +1,14 @@
-'use client';
+import AuthForm from '../../../components/auth/AuthForm';
+
+
+export const metadata = {
+  title: 'Login to EduSocial',
+  description: 'Login to EduSocial',
+  openGraph: {
+    title: 'Login to EduSocial',
+    images: ['/slogan-removebg-preview.png'],
+  },
+};
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -12,48 +22,12 @@ import Head from 'next/head';
 import { useTranslations } from 'next-intl';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
-  const router = useRouter();
-  const t = useTranslations('auth');
-  
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-    
-    try {
-      const result = await login(email, password);
-      
-      if (result.success) {
-        router.push('/');
-      } else {
-        setError(result.error || t('loginFailed'));
-      }
-    } catch (error) {
-      setError(t('unexpectedError'));
-      console.error('Login error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleOAuthSignIn = async (provider) => {
-    try {
-      setIsLoading(true);
-      await signIn(provider, { callbackUrl: '/' });
-    } catch (error) {
-      console.error(`${provider} sign in error:`, error);
-      setError(t('oauthError', { provider }));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
+    <main>
+      <div className="max-w-md mx-auto py-12">
+        <AuthForm />
+      </div>
+    </main>
 
     <>
       <Head>
