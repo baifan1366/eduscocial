@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import GithubProvider from "next-auth/providers/github";
 import bcrypt from "bcrypt";
 import { isEducationalEmail, storeOAuthTokens } from "@/lib/auth";
 import { updateUserOnlineStatus } from "@/lib/redis/redisUtils";
@@ -77,6 +78,27 @@ export const authOptions = {
       },
     }),
     
+    // GitHub OAuth
+    GithubProvider({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      profile(profile) {
+        // Check if the email is educational (GitHub may not provide email)
+        const email = profile.email || '';
+        if (email && !isEducationalEmail(email)) {
+          throw new Error("Only educational email addresses are allowed");
+        }
+        
+        return {
+          id: profile.id.toString(),
+          name: profile.name || profile.login,
+          email: profile.email,
+          image: profile.avatar_url,
+          emailVerified: email ? new Date() : null,
+        };
+      },
+    }),
+    
     // Add other OAuth providers here as needed
   ],
   session: {
@@ -91,16 +113,18 @@ export const authOptions = {
     newUser: '/register'
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, profile }) {
       // Include user ID in JWT token
       if (user) {
         token.userId = user.id;
         token.role = user.role || "USER";
       }
       
-      // If it's an OAuth login, mark as verified
+      // If it's an OAuth login, mark as verified and include provider info
       if (account && account.provider !== "credentials") {
         token.emailVerified = true;
+        token.provider = account.provider;
+        token.providerId = account.providerAccountId;
         
         // Store OAuth tokens in Redis
         if (user && account.access_token) {
@@ -123,11 +147,13 @@ export const authOptions = {
       if (session.user && token) {
         session.user.id = token.userId;
         session.user.role = token.role;
+        session.provider = token.provider;
+        session.providerId = token.providerId;
       }
       return session;
     },
     // Only allow educational emails
-    async signIn({ user }) {
+    async signIn({ user, account, profile }) {
       // Skip check for already verified users
       if (user.emailVerified) {
         return true;
@@ -139,6 +165,17 @@ export const authOptions = {
         return false;
       }
       
+      // Create or update user record after successful OAuth sign in
+      if (account && account.provider !== "credentials") {
+        try {
+          // Check if we should redirect to the oauth success handler
+          return `/api/auth/oauth-success`;
+        } catch (error) {
+          console.error("Error in sign in callback:", error);
+          return true; // Still allow sign in even if handler fails
+        }
+      }
+      
       return true;
     },
   },
@@ -147,7 +184,7 @@ export const authOptions = {
       // Any additional actions on user creation
       console.log(`New user created: ${user.email}`);
     },
-    async signIn({ user }) {
+    async signIn({ user, account, isNewUser }) {
       try {
         // Update user's last login time
         const { error } = await supabase
@@ -161,8 +198,42 @@ export const authOptions = {
         
         // Update user's online status
         await updateUserOnlineStatus(user.id, true);
+        
+        // If it's an OAuth login
+        if (account && account.provider !== "credentials") {
+          // Store provider data
+          const providerData = {
+            user_id: user.id,
+            provider_name: account.provider,
+            provider_user_id: account.providerAccountId,
+            provider_email: user.email,
+            profile_data: {
+              name: user.name,
+              image: user.image
+            }
+          };
+          
+          // Update or insert provider connection
+          const { data: existingProvider } = await supabase
+            .from('user_providers')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('provider_name', account.provider)
+            .single();
+          
+          if (existingProvider) {
+            await supabase
+              .from('user_providers')
+              .update(providerData)
+              .eq('id', existingProvider.id);
+          } else {
+            await supabase
+              .from('user_providers')
+              .insert(providerData);
+          }
+        }
       } catch (error) {
-        console.error('Error updating last login time:', error);
+        console.error('Error updating user data on sign in:', error);
       }
     },
     async signOut({ token }) {
