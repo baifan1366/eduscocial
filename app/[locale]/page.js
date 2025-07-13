@@ -35,7 +35,7 @@ export default function HomePage() {
             className="bg-[#132F4C] rounded-xl p-5 relative aspect-video"
           >
             <Image
-              src="/slogan.PNG"
+              src="/slogan-removebg-preview.png"
               alt="EduSocial Platform"
               fill
               className="object-contain"
