@@ -343,3 +343,118 @@ CREATE TRIGGER assign_anonymous_avatar_to_message
 BEFORE INSERT ON messages 
 FOR EACH ROW WHEN (NEW.is_anonymous = TRUE) 
 EXECUTE FUNCTION assign_message_anonymous_avatar();
+
+-- Function to get recommended posts for a user
+CREATE OR REPLACE FUNCTION get_recommended_posts(
+  p_user_id UUID,
+  p_tag_ids UUID[],
+  p_topic_ids UUID[],
+  p_limit INTEGER DEFAULT 50
+)
+RETURNS TABLE (
+  id UUID,
+  title TEXT,
+  content TEXT,
+  author_id UUID,
+  board_id UUID,
+  created_at TIMESTAMPTZ,
+  view_count INTEGER,
+  like_count INTEGER,
+  comment_count INTEGER,
+  is_anonymous BOOLEAN,
+  tags UUID[],
+  similarity REAL
+) AS $$
+BEGIN
+  -- Return posts that match user's interests (tags/topics)
+  -- and have embeddings available for similarity calculation
+  RETURN QUERY
+  WITH user_posts AS (
+    -- Get posts the user has already interacted with (to exclude)
+    SELECT DISTINCT post_id 
+    FROM (
+      SELECT post_id FROM votes WHERE user_id = p_user_id
+      UNION
+      SELECT post_id FROM favorites WHERE user_id = p_user_id
+      UNION
+      SELECT post_id FROM comments WHERE author_id = p_user_id
+    ) as interactions
+  ),
+  tag_posts AS (
+    -- Posts that match user's tag interests
+    SELECT DISTINCT ph.post_id 
+    FROM post_hashtags ph
+    WHERE ph.hashtag_id = ANY(p_tag_ids)
+  )
+  SELECT 
+    p.id,
+    p.title,
+    p.content,
+    p.author_id,
+    p.board_id,
+    p.created_at,
+    p.view_count,
+    p.like_count,
+    p.comment_count,
+    p.is_anonymous,
+    ARRAY_AGG(DISTINCT ph.hashtag_id) AS tags,
+    0.0 AS similarity  -- Placeholder for vector similarity
+  FROM posts p
+  LEFT JOIN post_hashtags ph ON p.id = ph.post_id
+  LEFT JOIN post_embeddings pe ON p.id = pe.post_id
+  WHERE 
+    -- Must have an embedding
+    pe.embedding IS NOT NULL
+    -- Not the user's own posts
+    AND p.author_id <> p_user_id
+    -- Not posts the user has already interacted with
+    AND p.id NOT IN (SELECT post_id FROM user_posts)
+    -- Not deleted or draft posts
+    AND p.is_deleted = FALSE
+    AND p.is_draft = FALSE
+    -- Match user's interests
+    AND (
+      p.id IN (SELECT post_id FROM tag_posts)
+      OR p.board_id IN (
+        -- Boards the user follows
+        SELECT board_id FROM board_followers WHERE user_id = p_user_id
+      )
+    )
+  GROUP BY 
+    p.id, p.title, p.content, p.author_id, p.board_id, 
+    p.created_at, p.view_count, p.like_count, p.comment_count,
+    p.is_anonymous
+  ORDER BY 
+    p.created_at DESC,  -- Recency bias
+    p.like_count DESC   -- Quality bias
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to apply decay to all user interests
+-- This helps ensure older interests gradually fade
+CREATE OR REPLACE FUNCTION apply_interest_decay(
+  p_decay_factor FLOAT DEFAULT 0.98
+)
+RETURNS VOID AS $$
+BEGIN
+  -- Apply decay factor to all weights
+  -- Ensure they don't go below minimum threshold
+  UPDATE user_interests
+  SET 
+    weight = GREATEST(0.05, weight * p_decay_factor),
+    updated_at = NOW();
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to increment usage count for hashtags
+CREATE OR REPLACE FUNCTION increment_hashtag_usage(tag_ids UUID[])
+RETURNS VOID AS $$
+BEGIN
+  UPDATE hashtags
+  SET 
+    usage_count = usage_count + 1,
+    updated_at = NOW()
+  WHERE id = ANY(tag_ids);
+END;
+$$ LANGUAGE plpgsql;
