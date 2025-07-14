@@ -9,7 +9,11 @@ import { getMessages } from '../../messages/utils';
 export const metadata = {
   metadataBase: new URL('http://localhost:3000'),
   title: 'EduSocial',
-  description: 'Connect with students, share knowledge, and grow together.'
+  description: 'Connect with students, share knowledge, and grow together.',
+  openGraph: {
+    title: 'EduSocial',
+    images: ['/slogan-removebg-preview.png'],
+  },
 };
 
 export default async function RootLayout(props) {

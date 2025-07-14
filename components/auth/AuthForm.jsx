@@ -236,6 +236,14 @@ export default function AuthForm({ isRegister = false }) {
                 >
                   <Image src="/facebook.png" alt={t('loginWithFacebook')} width={20} height={20} />
                 </Button>
+                <Button
+                  variant="orange"
+                  className="px-4 rounded-md font-medium disabled:opacity-50 bg-transparent hover:bg-transparent"
+                  onClick={() => handleOAuthSignIn('github')}
+                  disabled={isLoading}
+                >
+                  <Image src="/github.svg" alt={t('loginWithGithub')} width={20} height={20} />
+                </Button>
               </div>
             ) : (
               <div className="space-y-2">
