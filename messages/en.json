@@ -79,5 +79,9 @@
       "githubButton": "Sign up with GitHub",
       "continueWith": "Or continue with"
     }
+  },
+  "Navbar": {
+    "login": "Login",
+    "register": "Register"
   }
 }
