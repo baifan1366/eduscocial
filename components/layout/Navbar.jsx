@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import useAuth from '../../hooks/useAuth';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { ChevronDown, Moon, Sun } from 'lucide-react';
 import { Button } from '../ui/button';
+import { useTranslations } from 'next-intl';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -15,7 +16,14 @@ export default function Navbar() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('english');
   const [darkMode, setDarkMode] = useState(true);
-  
+  const [isRegister, setIsRegister] = useState(false);
+  const t = useTranslations('Navbar');
+
+  // check register or login page
+  useEffect(() => {
+    setIsRegister(pathname.includes('/register'));
+  }, [pathname]);  
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     await logout();
@@ -28,25 +36,13 @@ export default function Navbar() {
   
   return (
     <nav 
-      className="w-full py-4 px-6 bg-[#0A1929] shadow-md h-20"
+      className="w-full py-2 px-2 bg-[#0A1929] shadow-md"
     >
       <div className="container mx-auto flex items-center justify-between">
         <Link href="/" className="text-white text-2xl font-bold flex items-center gap-2">
-          <Image src="/slogan-removebg-preview.png" alt="EduSocial Logo" width={48} height={48}/> 
+          <Image src="/slogan-removebg-preview.png" alt="EduSocial Logo" width={40} height={40}/> 
           <span className="text-white text-2xl font-bold">EduSocial</span>
         </Link>
-        
-        <div className="hidden md:flex space-x-6">
-          <NavLink href="/" active={pathname === '/'}>
-            <span className="text-white">Home</span>
-          </NavLink>
-          <NavLink href="/explore" active={pathname === '/explore'}>
-            <span className="text-white">Explore</span>
-          </NavLink>
-          <NavLink href="/about" active={pathname === '/about'}>
-            <span className="text-white">About</span>
-          </NavLink>
-        </div>
 
         <div className="flex items-center gap-2">
           <div>
@@ -105,18 +101,21 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link 
-                href="/login"
-                className="border border-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/10 transition-colors"
-              >
-                Login
-              </Link>
-              <Link 
-                href="/register"
-                className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
-              >
-                Register
-              </Link>
+              {isRegister ? (
+                <Link 
+                  href="/login"
+                  className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
+                >
+                  {t('login')}
+                </Link>
+              ) : (
+                <Link 
+                  href="/register"
+                  className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
+                >
+                  {t('register')}
+                </Link>
+              )}
             </>
           )}
         </div>
