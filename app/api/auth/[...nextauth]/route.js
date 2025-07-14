@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import GithubProvider from "next-auth/providers/github";
+import FacebookProvider from "next-auth/providers/facebook";
 import bcrypt from "bcrypt";
 import { isEducationalEmail, storeOAuthTokens } from "@/lib/auth";
 import { updateUserOnlineStatus } from "@/lib/redis/redisUtils";
@@ -62,6 +63,13 @@ export const authOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code"
+        }
+      },
       profile(profile) {
         // Only allow educational emails
         if (!isEducationalEmail(profile.email)) {
@@ -95,6 +103,26 @@ export const authOptions = {
           email: profile.email,
           image: profile.avatar_url,
           emailVerified: email ? new Date() : null,
+        };
+      },
+    }),
+    
+    // Facebook OAuth
+    FacebookProvider({
+      clientId: process.env.FACEBOOK_CLIENT_ID,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+      profile(profile) {
+        // Only allow educational emails
+        if (profile.email && !isEducationalEmail(profile.email)) {
+          throw new Error("Only educational email addresses are allowed");
+        }
+        
+        return {
+          id: profile.id,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture?.data?.url,
+          emailVerified: profile.email ? new Date() : null,
         };
       },
     }),
@@ -168,11 +196,12 @@ export const authOptions = {
       // Create or update user record after successful OAuth sign in
       if (account && account.provider !== "credentials") {
         try {
-          // Check if we should redirect to the oauth success handler
-          return `/api/auth/oauth-success`;
+          // Just return true to complete the sign in process
+          // The OAuth success handling will be done in the events.signIn callback
+          return true;
         } catch (error) {
           console.error("Error in sign in callback:", error);
-          return true; // Still allow sign in even if handler fails
+          return false; // Prevent sign in if there's an error
         }
       }
       

@@ -33,6 +33,7 @@
     "oauthError": "Error signing in with {provider}",
     "signInWithGoogle": "Sign in with Google",
     "loginWithFacebook": "Login with Facebook",
+    "loginWithGithub": "Login with GitHub",
     "emailSignIn": "General Email Register / Sign in",
     "verificationLetter": "Did not receive verification letter?",
     "termsAgreement": "By registering/sign in, you agree to comply with",

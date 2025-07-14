@@ -1,6 +1,6 @@
 # OAuth Provider Setup for EduSocial
 
-This document explains how to set up Google and GitHub OAuth providers for EduSocial.
+This document explains how to set up Google, GitHub, and Facebook OAuth providers for EduSocial.
 
 ## Environment Variables
 
@@ -17,6 +17,9 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 GITHUB_CLIENT_ID=your-github-client-id
 GITHUB_CLIENT_SECRET=your-github-client-secret
+
+FACEBOOK_CLIENT_ID=your_facebook_app_id
+FACEBOOK_CLIENT_SECRET=your_facebook_app_secret
 ```
 
 ## Google OAuth Setup
@@ -50,6 +53,40 @@ GITHUB_CLIENT_SECRET=your-github-client-secret
 5. Generate a new client secret
 6. Add the Client ID and Client Secret to your `.env.local` file
 
+## Facebook OAuth Setup
+
+To enable Facebook authentication in your EduSocial application, follow these steps:
+
+1. Go to [Facebook Developers](https://developers.facebook.com/) and log in with your Facebook account.
+
+2. Create a new app by clicking on "My Apps" > "Create App".
+
+3. Select the app type "Consumer" and click "Next".
+
+4. Fill in your app name, contact email, and business account (if applicable), then click "Create App".
+
+5. In the Facebook Developer Dashboard, navigate to "Add Products" and add "Facebook Login".
+
+6. Click "Settings" under Facebook Login in the sidebar.
+
+7. Add your OAuth redirect URL in the "Valid OAuth Redirect URIs" field:
+   ```
+   http://localhost:3000/api/auth/callback/facebook
+   ```
+   (Replace with your production URL for production environment)
+
+8. Save your changes.
+
+9. Go to "Settings" > "Basic" to get your App ID and App Secret.
+
+10. Add the following environment variables to your project:
+    ```
+    FACEBOOK_CLIENT_ID=your_facebook_app_id
+    FACEBOOK_CLIENT_SECRET=your_facebook_app_secret
+    ```
+
+11. Restart your application for the changes to take effect.
+
 ## Implementation Notes
 
 1. Educational Email Verification:
@@ -72,6 +109,6 @@ To test the OAuth implementation:
 
 1. Ensure you've set up your `.env.local` file with correct provider credentials
 2. Start the development server: `npm run dev`
-3. Navigate to `/login` and click on the Google or GitHub buttons
+3. Navigate to `/login` and click on the Google, GitHub, or Facebook buttons
 4. You should be redirected to the provider's login page
 5. After successful authentication, you'll be redirected back to the application 

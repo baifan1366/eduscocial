@@ -65,7 +65,7 @@ export async function middleware(request) {
 // 更新 matcher 配置以包含更多特定路径
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|.*\\.png|.*\\.webp|.*\\.glb|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|.*\\.png|.*\\.webp|.*\\.svg|.*\\.glb|favicon.ico).*)',
     '/:locale(en|zh|my)/:path*'
   ]
 };

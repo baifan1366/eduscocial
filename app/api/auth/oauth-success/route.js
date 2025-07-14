@@ -6,13 +6,14 @@ import { supabase } from '@/lib/supabase';
 /**
  * Handle OAuth success and ensure user record exists in database
  */
-export async function GET() {
+export async function GET(request) {
   try {
     // Get the current session
     const session = await getServerSession(authOptions);
+    const callbackUrl = request.nextUrl.searchParams.get('callbackUrl');
     
     if (!session?.user) {
-      return NextResponse.redirect('/login');
+      return NextResponse.redirect(new URL('/login', request.url));
     }
     
     const { id, name, email, image } = session.user;
@@ -76,10 +77,10 @@ export async function GET() {
         });
     }
     
-    // Redirect to homepage
-    return NextResponse.redirect('/');
+    // Redirect to callback URL or homepage
+    return NextResponse.redirect(new URL(callbackUrl || '/', request.url));
   } catch (error) {
     console.error('OAuth success handler error:', error);
-    return NextResponse.redirect('/login?error=oauth');
+    return NextResponse.redirect(new URL('/login?error=oauth', request.url));
   }
 } 

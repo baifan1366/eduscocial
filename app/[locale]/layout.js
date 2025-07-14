@@ -6,10 +6,15 @@ import { NextIntlClientProvider } from 'next-intl';
 // Import messages for translations
 import { getMessages } from '../../messages/utils';
 
+export const metadata = {
+  metadataBase: new URL('http://localhost:3000'),
+  title: 'EduSocial',
+  description: 'Connect with students, share knowledge, and grow together.'
+};
+
 export default async function RootLayout(props) {
   const { children } = props;
   const { locale = 'en' } = await props.params; 
-
   const messages = await getMessages(locale);
   
   return (

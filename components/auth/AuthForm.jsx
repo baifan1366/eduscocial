@@ -231,16 +231,10 @@ export default function AuthForm({ isRegister = false }) {
                 <Button
                   variant="orange"
                   className="px-4 rounded-md font-medium disabled:opacity-50 bg-transparent hover:bg-transparent"
+                  onClick={() => handleOAuthSignIn('facebook')}
                   disabled={isLoading}
                 >
                   <Image src="/facebook.png" alt={t('loginWithFacebook')} width={20} height={20} />
-                </Button>
-                <Button
-                  variant="orange"
-                  className="px-4 rounded-md font-medium disabled:opacity-50 bg-transparent hover:bg-transparent"
-                  disabled={isLoading}
-                >
-                  <Image src="/email.png" alt={t('emailSignIn')} width={20} height={20} />
                 </Button>
               </div>
             ) : (

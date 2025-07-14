@@ -61,14 +61,10 @@ CREATE INDEX idx_user_preferences_user_id ON user_preferences(user_id);
 CREATE INDEX idx_files_user_id ON files(user_id);
 CREATE INDEX idx_files_file_type ON files(file_type);
 
-CREATE INDEX idx_posts_is_draft ON posts(is_draft);
-CREATE INDEX idx_posts_scheduled_publish ON posts(scheduled_publish_at);
-CREATE INDEX idx_posts_language ON posts(language);
 
-CREATE INDEX idx_comments_language ON comments(language);
-CREATE INDEX idx_boards_language ON boards(language);
-
-CREATE INDEX idx_translations_content ON content_translations(content_type, content_id);
+CREATE INDEX idx_files_user_id ON files(user_id);
+CREATE INDEX idx_files_file_type ON files(file_type);
+CREATE INDEX idx_files_created_at ON files(created_at);
 
 CREATE INDEX idx_message_read_status_user ON message_read_status(user_id, is_read);
 
@@ -79,11 +75,6 @@ CREATE INDEX idx_cache_queue_processed ON cache_invalidation_queue(processed, cr
 
 CREATE INDEX idx_content_versions ON content_versions(content_type, content_id);
 
-CREATE INDEX idx_posts_is_ad ON posts(is_ad);
-CREATE INDEX idx_posts_ad_position ON posts(ad_position);
-
-CREATE INDEX idx_user_providers_user_id ON user_providers(user_id);
-CREATE INDEX idx_user_providers_provider ON user_providers(provider_name, provider_user_id);
 
 CREATE INDEX idx_redis_token_structure_key_pattern ON redis_token_structure(key_pattern);
 CREATE INDEX idx_redis_token_structure_description ON redis_token_structure(description);

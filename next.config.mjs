@@ -29,10 +29,24 @@ const nextConfig = {
     domains: [
       'api.qrserver.com',
       'lh3.googleusercontent.com', // Google profile images
-      'avatars.githubusercontent.com' // GitHub avatars
+      'avatars.githubusercontent.com', // GitHub avatars
+      'platform-lookaside.fbsbx.com', // Facebook profile images
+      'graph.facebook.com' // Facebook profile images alternative
     ],
     unoptimized: true
   }
 };
 
-export default withNextIntl(nextConfig);
+export default withNextIntl({
+  ...nextConfig,
+  // This ensures that NextAuth.js callbacks work correctly
+  async redirects() {
+    return [
+      {
+        source: '/api/auth/callback/:provider',
+        destination: '/api/auth/callback/:provider',
+        permanent: true,
+      },
+    ]
+  }
+});
