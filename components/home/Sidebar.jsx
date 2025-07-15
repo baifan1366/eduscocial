@@ -1,8 +1,30 @@
+'use client';
+
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import CustomizeFeedButton from './CustomizeFeedButton';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { usePathnameContext } from '@/app/providers';
 
-export default function Sidebar({ isAuthenticated }) {
+
+export default function Sidebar() {
+  const router = useRouter();
+  const pathname = usePathnameContext();
+  const { data: session, status } = useSession();
+  
+  // Use next-auth session to determine authentication status
+  const isAuthenticated = status === 'authenticated';
+  
+  // Get the locale from the pathname
+  const locale = pathname?.split('/')[1] || 'en';
+  const baseUrl = `/${locale}`;
+
+  // Handle navigation to settings
+  const navigateToSettings = (tab) => {
+    router.push(`${baseUrl}/?settings=true${tab ? `&tab=${tab}` : ''}`, { scroll: false });
+  };
+
   return (
     <div className="md:col-span-1">
       <Card className="p-4 mb-6">
@@ -31,10 +53,13 @@ export default function Sidebar({ isAuthenticated }) {
       
       {/* User section - Show only if logged in */}
       {isAuthenticated && (
-        <Card className="p-4">
-          <h2 className="font-bold mb-4">Your Feed</h2>
-          <CustomizeFeedButton />
-        </Card>
+        <>
+          <Card className="p-4 mb-6">
+            <h2 className="font-bold mb-4">Your Feed</h2>
+            <CustomizeFeedButton />
+          </Card>
+          
+        </>
       )}
     </div>
   );

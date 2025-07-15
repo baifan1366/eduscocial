@@ -12,15 +12,27 @@ export default function NewUserInterestCheck() {
   useEffect(() => {
     const checkIfNewUser = async () => {
       if (status === 'authenticated' && session?.user?.id) {
+        // Check if we're coming back from a refresh after closing the dialog
+        const searchParams = new URLSearchParams(window.location.search);
+        const refreshParam = searchParams.get('refresh');
+        
+        // If we have a refresh parameter, don't show the dialog again
+        if (refreshParam) {
+          return;
+        }
+        
         try {
           const userIsNew = await isNewUser(session.user.id);
           
           // Show interest selection dialog for new users
-          if (userIsNew) {
+          // Only show dialog if we got a definitive "true" response
+          if (userIsNew === true) {
             setShowInterestDialog(true);
           }
         } catch (error) {
           console.error('Error checking user status:', error);
+          // Don't show dialog if there was an error checking user status
+          setShowInterestDialog(false);
         }
       }
     };

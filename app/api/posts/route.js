@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import redis from '@/lib/redis/redis';
 import { generateEmbedding } from '@/lib/embedding';
 import { processPostHashtags } from '@/lib/hashtags';

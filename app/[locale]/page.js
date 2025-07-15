@@ -1,9 +1,9 @@
 import { getHomePagePosts } from '@/lib/recommend/coldStart';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import PostsList from '@/components/home/PostsList';
 import Sidebar from '@/components/home/Sidebar';
 import NewUserInterestCheck from '@/components/home/NewUserInterestCheck';
+import PostsList from '@/components/home/PostsList';
 
 export default async function HomePage({ searchParams }) {
   // Get current session from server side
@@ -26,16 +26,16 @@ export default async function HomePage({ searchParams }) {
       
       {/* Content section */}
       <div className="grid md:grid-cols-3 gap-6">
-        {/* Sidebar */}
+        {/* Sidebar - pass only data, no hooks */}
         <Sidebar isAuthenticated={isAuthenticated} />
         
-        {/* Main content */}
+        {/* Main content - pass only data, no hooks */}
         <div className="md:col-span-2">
           <PostsList posts={posts} loading={false} />
         </div>
       </div>
       
-      {/* New user check component (client component) */}
+      {/* New user check component */}
       <NewUserInterestCheck />
     </div>
   );

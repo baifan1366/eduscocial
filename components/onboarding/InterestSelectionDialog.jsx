@@ -5,10 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getTrendingTags, getTopicCategories, saveUserInterests } from '@/lib/recommend/coldStart';
-import { useAuth } from '@/hooks/useAuth';
+import { useSession } from 'next-auth/react';
 
 const InterestSelectionDialog = ({ isOpen, onClose }) => {
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
+  
   const [topics, setTopics] = useState([]);
   const [tags, setTags] = useState([]);
   const [selectedTopics, setSelectedTopics] = useState([]);
@@ -69,8 +71,22 @@ const InterestSelectionDialog = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSkip = () => {
-    onClose();
+  const handleSkip = async () => {
+    if (!user?.id) {
+      onClose();
+      return;
+    }
+    
+    try {
+      setSaving(true);
+      // Save empty interests with skipped flag to prevent the dialog from showing again
+      await saveUserInterests(user.id, [], []);
+      onClose();
+    } catch (error) {
+      console.error('Error saving skipped interests:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

@@ -1,7 +1,9 @@
 import '../globals.css';
 import Navbar from '../../components/layout/Navbar';
-import AuthProvider from '../../components/auth/AuthProvider';
 import { NextIntlClientProvider } from 'next-intl';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { Providers } from '../providers';
 
 // Import messages for translations
 import { getMessages } from '../../messages/utils';
@@ -21,13 +23,16 @@ export default async function RootLayout(props) {
   const { locale = 'en' } = await props.params; 
   const messages = await getMessages(locale);
   
+  // Get the session server-side for hydration
+  const session = await getServerSession(authOptions);
+  
   return (
     <html lang={locale}>
       <body
         className="bg-[#0A1929] text-white min-h-screen flex flex-col"
       >
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <AuthProvider>
+          <Providers session={session}>
             <Navbar />
             <main className="container mx-auto px-4 py-0 flex-grow">
               {children}
@@ -39,7 +44,7 @@ export default async function RootLayout(props) {
                 <p>© {new Date().getFullYear()} EduSocial. All rights reserved.</p>
               </div>
             </footer>
-          </AuthProvider>
+          </Providers>
         </NextIntlClientProvider>
       </body>
     </html>
