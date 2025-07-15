@@ -123,48 +123,7 @@ export default function Navbar() {
           /> 
           <span className="text-white text-2xl font-bold">EduSocial</span>
         </Link>
-        
-        {/* Theme and Language Controls */}
-        <div className="flex items-center gap-2">
-          <div>
-            <Button
-              onClick={toggleMode}
-              className="text-white px-4 py-2 rounded-md hover:text-[#FF9A3C] border-none transition-colors focus-visible:ring-0 flex items-center gap-2"
-            >
-              {darkMode ? (
-                <>
-                  <Sun className="w-4 h-4" />
-                </>
-              ) : (
-                <>
-                  <Moon className="w-4 h-4" />
-                </>
-              )}
-            </Button>
-          </div>
-        
-          <div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button className="text-white px-4 py-2 rounded-md hover:text-[#FF9A3C] border-none transition-colors focus-visible:ring-0">
-                  <span>{selectedLanguage === 'english' ? 'English' : selectedLanguage === 'malay' ? 'Bahasa Melayu' : '华文'}</span>
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem value="english" onClick={() => setSelectedLanguage('english')}>
-                  <span>{selectedLanguage === 'english' ? 'English' : selectedLanguage === 'malay' ? 'Bahasa Inggeris' : '英文'}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem value="malay" onClick={() => setSelectedLanguage('malay')}>
-                  <span>{selectedLanguage === 'english' ? 'Malay' : selectedLanguage === 'malay' ? 'Bahasa Melayu' : '马来文'}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem value="mandarin" onClick={() => setSelectedLanguage('mandarin')}>
-                  <span>{selectedLanguage === 'english' ? 'Mandarin' : selectedLanguage === 'malay' ? 'Bahasa Cina' : '华文'}</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
+    
         
         {/* User or Admin Authentication Section */}
         <div className="flex items-center space-x-4">
