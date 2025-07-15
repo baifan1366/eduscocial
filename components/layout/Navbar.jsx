@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import useAuth from '../../hooks/useAuth';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
@@ -12,22 +12,67 @@ import { useTranslations } from 'next-intl';
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isAuthenticated, logout } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminUser, setAdminUser] = useState(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('english');
   const [darkMode, setDarkMode] = useState(true);
   const [isRegister, setIsRegister] = useState(false);
   const t = useTranslations('Navbar');
 
-  // check register or login page
+  // 检测路径和从本地存储中获取管理员信息
   useEffect(() => {
-    setIsRegister(pathname.includes('/register'));
-  }, [pathname]);  
+    setIsRegister(pathname?.includes('/register'));
+    const isAdminPath = pathname?.includes('/admin');
+    setIsAdmin(isAdminPath);
+    
+    // 只在客户端环境中从本地存储读取管理员信息
+    if (typeof window !== 'undefined' && isAdminPath) {
+      try {
+        const storedAdmin = localStorage.getItem('adminUser');
+        if (storedAdmin) {
+          setAdminUser(JSON.parse(storedAdmin));
+        }
+      } catch (error) {
+        console.error('Error reading admin user from localStorage:', error);
+      }
+    }
+  }, [pathname]);
 
-  const handleLogout = async () => {
+  // 处理普通用户登出
+  const handleUserLogout = async () => {
     setIsLoggingOut(true);
-    await logout();
-    setIsLoggingOut(false);
+    try {
+      await logout();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+  
+  // 处理管理员登出
+  const handleAdminLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      // 直接调用 API 端点
+      const response = await fetch('/api/admin/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      
+      // 清除本地存储的管理员信息
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('adminUser');
+      }
+      
+      // 跳转到登录页面
+      router.push('/admin/login');
+    } catch (error) {
+      console.error('Admin logout error:', error);
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const toggleMode = () => {
@@ -40,7 +85,13 @@ export default function Navbar() {
     >
       <div className="container mx-auto flex items-center justify-between">
         <Link href="/" className="text-white text-2xl font-bold flex items-center gap-2">
-          <Image src="/slogan-removebg-preview.png" alt="EduSocial Logo" width={40} height={40}/> 
+          <Image 
+            src="/slogan-removebg-preview.png" 
+            alt="EduSocial Logo" 
+            width={0} 
+            height={0}
+            style={{ width: 'auto', height: 'auto', maxWidth: '10%' }} 
+          /> 
           <span className="text-white text-2xl font-bold">EduSocial</span>
         </Link>
 
@@ -86,35 +137,57 @@ export default function Navbar() {
         </div>
         
         <div className="flex items-center space-x-4">
-          {isAuthenticated ? (
+          {isAdmin ? (
+            // 管理员页面
+            adminUser ? (
+              <>
+                <span className="text-white">
+                  Hi, {adminUser.name || 'Admin'}
+                </span>
+                <Button
+                  variant="orange" 
+                  onClick={handleAdminLogout}
+                  disabled={isLoggingOut}
+                  className="transition-colors disabled:opacity-50"
+                >
+                  {isLoggingOut ? 'Logging out...' : 'Logout'}
+                </Button>
+              </>
+            ) : null
+          ) : isAuthenticated ? (
+            // 普通用户已登录
             <>
               <span className="text-white">
                 Hi, {user?.name || 'User'}
               </span>
-              <button 
-                onClick={handleLogout}
+              <Button
+                variant="orange" 
+                onClick={handleUserLogout}
                 disabled={isLoggingOut}
-                className="border border-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/10 transition-colors disabled:opacity-50"
+                className="transition-colors disabled:opacity-50"
               >
                 {isLoggingOut ? 'Logging out...' : 'Logout'}
-              </button>
+              </Button>
             </>
           ) : (
+            // 未登录的普通页面
             <>
-              {isRegister ? (
-                <Link 
-                  href="/login"
-                  className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
-                >
-                  {t('login')}
-                </Link>
-              ) : (
-                <Link 
-                  href="/register"
-                  className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
-                >
-                  {t('register')}
-                </Link>
+              {!isAdmin && (
+                isRegister ? (
+                  <Link 
+                    href="/login"
+                    className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
+                  >
+                    {t('login')}
+                  </Link>
+                ) : (
+                  <Link 
+                    href="/register"
+                    className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
+                  >
+                    {t('register')}
+                  </Link>
+                )
               )}
             </>
           )}

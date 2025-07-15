@@ -16,13 +16,35 @@ const protectedRoutes = [
   '/settings',
 ];
 
-// List of admin-only routes
+// List of admin-only routes that require admin authentication
 const adminRoutes = [
-  '/admin',
+  '/admin/dashboard',
+  '/admin/users',
+  '/admin/settings',
+];
+
+// List of public routes that should be excluded from protection
+const publicRoutes = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/admin/login',
 ];
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
+  
+  // Check if this is a public route that should be excluded from protection
+  const isPublicRoute = publicRoutes.some(route => 
+    pathname.startsWith(`/en${route}`) || 
+    pathname.startsWith(`/zh${route}`) || 
+    pathname.startsWith(`/my${route}`)
+  );
+
+  // If it's a public route, skip authentication checks
+  if (isPublicRoute) {
+    return intlMiddleware(request);
+  }
 
   // Check if this is a protected route
   const isProtectedRoute = protectedRoutes.some(route => 
@@ -31,16 +53,24 @@ export async function middleware(request) {
     pathname.startsWith(`/my${route}`)
   );
 
-  // Check if this is an admin route
+  // Check if this is an admin route (either explicitly in adminRoutes or contains '/admin' and is not a public route)
   const isAdminRoute = adminRoutes.some(route => 
     pathname.startsWith(`/en${route}`) || 
     pathname.startsWith(`/zh${route}`) || 
     pathname.startsWith(`/my${route}`)
+  ) || (
+    (pathname.includes('/admin') || pathname.includes('/en/admin') || 
+     pathname.includes('/zh/admin') || pathname.includes('/my/admin')) && 
+    !isPublicRoute
   );
 
   // If this is a protected or admin route, check for authentication
   if (isProtectedRoute || isAdminRoute) {
-    const token = await getToken({ req: request });
+    // 获取JWT token
+    const token = await getToken({ 
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET
+    });
     
     // If no token, redirect to login page with callbackUrl
     if (!token) {
