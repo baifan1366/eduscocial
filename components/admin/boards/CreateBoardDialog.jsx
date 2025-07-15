@@ -11,21 +11,21 @@ import { z } from 'zod';
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 
-export default function CreateForumDialog({ children }) {
+export default function CreateBoardDialog({ children }) {
     const [openDialog, setOpenDialog] = useState(false);
-    const t = useTranslations('Forum');
+    const t = useTranslations('Board');
 
     const form = useForm({
         resolver: zodResolver(
             z.object({
-                name: z.string({
-                    required_error: t('nameRequired'),
-                    invalid_type_error: t('nameInvalidType'),
-                }).min(1, {message: t('nameRequired')}).max(50, {message: t('nameMaxLength')}),
+                boardName: z.string({
+                    required_error: t('boardNameRequired'),
+                    invalid_type_error: t('boardNameInvalidType'),
+                }).min(1, {message: t('boardNameRequired')}).max(50, {message: t('boardNameMaxLength')}),
             })
         ),
         defaultValues: {
-            name: '',
+            boardName: '',
         }
     });
 
@@ -36,7 +36,7 @@ export default function CreateForumDialog({ children }) {
 
     const onSubmit = (data) => {
         console.log(data);
-        toast.success('Forum created successfully');
+        toast.success('Board created successfully');
         setOpenDialog(false);
     };
 
@@ -48,30 +48,32 @@ export default function CreateForumDialog({ children }) {
                 </div>
             ) : (
                 <Button onClick={() => setOpenDialog(true)}>
-                    {t('createForumButton')}
+                    {t('createBoardButton')}
                 </Button>
             )}
             
             <Dialog open={openDialog} onOpenChange={setOpenDialog}>
                 <DialogContent className="max-w-md text-muted-foreground">
                     <DialogHeader>
-                        <DialogTitle>{t('createForumTitle')}</DialogTitle>
-                        <DialogDescription>{t('createForumDescription')}</DialogDescription>
+                        <DialogTitle>{t('createBoardTitle')}</DialogTitle>
+                        <DialogDescription>{t('createBoardDescription')}</DialogDescription>
                     </DialogHeader>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)}>
                             <FormField
                                 control={form.control}
-                                name="name"
+                                name="boardName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>{t('name')} <span className="text-red-500">*</span></FormLabel>
+                                        <FormLabel>{t('boardName')} <span className="text-red-500">*</span></FormLabel>
                                         <FormControl>
                                             <Input 
-                                                id="name" 
+                                                id="boardName" 
                                                 {...field}
                                                 className="w-full"
-                                                autoFocus                                                
+                                                autoFocus
+                                                placeholder={t('boardNamePlaceholder')}
+                                                maxLength={50}
                                             />
                                         </FormControl>
                                         <div className="flex justify-between mt-1">
@@ -91,7 +93,7 @@ export default function CreateForumDialog({ children }) {
                             {t('cancel')}
                         </Button>
                         <Button type="submit" variant="orange" onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
-                            {t('createForumButton')}
+                            {t('createBoardButton')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

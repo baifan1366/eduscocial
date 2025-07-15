@@ -72,6 +72,7 @@
     "adminRegistrationNotImplemented": "Admin registration is not implemented yet",
     "emailAndPasswordRequired": "Email and password are required",
     "adminOAuthNotSupported": "Admin OAuth is not supported",
+    "loginSuccess": "Login successful",
     "Login": {
       "title": "Sign in to your account",
       "createAccount": "Or create a new account",
@@ -106,19 +107,20 @@
     "logout": "Logout",
     "loggingOut": "Logging out..."
   },
-  "Forum": {
-    "createForum": "Create Forum",
-    "createForumTitle": "Create Forum",
-    "createForumDescription": "Create a new forum to discuss a topic",
-    "name": "Name",
+  "Board": {
+    "createBoard": "Create Board",
+    "createBoardTitle": "Create Board",
+    "createBoardDescription": "Create a new board to discuss a topic",
+    "boardName": "Board Name",
+    "boardNamePlaceholder": "Enter board name",
     "cancel": "Cancel",
-    "createForumButton": "Create Forum",
-    "forumCreated": "Forum created successfully",
-    "forumCreationFailed": "Failed to create forum",
-    "forumAlreadyExists": "Forum already exists",
-    "forumCreationError": "Error creating forum",
-    "nameRequired": "Name is required",
-    "nameMaxLength": "Name must be less than 50 characters",
-    "nameInvalidType": "Name must be a string"
+    "createBoardButton": "Create Board",
+    "boardCreated": "Board created successfully",
+    "boardCreationFailed": "Failed to create board",
+    "boardAlreadyExists": "Board already exists",
+    "boardCreationError": "Error creating board",
+    "boardNameRequired": "Name is required",
+    "boardNameMaxLength": "Name must be less than 50 characters",
+    "boardNameInvalidType": "Name must be a string"
   }
 }

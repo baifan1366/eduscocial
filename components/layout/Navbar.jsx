@@ -1,51 +1,54 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import useAuth from '../../hooks/useAuth';
-import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
-import { ChevronDown, Moon, Sun } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import useAuth from '@/hooks/useAuth';
+import useAdminAuth from '@/hooks/useAdminAuth';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/dropdown-menu';
+import { ChevronDown, Sun, Moon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useTranslations } from 'next-intl';
+import { useSession } from 'next-auth/react';
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user: regularUser, isAuthenticated, logout: regularLogout } = useAuth();
+  const { user: adminUser, logout: adminLogout, isAuthenticated: isAdminAuthenticated } = useAdminAuth();
+  const { data: session } = useSession();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminUser, setAdminUser] = useState(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('english');
   const [darkMode, setDarkMode] = useState(true);
   const [isRegister, setIsRegister] = useState(false);
   const t = useTranslations('Navbar');
 
-  // 检测路径和从本地存储中获取管理员信息
+  // 检测路径
   useEffect(() => {
     setIsRegister(pathname?.includes('/register'));
     const isAdminPath = pathname?.includes('/admin');
     setIsAdmin(isAdminPath);
-    
-    // 只在客户端环境中从本地存储读取管理员信息
-    if (typeof window !== 'undefined' && isAdminPath) {
-      try {
-        const storedAdmin = localStorage.getItem('adminUser');
-        if (storedAdmin) {
-          setAdminUser(JSON.parse(storedAdmin));
-        }
-      } catch (error) {
-        console.error('Error reading admin user from localStorage:', error);
-      }
-    }
   }, [pathname]);
+
+  // 添加新的useEffect来监听认证状态变化
+  useEffect(() => {
+    // 当认证状态变化时，强制组件重新渲染
+    console.log('authenticate changed');
+    
+    // 如果处于管理员路径但没有管理员认证，可以记录日志
+    if (isAdmin && !isAdminAuthenticated) {
+      console.log('admin path but not authenticated');
+    }
+  }, [isAuthenticated, isAdminAuthenticated, isAdmin]);
 
   // 处理普通用户登出
   const handleUserLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await logout();
+      await regularLogout();
     } finally {
       setIsLoggingOut(false);
     }
@@ -55,21 +58,19 @@ export default function Navbar() {
   const handleAdminLogout = async () => {
     setIsLoggingOut(true);
     try {
-      // 直接调用 API 端点
-      const response = await fetch('/api/admin/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      
-      // 清除本地存储的管理员信息
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('adminUser');
+      const result = await adminLogout();
+      if (!result.success) {
+        console.error('Admin logout failed:', result.error);
+        // 如果登出失败，可以手动强制重定向
+        const locale = pathname.split('/')[1] || 'en';
+        router.push(`/${locale}/admin/login`);
       }
-      
-      // 跳转到登录页面
-      router.push('/admin/login');
+      // 成功登出时，adminLogout内部已经处理了重定向
     } catch (error) {
       console.error('Admin logout error:', error);
+      // 发生错误时强制重定向
+      const locale = pathname.split('/')[1] || 'en';
+      router.push(`/${locale}/admin/login`);
     } finally {
       setIsLoggingOut(false);
     }
@@ -139,7 +140,7 @@ export default function Navbar() {
         <div className="flex items-center space-x-4">
           {isAdmin ? (
             // 管理员页面
-            adminUser ? (
+            isAdminAuthenticated && adminUser ? (
               <>
                 <span className="text-white">
                   Hi, {adminUser.name || 'Admin'}
@@ -158,7 +159,7 @@ export default function Navbar() {
             // 普通用户已登录
             <>
               <span className="text-white">
-                Hi, {user?.name || 'User'}
+                Hi, {regularUser?.name || session?.user?.name || 'User'}
               </span>
               <Button
                 variant="orange" 

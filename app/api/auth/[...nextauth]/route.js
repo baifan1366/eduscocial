@@ -135,7 +135,7 @@ export const authOptions = {
   },
   pages: {
     signIn: '/login',
-    signOut: '/logout',
+    signOut: '/',
     error: '/error',
     verifyRequest: '/verify-request',
     newUser: '/register'
