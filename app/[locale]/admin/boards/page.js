@@ -13,7 +13,7 @@ export const metadata = {
 
 export default function BoardPage() {
     return (
-      <div className="container py-8 min-w-[80%]">
+      <div className="container py-3 min-w-[80%]">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Boards</h1>
           <CreateBoardDialog>

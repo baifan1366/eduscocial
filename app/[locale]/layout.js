@@ -1,6 +1,7 @@
 import '../globals.css';
 import Navbar from '../../components/layout/Navbar';
 import ClientProviders from '../../components/layout/ClientProviders';
+import { NextIntlClientProvider } from 'next-intl';
 
 // Import messages for translations
 import { getMessages } from '../../messages/utils';
@@ -26,19 +27,21 @@ export default async function RootLayout(props) {
   return (
     <html lang={locale} className="h-full">
       <body className="min-h-screen flex flex-col bg-[#0A1929] text-white">
-        <ClientProviders locale={locale} messages={messages}>
-          <Navbar />
-          <main className="container mx-auto px-4 py-0 flex-grow min-h-screen">
-            {children}
-          </main>
-          <footer
-            className="bg-[#061120] py-6 px-4"
-          >
-            <div className="container mx-auto text-center text-gray-400">
-              <p suppressHydrationWarning>© {currentYear} EduSocial. All rights reserved.</p>
-            </div>
-          </footer>
-        </ClientProviders>
+        <NextIntlClientProvider locale={locale} messages={messages} timeZone="UTC">
+          <ClientProviders>
+            <Navbar />
+            <main className="container mx-auto px-4 py-0 flex-grow min-h-screen">
+              {children}
+            </main>
+            <footer
+              className="bg-[#061120] py-6 px-4"
+            >
+              <div className="container mx-auto text-center text-gray-400">
+                <p suppressHydrationWarning>© {currentYear} EduSocial. All rights reserved.</p>
+              </div>
+            </footer>
+          </ClientProviders>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

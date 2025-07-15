@@ -122,5 +122,16 @@
     "boardNameRequired": "Name is required",
     "boardNameMaxLength": "Name must be less than 50 characters",
     "boardNameInvalidType": "Name must be a string"
+  },
+  "AdminDashboard": {
+    "Dashboard": "Dashboard",
+    "Boards": "Boards",
+    "createNewBoard": "Create New Board",
+    "New Tab": "New Tab",
+    "New Window": "New Window",
+    "Share": "Share",
+    "Print": "Print",
+    "openBoardsPage": "Open Boards Page",
+    "openDashboardPage": "Open Dashboard Page"
   }
 }
