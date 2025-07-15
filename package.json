@@ -33,14 +33,14 @@
     "next": "^14.2.3",
     "next-auth": "^4.24.11",
     "next-intl": "^4.3.4",
+    "next-themes": "^0.4.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tailwind-merge": "^3.3.1",
-    "tailwindcss-animate": "^1.2.0",
-    "next-themes": "^0.4.6",
     "react-hook-form": "^7.60.0",
     "recharts": "^2.15.4",
     "sonner": "^2.0.6",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.2.0",
     "zod": "^4.0.5"
   },
   "devDependencies": {
