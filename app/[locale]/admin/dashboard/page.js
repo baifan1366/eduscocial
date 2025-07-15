@@ -9,10 +9,8 @@ export const metadata = {
 
 export default function AdminDashboardPage() {
     return (
-        <main>
-            <div className="max-w-md mx-auto py-10 min-w-[80%]">
-                <h1 className="text-2xl font-bold">Dashboard</h1>
-            </div>
-        </main>
+        <div className="container py-8 min-w-[80%]">
+            <h1 className="text-3xl font-bold">Boards</h1>
+        </div>
     );
 }

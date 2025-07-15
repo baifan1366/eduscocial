@@ -2,55 +2,52 @@
 
 import { useState, useEffect, createContext, useContext } from 'react';
 import { useSession, signIn, signOut as nextAuthSignOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { getCookie, setCookie, deleteCookie } from 'cookies-next';
 
-// 创建一个默认值为 null 的上下文
-const AuthContext = createContext(null);
+// 创建一个默认值为 null 的上下文，并导出它以便其他组件直接使用
+export const AuthContext = createContext(null);
+
+// 检查是否在客户端环境
+const isClient = typeof window !== 'undefined';
 
 export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const router = useRouter();
+  const pathname = usePathname();
   const { data: session, status, update: updateSession } = useSession();
   const isSessionLoading = status === "loading";
 
-  // 添加直接检查localStorage的逻辑，避免初始化问题
+  // 从会话获取用户信息，而不是localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const storedAdmin = localStorage.getItem('adminUser');
-        if (storedAdmin) {
-          const adminData = JSON.parse(storedAdmin);
-          if (adminData && adminData.email) {
-            setUser(adminData);
-          }
-        }
-      } catch (error) {
-        console.error('Error checking localStorage:', error);
-      }
-    }
-  }, []);
-
-  // 当会话加载完成时，更新本地用户状态
-  useEffect(() => {
-    if (!isSessionLoading && session?.user) {
-      const userData = {
-        ...session.user,
-        name: session.user.name || session.user.email?.split('@')[0] || 'Admin User',
-        isAdmin: true
-      };
-      setUser(userData);
-      
-      // 同时更新localStorage
-      if (typeof window !== 'undefined') {
+    if (!isSessionLoading) {
+      if (session?.user) {
+        const userData = {
+          ...session.user,
+          name: session.user.name || session.user.email?.split('@')[0] || 'Admin User',
+          isAdmin: session.user.role === 'ADMIN'
+        };
+        setUser(userData);
+      } else {
+        // 检查是否有cookie作为回退机制 - 确保只在客户端执行
         try {
-          localStorage.setItem('adminUser', JSON.stringify(userData));
-        } catch (e) {
-          console.error('Failed to update admin user in storage:', e);
+          // 只在客户端检查cookie
+          if (isClient) {
+            const adminCookie = getCookie('adminUser');
+            if (adminCookie) {
+              const adminData = JSON.parse(adminCookie);
+              if (adminData && adminData.email) {
+                setUser(adminData);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error checking admin cookie:', error);
         }
       }
+      setLoading(false);
     }
-    setLoading(isSessionLoading);
   }, [isSessionLoading, session]);
 
   const login = async (email, password) => {
@@ -89,34 +86,40 @@ export function AuthProvider({ children }) {
       // 更新本地用户状态
       setUser(userData);
       
-      // 存储到本地存储中
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('adminUser', JSON.stringify(userData));
-        } catch (e) {
-          console.error('Failed to store admin user:', e);
+      // 使用cookie而不是localStorage - 确保只在客户端执行
+      try {
+        if (isClient) {
+          setCookie('adminUser', JSON.stringify(userData), {
+            maxAge: 60 * 60 * 24 * 7, // 一周
+            path: '/',
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict'
+          });
         }
+      } catch (e) {
+        console.error('Failed to store admin user in cookie:', e);
       }
       
-      // 2. 使用next-auth的signIn方法 - 修改为直接设置会话而不是再次调用signIn
-      // 避免重定向问题，直接使用我们已经获取的用户数据更新会话
+      // 更新next-auth会话
       try {
-        // 3. 更新会话
         await updateSession({
           ...session,
           user: userData
         });
-        
       } catch (sessionError) {
         console.error('Update session error:', sessionError);
         // 即使会话更新失败，我们仍然继续，因为API登录已成功
       }
 
-      // 4. 刷新路由以应用新会话
+      // 强制刷新路由状态和页面
       router.refresh();
       
-      // 5. 强制页面完全重新加载，确保Navbar能够正确显示用户信息
-      window.location.href = '/admin/dashboard';
+      // 确保用户状态在组件中更新
+      setTimeout(() => {
+        if (!user || user.id !== userData.id) {
+          setUser({...userData}); // 强制触发状态更新
+        }
+      }, 50);
       
       return { success: true, user: userData };
     } catch (error) {
@@ -130,12 +133,16 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     setLoading(true);
     try {
-      await nextAuthSignOut({ redirect: false });
+      // 确保nextAuthSignOut不自动重定向
+      await nextAuthSignOut({ 
+        redirect: false,
+        callbackUrl: undefined // 移除默认的回调URL
+      });
       
-      // Also call our custom logout endpoint
+      // 调用自定义登出端点
       const response = await fetch('/api/admin/logout', {
         method: 'POST',
-        credentials: 'include', // 添加凭证选项，确保cookies能够被发送和接收
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -143,19 +150,23 @@ export function AuthProvider({ children }) {
         throw new Error(data.error || 'Logout failed');
       }
       
-      // 清除本地存储的管理员用户信息
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.removeItem('adminUser');
-        } catch (e) {
-          console.error('Failed to remove admin user from localStorage:', e);
+      // 清除cookie - 确保只在客户端执行
+      try {
+        if (isClient) {
+          deleteCookie('adminUser', { path: '/' });
         }
+      } catch (e) {
+        console.error('Failed to remove admin user cookie:', e);
       }
       
       // 清除内存中的用户状态
       setUser(null);
 
-      router.push('/admin/login');
+      // 从pathname获取语言前缀
+      const locale = pathname?.split('/')[1] || 'en';
+      
+      // 使用完整的URL路径，确保包含语言前缀
+      router.push(`/${locale}/admin/login`);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
