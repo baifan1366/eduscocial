@@ -269,19 +269,20 @@ FOR EACH ROW
 EXECUTE FUNCTION set_matched_date();
 
 -- Function to trigger cache invalidation
-CREATE OR REPLACE FUNCTION trigger_cache_invalidation()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO cache_invalidation_queue (object_type, object_id, operation)
-    VALUES (TG_TABLE_NAME, NEW.id, TG_OP);
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- LATEST: drop by wx already
+-- CREATE OR REPLACE FUNCTION trigger_cache_invalidation()
+-- RETURNS TRIGGER AS $$
+-- BEGIN
+--     INSERT INTO cache_invalidation_queue (object_type, object_id, operation)
+--     VALUES (TG_TABLE_NAME, NEW.id, TG_OP);
+--     RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
 -- Apply the trigger to relevant tables
-CREATE TRIGGER cache_invalidation_posts AFTER INSERT OR UPDATE OR DELETE ON posts FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
-CREATE TRIGGER cache_invalidation_comments AFTER INSERT OR UPDATE OR DELETE ON comments FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
-CREATE TRIGGER cache_invalidation_boards AFTER INSERT OR UPDATE OR DELETE ON boards FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
+-- CREATE TRIGGER cache_invalidation_posts AFTER INSERT OR UPDATE OR DELETE ON posts FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
+-- CREATE TRIGGER cache_invalidation_comments AFTER INSERT OR UPDATE OR DELETE ON comments FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
+-- CREATE TRIGGER cache_invalidation_boards AFTER INSERT OR UPDATE OR DELETE ON boards FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
 
 -- Content Versioning Trigger
 CREATE OR REPLACE FUNCTION track_content_versions()

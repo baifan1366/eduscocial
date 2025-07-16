@@ -114,7 +114,8 @@
     "boardName": "Board Name",
     "boardNamePlaceholder": "Enter board name",
     "cancel": "Cancel",
-    "createBoardButton": "Create Board",
+    "createButton": "Create",
+    "creating": "Creating...",
     "boardCreated": "Board created successfully",
     "boardCreationFailed": "Failed to create board",
     "boardAlreadyExists": "Board already exists",
@@ -184,7 +185,8 @@
     "follow": "Follow",
     "unfollow": "Unfollow",
     "followers": "Followers",
-    "discussions": "Discussions"
+    "discussions": "Discussions",
+    "boardCreatedSuccessfully": "Board created successfully"
   },
   "AdminDashboard": {
     "Dashboard": "Dashboard",

@@ -101,10 +101,21 @@ export default function CreateBoardDialog({ children }) {
         }
     }, [openDialog, form]);
 
-    const onSubmit = (data) => {
-        console.log(data);
-        toast.success('Board created successfully');
-        setOpenDialog(false);
+    const onSubmit = async (data) => {
+        const response = await fetch('/api/admin/boards', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ data }),
+        });
+        console.log(data)
+        if (response.ok) {
+            toast.success(t('boardCreatedSuccessfully'));
+            setOpenDialog(false);
+        } else {
+            toast.error(t('boardCreationFailed'));
+        }
     };
 
     return (
@@ -115,7 +126,7 @@ export default function CreateBoardDialog({ children }) {
                 </div>
             ) : (
                 <Button onClick={() => setOpenDialog(true)}>
-                    {t('createBoardButton')}
+                    {t('createButton')}
                 </Button>
             )}
             
@@ -358,7 +369,7 @@ export default function CreateBoardDialog({ children }) {
                                     {t('cancel')}
                                 </Button>
                                 <Button type="submit" variant="orange" onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
-                                    {t('createBoardButton')}
+                                    {form.formState.isSubmitting ? t('creating') : t('createButton')}
                                 </Button>
                             </div>
                         </div>
