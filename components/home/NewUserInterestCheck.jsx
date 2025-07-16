@@ -1,40 +1,35 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import InterestSelectionDialog from '@/components/onboarding/InterestSelectionDialog';
+import useCheckNewUser from '@/hooks/useCheckNewUser';
 
 export default function NewUserInterestCheck() {
   const { data: session, status } = useSession();
   const [showInterestDialog, setShowInterestDialog] = useState(false);
   
+  // Use React Query hook to check if user is new
+  const { 
+    data, 
+    isSuccess 
+  } = useCheckNewUser({
+    // Only run query when user is authenticated
+    enabled: status === 'authenticated' && !!session?.user?.id,
+    // Don't refetch on window focus as this check should be done only once per session
+    refetchOnWindowFocus: false,
+  });
+  
+  // Show interest dialog when data is fetched and user is new
   useEffect(() => {
-    const checkIfNewUser = async () => {
-      if (status === 'authenticated' && session?.user?.id) {
-        try {
-          // 使用API路由检查是否为新用户
-          const response = await fetch('/api/recommend/check-new-user');
-          
-          if (response.ok) {
-            const data = await response.json();
-            
-            // 为新用户显示兴趣选择对话框
-            if (data.isNewUser) {
-              setShowInterestDialog(true);
-            }
-          }
-        } catch (error) {
-          console.error('Error checking user status:', error);
-        }
-      }
-    };
-    
-    checkIfNewUser();
-  }, [status, session]);
+    if (isSuccess && data?.isNewUser) {
+      setShowInterestDialog(true);
+    }
+  }, [isSuccess, data]);
   
   const handleCloseInterestDialog = () => {
     setShowInterestDialog(false);
-    // 刷新页面以获取个性化推荐
+    // Refresh page to get personalized recommendations
     window.location.href = window.location.pathname + '?refresh=' + Date.now();
   };
 

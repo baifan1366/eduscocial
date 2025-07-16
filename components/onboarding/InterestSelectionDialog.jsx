@@ -5,45 +5,61 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import useAuth from '@/hooks/useAuth';
+import useGetRecommendTopics from '@/hooks/useGetRecommendTopics';
+import useGetRecommendTags from '@/hooks/useGetRecommendTags';
+import useUpdateUserInterests from '@/hooks/useUpdateUserInterests';
 
 const InterestSelectionDialog = ({ isOpen, onClose }) => {
   const { user } = useAuth();
-  const [topics, setTopics] = useState([]);
-  const [tags, setTags] = useState([]);
   const [selectedTopics, setSelectedTopics] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [topicsResponse, tagsResponse] = await Promise.all([
-          fetch('/api/recommend/topics'),
-          fetch('/api/recommend/tags?limit=30') // 获取前30个标签
-        ]);
-        
-        if (topicsResponse.ok && tagsResponse.ok) {
-          const topicsData = await topicsResponse.json();
-          const tagsData = await tagsResponse.json();
-          
-          setTopics(topicsData.topics || []);
-          setTags(tagsData.tags || []);
-        } else {
-          console.error('Failed to fetch topics or tags');
-        }
-      } catch (error) {
-        console.error('Error fetching topics and tags:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    if (isOpen) {
-      fetchData();
+  // Fetch topics using React Query
+  const { 
+    data: topicsData, 
+    isLoading: topicsLoading,
+    error: topicsError 
+  } = useGetRecommendTopics({
+    enabled: isOpen, // Only fetch when dialog is open
+  });
+  
+  // Fetch tags using React Query
+  const {
+    data: tagsData,
+    isLoading: tagsLoading,
+    error: tagsError
+  } = useGetRecommendTags({ limit: 30 }, {
+    enabled: isOpen, // Only fetch when dialog is open
+  });
+  
+  // Get topics and tags from the API responses
+  const topics = topicsData?.topics || [];
+  const tags = tagsData?.tags || [];
+  
+  // Use mutation hook for saving interests
+  const { 
+    mutate: updateInterests, 
+    isPending: saving,
+    isError: saveError,
+    error: saveErrorData
+  } = useUpdateUserInterests({
+    onSuccess: () => {
+      onClose();
     }
-  }, [isOpen]);
+  });
+  
+  // Check if any data is still loading
+  const loading = topicsLoading || tagsLoading;
+  
+  // Check for errors
+  const error = topicsError || tagsError || saveError;
+  
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      console.error('Error:', error);
+    }
+  }, [error]);
 
   const handleTopicToggle = (topicId) => {
     if (selectedTopics.includes(topicId)) {
@@ -61,34 +77,14 @@ const InterestSelectionDialog = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!user?.id) return;
     
-    try {
-      setSaving(true);
-      
-      // 使用API保存用户兴趣
-      const response = await fetch('/api/recommend/interests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          selectedTopics,
-          selectedTags
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to save interests');
-      }
-      
-      onClose();
-    } catch (error) {
-      console.error('Error saving interests:', error);
-    } finally {
-      setSaving(false);
-    }
+    // Call the mutation with the selected interests
+    updateInterests({
+      selectedTopics,
+      selectedTags
+    });
   };
 
   const handleSkip = () => {

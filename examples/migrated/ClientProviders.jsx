@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import AuthProvider from '../auth/AuthProvider';
-import AdminAuthProvider from '../admin/login/AdminAuthProvider';
+import AuthProvider from '@/components/auth/AuthProvider';
+import AdminAuthProvider from '@/components/admin/login/AdminAuthProvider';
+import { queryErrorHandler, mutationErrorHandler } from '@/lib/reactQueryErrorHandler';
+import { Toaster } from '@/components/ui/sonner';
 
-export default function ClientProviders({ children }) {
+export default function EnhancedClientProviders({ children }) {
   const [isClient, setIsClient] = useState(false);
   
-  // Create QueryClient with optimized defaults
+  // Create QueryClient with optimized defaults and error handling
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
@@ -24,6 +26,7 @@ export default function ClientProviders({ children }) {
         },
         refetchOnWindowFocus: false,
         refetchOnReconnect: true,
+        onError: queryErrorHandler, // Add global error handler
       },
       mutations: {
         retry: (failureCount, error) => {
@@ -33,6 +36,7 @@ export default function ClientProviders({ children }) {
           }
           return failureCount < 2;
         },
+        onError: mutationErrorHandler, // Add global error handler
       },
     },
   }));
@@ -50,7 +54,12 @@ export default function ClientProviders({ children }) {
           {children}
         </AdminAuthProvider>
       </AuthProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
+      {/* Add toast notifications */}
+      <Toaster position="top-right" richColors closeButton />
+      {/* Only show DevTools in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />
+      )}
     </QueryClientProvider>
   );
   

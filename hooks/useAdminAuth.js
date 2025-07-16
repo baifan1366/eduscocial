@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import { useSession, signIn, signOut as nextAuthSignOut } from 'next-auth/react';
+import { useSession, signIn } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
-import { getCookie, setCookie, deleteCookie } from 'cookies-next';
+import { getCookie } from 'cookies-next';
+import useAdminLoginMutation from './auth/useAdminLoginMutation';
+import useAdminLogoutMutation from './auth/useAdminLogoutMutation';
 
 // 创建一个默认值为 null 的上下文，并导出它以便其他组件直接使用
 export const AuthContext = createContext(null);
@@ -18,6 +20,18 @@ export function AuthProvider({ children }) {
   const pathname = usePathname();
   const { data: session, status, update: updateSession } = useSession();
   const isSessionLoading = status === "loading";
+  
+  // Use React Query login mutation
+  const { 
+    mutateAsync: loginMutation, 
+    isPending: isLoginPending 
+  } = useAdminLoginMutation();
+  
+  // Use React Query logout mutation
+  const { 
+    mutateAsync: logoutMutation, 
+    isPending: isLogoutPending 
+  } = useAdminLogoutMutation();
 
   // 从会话获取用户信息，而不是localStorage
   useEffect(() => {
@@ -49,30 +63,15 @@ export function AuthProvider({ children }) {
       setLoading(false);
     }
   }, [isSessionLoading, session]);
+  
+  // Update loading state when mutations are in progress
+  useEffect(() => {
+    setLoading(isSessionLoading || isLoginPending || isLogoutPending);
+  }, [isSessionLoading, isLoginPending, isLogoutPending]);
 
   const login = async (email, password) => {
-    setLoading(true);
-    try {      
-      // 1. 首先使用我们的API进行管理员验证
-      const response = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include', // 添加凭证选项，确保cookies能够被发送和接收
-        cache: 'no-store',
-        mode: 'cors'
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(e => ({ error: 'cannot parse response data' }));
-        console.error('API login failed:', errorData);
-        throw new Error(errorData.error || `Login failed (${response.status})`);
-      }
-      
-      const data = await response.json();
+    try {
+      const data = await loginMutation({ email, password });
       
       // 确保用户有完整的信息
       const userData = {
@@ -85,20 +84,6 @@ export function AuthProvider({ children }) {
             
       // 更新本地用户状态
       setUser(userData);
-      
-      // 使用cookie而不是localStorage - 确保只在客户端执行
-      try {
-        if (isClient) {
-          setCookie('adminUser', JSON.stringify(userData), {
-            maxAge: 60 * 60 * 24 * 7, // 一周
-            path: '/',
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict'
-          });
-        }
-      } catch (e) {
-        console.error('Failed to store admin user in cookie:', e);
-      }
       
       // 更新next-auth会话
       try {
@@ -125,39 +110,12 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Admin login error:', error);
       return { success: false, error: error.message || 'Login failed, please try again later' };
-    } finally {
-      setLoading(false);
     }
   };
 
   const logout = async () => {
-    setLoading(true);
     try {
-      // 确保nextAuthSignOut不自动重定向
-      await nextAuthSignOut({ 
-        redirect: false,
-        callbackUrl: undefined // 移除默认的回调URL
-      });
-      
-      // 调用自定义登出端点
-      const response = await fetch('/api/admin/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Logout failed');
-      }
-      
-      // 清除cookie - 确保只在客户端执行
-      try {
-        if (isClient) {
-          deleteCookie('adminUser', { path: '/' });
-        }
-      } catch (e) {
-        console.error('Failed to remove admin user cookie:', e);
-      }
+      await logoutMutation();
       
       // 清除内存中的用户状态
       setUser(null);
@@ -170,14 +128,12 @@ export function AuthProvider({ children }) {
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
     }
   };
 
   const value = {
     user,
-    loading: loading || isSessionLoading,
+    loading,
     login,
     logout,
     isAuthenticated: !!user,

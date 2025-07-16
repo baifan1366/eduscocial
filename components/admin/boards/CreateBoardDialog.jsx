@@ -18,6 +18,7 @@ import { useTranslations } from 'next-intl';
 import { ChevronDown, PaintBucket } from 'lucide-react';
 import { SketchPicker } from 'react-color'
 import PreviewBoard from './PreviewBoard';
+import useCreateBoard from '@/hooks/admin/useCreateBoard';
 
 export default function CreateBoardDialog({ children }) {
     const [openDialog, setOpenDialog] = useState(false);
@@ -101,21 +102,19 @@ export default function CreateBoardDialog({ children }) {
         }
     }, [openDialog, form]);
 
-    const onSubmit = async (data) => {
-        const response = await fetch('/api/admin/boards', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ data }),
-        });
-        console.log(data)
-        if (response.ok) {
+    // Use the React Query mutation hook for creating boards
+    const { mutate: createBoard, isPending } = useCreateBoard({
+        onSuccess: () => {
             toast.success(t('boardCreatedSuccessfully'));
             setOpenDialog(false);
-        } else {
+        },
+        onError: () => {
             toast.error(t('boardCreationFailed'));
         }
+    });
+
+    const onSubmit = (data) => {
+        createBoard({ data });
     };
 
     return (
@@ -368,8 +367,8 @@ export default function CreateBoardDialog({ children }) {
                                 <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>
                                     {t('cancel')}
                                 </Button>
-                                <Button type="submit" variant="orange" onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
-                                    {form.formState.isSubmitting ? t('creating') : t('createButton')}
+                                <Button type="submit" variant="orange" onClick={form.handleSubmit(onSubmit)} disabled={isPending}>
+                                    {isPending ? t('creating') : t('createButton')}
                                 </Button>
                             </div>
                         </div>

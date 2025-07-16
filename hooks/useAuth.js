@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import { useSession, signOut as nextAuthSignOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import useLoginMutation from './auth/useLoginMutation';
+import useLogoutMutation from './auth/useLogoutMutation';
+import useRegisterMutation from './auth/useRegisterMutation';
 
 const AuthContext = createContext();
 
@@ -12,91 +15,67 @@ export function AuthProvider({ children }) {
   const { data: session, status } = useSession();
   const isSessionLoading = status === "loading";
 
+  // Use React Query login mutation
+  const { 
+    mutateAsync: loginMutation, 
+    isPending: isLoginPending 
+  } = useLoginMutation();
+  
+  // Use React Query logout mutation
+  const { 
+    mutateAsync: logoutMutation, 
+    isPending: isLogoutPending 
+  } = useLogoutMutation({
+    onSuccess: () => {
+      router.push('/login');
+    }
+  });
+  
+  // Use React Query register mutation
+  const { 
+    mutateAsync: registerMutation, 
+    isPending: isRegisterPending 
+  } = useRegisterMutation();
+  
   useEffect(() => {
     // We can rely on NextAuth session loading
-    setLoading(isSessionLoading);
-  }, [isSessionLoading]);
+    setLoading(isSessionLoading || isLoginPending || isLogoutPending || isRegisterPending);
+  }, [isSessionLoading, isLoginPending, isLogoutPending, isRegisterPending]);
 
   const login = async (email, password) => {
-    setLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
-
+      const result = await loginMutation({ email, password });
+      
       // Refresh the session
       router.refresh();
       
-      return { success: true, user: data.user };
+      return { success: true, user: result.user };
     } catch (error) {
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
+      return { success: false, error: error.message || 'Login failed' };
     }
   };
 
   const logout = async () => {
-    setLoading(true);
     try {
-      await nextAuthSignOut({ redirect: false });
-      
-      // Also call our custom logout endpoint
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Logout failed');
-      }
-
-      router.push('/login');
+      await logoutMutation();
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
+      return { success: false, error: error.message || 'Logout failed' };
     }
   };
 
   const register = async (userData) => {
-    setLoading(true);
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Registration failed');
-      }
-
-      return { success: true };
+      const result = await registerMutation(userData);
+      return { success: true, data: result };
     } catch (error) {
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
+      return { success: false, error: error.message || 'Registration failed' };
     }
   };
 
   const value = {
     user: session?.user || null,
-    loading: loading || isSessionLoading,
+    loading,
     login,
     logout,
     register,
