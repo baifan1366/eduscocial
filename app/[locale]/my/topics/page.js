@@ -12,8 +12,8 @@ export default function MyTopicsPage() {
         <div className="text-center py-12 flex flex-col items-center">
           <Hash className="w-12 h-12 text-gray-500 mb-4" />
           <p className="text-gray-300">You are not currently following any topics</p>
-          <button className="mt-4 px-4 py-2 bg-[#1E4976] hover:bg-blue-700 text-white rounded-lg">
-          Browse Topics
+          <button className="mt-4 px-4 py-2 bg-[#FF7D00] hover:bg-[#FF7D00]/90 text-white rounded-lg transition-colors">
+            Browse Topics
           </button>
         </div>
       </Card>

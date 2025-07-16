@@ -4,6 +4,8 @@ import { createContext, useContext } from 'react';
 import { usePathname } from 'next/navigation';
 import { SessionProvider } from 'next-auth/react';
 import { SettingsProvider } from '@/hooks/useSettings';
+import { ProfileProvider } from '@/contexts/profile-context';
+import { Toaster } from '@/components/ui/sonner';
 
 // Create a context for pathname to avoid repeated usePathname() calls
 const PathnameContext = createContext(null);
@@ -40,7 +42,10 @@ export function Providers({ children, session }) {
     <SessionProvider session={session}>
       <PathnameProvider>
         <SettingsProvider>
-          {children}
+          <ProfileProvider>
+            {children}
+            <Toaster />
+          </ProfileProvider>
         </SettingsProvider>
       </PathnameProvider>
     </SessionProvider>

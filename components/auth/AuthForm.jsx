@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '../ui/button';
 import { Card, CardHeader, CardContent, CardFooter } from '../ui/card';
 import Image from 'next/image';
+import useAuth from '../../hooks/useAuth';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function AuthForm({ isRegister = false }) {
@@ -17,6 +18,7 @@ export default function AuthForm({ isRegister = false }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { login, register } = useAuth();
   const router = useRouter();
   const t = useTranslations('auth');
   const [showPassword, setShowPassword] = useState(false);
@@ -36,56 +38,25 @@ export default function AuthForm({ isRegister = false }) {
           return;
         }
         
-        // Register new user
-        const response = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ name, email, password }),
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
+        const result = await register({ name, email, password });
+        
+        if (result.success) {
           router.push('/login');
         } else {
-          setError(data.error || t('registrationFailed'));
+          setError(result.error || t('registrationFailed'));
         }
       } else {
-        // Retrieve and sanitize callback URL from query parameters
-        const searchParams = new URLSearchParams(window.location.search);
-        const rawCallbackUrl = searchParams.get('callbackUrl') || '/';
-        const callbackUrl = rawCallbackUrl.startsWith('/') ? rawCallbackUrl : '/';
-
-        // Login with credentials and avoid automatic redirect to prevent loops
-        const result = await signIn('credentials', {
-          email,
-          password,
-          redirect: false,
-          callbackUrl,
-        });
+        const result = await login(email, password);
         
-        console.log('SignIn result:', result);
-        
-        if (result?.error) {
-          console.error('Login error:', result.error);
-          // Show specific error messages based on error type
-          if (result.error === 'CredentialsSignin') {
-            setError(t('invalidCredentials'));
-          } else {
-            setError(t('loginFailed'));
-          }
-        } else if (result?.ok) {
-          // Login successful, redirect to callbackUrl
-          window.location.href = callbackUrl;
+        if (result.success) {
+          router.push('/');
         } else {
-          setError(t('loginFailed'));
+          setError(result.error || t('loginFailed'));
         }
       }
     } catch (error) {
-      console.error(isRegister ? 'Registration error:' : 'Login error:', error);
       setError(t('unexpectedError'));
+      console.error(isRegister ? 'Registration error:' : 'Login error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -94,23 +65,7 @@ export default function AuthForm({ isRegister = false }) {
   const handleOAuthSignIn = async (provider) => {
     try {
       setIsLoading(true);
-      setError('');
-      
-      // Get callback URL
-      const searchParams = new URLSearchParams(window.location.search);
-      const callbackUrl = searchParams.get('callbackUrl') || '/';
-      
-      // Sign in using OAuth
-      const result = await signIn(provider, { 
-        callbackUrl: callbackUrl.startsWith('/') ? callbackUrl : '/',
-        redirect: true // For OAuth, let NextAuth handle redirect
-      });
-      
-      // With redirect: true, this code usually won't run
-      if (result?.error) {
-        console.error(`${provider} sign in error:`, result.error);
-        setError(t('oauthError', { provider }));
-      }
+      await signIn(provider, { callbackUrl: '/' });
     } catch (error) {
       console.error(`${provider} sign in error:`, error);
       setError(t('oauthError', { provider }));
@@ -150,7 +105,7 @@ export default function AuthForm({ isRegister = false }) {
           )}
           
           <form onSubmit={handleSubmit} className="space-y-6">
-            {isRegister && (
+            {isRegister ? (
               <div className="space-y-2">
                 <label htmlFor="name" className="block text-sm font-medium">
                   {t('fullName')}
@@ -165,6 +120,9 @@ export default function AuthForm({ isRegister = false }) {
                   disabled={isLoading}
                   placeholder={t('enterFullName')}
                 />
+              </div>
+            ) : (
+              <div className="space-y-2">
               </div>
             )}
             
@@ -204,7 +162,6 @@ export default function AuthForm({ isRegister = false }) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
                   className="w-full px-0 py-2 flex-1 border rounded-md bg-[#0A1929] border-[#132F4C] text-white border-none focus:outline-none"
                   placeholder={t('enterPassword')}
                   disabled={isLoading}
@@ -212,7 +169,7 @@ export default function AuthForm({ isRegister = false }) {
                 <Button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="text-white px-0 hover:text-[#FF7D00] bg-transparent hover:bg-transparent"
+                  className="text-white px-0 hover:text-[#FF7D00]"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -220,7 +177,7 @@ export default function AuthForm({ isRegister = false }) {
               </div>
             </div>
             
-            {isRegister && (
+            {isRegister ? (
               <div className="space-y-2">
                 <label htmlFor="confirmPassword" className="block text-sm font-medium">
                   {t('confirmPassword')}
@@ -231,7 +188,6 @@ export default function AuthForm({ isRegister = false }) {
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
                     className="w-full px-0 py-2 flex-1 border rounded-md bg-[#0A1929] border-[#132F4C] text-white border-none focus:outline-none"
                     placeholder={t('confirmPasswordPlaceholder')}
                     disabled={isLoading}
@@ -239,12 +195,15 @@ export default function AuthForm({ isRegister = false }) {
                   <Button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="text-white px-0 hover:text-[#FF7D00] bg-transparent hover:bg-transparent"
+                    className="text-white px-0 hover:text-[#FF7D00]"
                     tabIndex={-1}
                   >
                     {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </Button>
                 </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
               </div>
             )}
             
@@ -259,10 +218,9 @@ export default function AuthForm({ isRegister = false }) {
                 : (isRegister ? t('createAccount') : t('signIn'))}
             </Button>
 
-            {!isRegister && (
+            {!isRegister ? (
               <div className="flex justify-center gap-2">
                 <Button
-                  type="button"
                   variant="orange"
                   className="px-4 rounded-md font-medium disabled:opacity-50 bg-transparent hover:bg-transparent"
                   onClick={() => handleOAuthSignIn('google')}
@@ -271,7 +229,6 @@ export default function AuthForm({ isRegister = false }) {
                   <Image src="/google.png" alt={t('signInWithGoogle')} width={20} height={20} />
                 </Button>
                 <Button
-                  type="button"
                   variant="orange"
                   className="px-4 rounded-md font-medium disabled:opacity-50 bg-transparent hover:bg-transparent"
                   onClick={() => handleOAuthSignIn('facebook')}
@@ -280,7 +237,6 @@ export default function AuthForm({ isRegister = false }) {
                   <Image src="/facebook.png" alt={t('loginWithFacebook')} width={20} height={20} />
                 </Button>
                 <Button
-                  type="button"
                   variant="orange"
                   className="px-4 rounded-md font-medium disabled:opacity-50 bg-transparent hover:bg-transparent"
                   onClick={() => handleOAuthSignIn('github')}
@@ -289,35 +245,42 @@ export default function AuthForm({ isRegister = false }) {
                   <Image src="/github.svg" alt={t('loginWithGithub')} width={20} height={20} />
                 </Button>
               </div>
+            ) : (
+              <div className="space-y-2">
+              </div>
             )}
           </form>
         </CardContent>
         
         <CardFooter className="text-center">
-          {isRegister ? (
-            <Link href="/login" className="text-[#FF7D00] text-sm hover:underline">
-              {t('alreadyHaveAccount')}
-            </Link>
-          ) : (
-            <Link 
-              href="/resend-verification-letter" 
-              className="text-[#FF7D00] text-sm hover:underline"
-            >
-              {t('verificationLetter')}
-            </Link>
-          )}
-          <p className="text-sm text-gray-500 mt-4">
-            {t('termsAgreement')} {' '}
-            <Link href="/terms-of-service" className="text-[#FF7D00] text-sm hover:underline">
-              {t('termsOfService')}
-            </Link>
-            {' '} {t('and')} {' '}
-            <Link href="/privacy-policy" className="text-[#FF7D00] text-sm hover:underline">
-              {t('privacyPolicy')}
-            </Link>
-          </p>
+          <>
+            {isRegister ? (
+              <Link href="/login" className="text-[#FF7D00] text-sm hover:underline">
+                {t('alreadyHaveAccount')}
+              </Link>
+            ) : (
+              <>
+                <Link 
+                  href="/resend-verification-letter" 
+                  className="text-[#FF7D00] text-sm hover:underline"
+                >
+                  {t('verificationLetter')}
+                </Link>
+              </>
+            )}
+            <p className="text-sm text-gray-500 mt-4">
+              {t('termsAgreement')} {' '}
+              <Link href="/terms-of-service" className="text-[#FF7D00] text-sm hover:underline">
+                {t('termsOfService')}
+              </Link>
+              {' '} {t('and')} {' '}
+              <Link href="/privacy-policy" className="text-[#FF7D00] text-sm hover:underline">
+                {t('privacyPolicy')}
+              </Link>
+            </p>
+          </>
         </CardFooter>
       </Card>
     </div>
   );
-}
+} 

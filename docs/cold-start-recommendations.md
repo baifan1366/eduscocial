@@ -1,109 +1,116 @@
 # Cold-Start Recommendation System
 
-This document describes the cold-start recommendation system implementation for EduSocial, which helps new users discover relevant content on their first visit.
+本文档描述了EduSocial的冷启动推荐系统实现，该系统有助于新用户在首次访问时发现相关内容。
 
-## Overview
+## 概述
 
-The cold-start problem refers to the challenge of providing personalized recommendations to new users who have no prior interaction history with the platform. Our solution uses a combination of:
+冷启动问题是指为没有先前交互历史的新用户提供个性化推荐的挑战。我们的解决方案结合使用：
 
-1. Trending content recommendations for first-time users
-2. Interest selection dialog for new users to express preferences
-3. Redis caching for efficient content delivery
-4. Personalized recommendations once user interests are established
+1. 对首次访问用户提供热门内容推荐
+2. 为新用户提供兴趣选择对话框以表达偏好
+3. 使用Redis缓存提高内容传递效率
+4. 一旦用户兴趣确立，提供个性化推荐
 
-## Implementation Components
+## 实现组件
 
-### 1. Redis Utility Functions
+### 1. API路由
 
-Located in `lib/redis/redisUtils.js`, these functions handle:
+系统使用以下API路由进行推荐和兴趣管理：
 
-- Caching hot/trending posts (`cacheHotPosts`, `getHotPosts`)
-- Storing and retrieving trending tags (`cacheTrendingTags`, `getTrendingTags`)
-- Managing user interests (`storeUserInterests`, `getUserInterests`)
-- Checking if a user is new (`isNewUser`)
-- Caching personalized recommendations (`cachePersonalizedRecommendations`, `getPersonalizedRecommendations`)
+- `/api/recommend/trending` - 获取热门帖子
+- `/api/recommend/tags` - 获取热门标签
+- `/api/recommend/topics` - 获取主题分类
+- `/api/recommend/interests` - 保存用户兴趣
+- `/api/recommend/home` - 获取主页帖子（根据用户ID个性化）
+- `/api/recommend/check-new-user` - 检查用户是否为新用户
 
-### 2. Recommendation Logic
+### 2. Redis工具函数
 
-Located in `lib/recommend/coldStart.js`, these functions provide:
+位于`lib/redis/redisUtils.js`，这些函数处理：
 
-- `getTrendingPosts`: Fetches popular posts for new users
-- `getTrendingTags`: Retrieves popular tags for the interest selection dialog
-- `getTopicCategories`: Gets topic categories for the interest selection dialog
-- `saveUserInterests`: Persists user interests to both database and Redis
-- `getPersonalizedPosts`: Generates recommendations based on user interests
-- `getHomePagePosts`: Entry point that decides between trending and personalized content
+- 缓存热门/趋势帖子(`cacheHotPosts`, `getHotPosts`)
+- 存储和检索趋势标签(`cacheTrendingTags`, `getTrendingTags`)
+- 管理用户兴趣(`storeUserInterests`, `getUserInterests`)
+- 检查用户是否是新用户(`isNewUser`)
+- 缓存个性化推荐(`cachePersonalizedRecommendations`, `getPersonalizedRecommendations`)
 
-### 3. Interest Selection Dialog
+### 3. 评分逻辑
 
-Located in `components/onboarding/InterestSelectionDialog.jsx`, this component:
+位于`lib/recommend/scoring.js`，包含：
 
-- Presents a dialog for new users to select interests
-- Shows trending tags and topic categories
-- Handles saving user selections
+- `calculatePostScore`：基于用户兴趣计算帖子相关性
+- `calculateDiversityScore`：确保推荐多样性
+- `getRecommendationScore`：结合相关性和多样性的最终评分
 
-### 4. Home Page Implementation
+### 4. 兴趣选择对话框
 
-Located in `app/[locale]/page.js`, this component:
+位于`components/onboarding/InterestSelectionDialog.jsx`，此组件：
 
-- Detects new users and shows the interest selection dialog
-- Fetches and displays recommended posts
-- Refreshes content after interest selection
+- 为新用户呈现一个对话框选择兴趣
+- 显示热门标签和主题分类
+- 处理用户选择的保存
 
-## Database Schema Integration
+### 5. 主页实现
 
-The implementation leverages several tables from our schema:
+位于`app/[locale]/page.js`，此组件：
 
-- `posts`: Source of content for recommendations
-- `hashtags` and `post_hashtags`: For tag-based recommendations
-- `topics`: For categorizing content by topic
-- `user_interests`: For storing user preferences
-- `users`: For user identification and authentication
+- 通过API检测新用户并显示兴趣选择对话框
+- 获取并显示推荐帖子
+- 在兴趣选择后刷新内容
 
-## Redis Data Structure
+## 数据库模式集成
 
-The system uses the following Redis keys:
+该实现利用了我们模式中的多个表：
 
-- `hot_posts`: JSON string of trending posts (TTL: 1 hour)
-- `trending_tags`: JSON string of popular tags (TTL: 6 hours)
-- `user:{userId}:interests`: JSON string of user interests (persistent)
-- `user:{userId}:recommended_posts`: JSON string of personalized recommendations (TTL: 15 minutes)
-- `user:{userId}:session`: Hash containing session data (TTL: 24 hours)
+- `posts`：推荐内容的来源
+- `hashtags`和`post_hashtags`：用于基于标签的推荐
+- `topics`：按主题分类内容
+- `user_interests`：存储用户偏好
+- `users`：用户身份验证和识别
 
-## Cold-Start Algorithm
+## Redis数据结构
 
-1. For unauthenticated users:
-   - Show trending posts based on view count, likes, and recency
+系统使用以下Redis键：
 
-2. For new authenticated users:
-   - Show interest selection dialog on first login
-   - Initially show trending posts
-   - After interest selection, personalize recommendations
+- `hot_posts`：热门帖子的JSON字符串（TTL：1小时）
+- `trending_tags`：热门标签的JSON字符串（TTL：6小时）
+- `user:{userId}:interests`：用户兴趣的JSON字符串（持久）
+- `user:{userId}:recommended_posts`：个性化推荐的JSON字符串（TTL：15分钟）
+- `user:{userId}:session`：包含会话数据的哈希（TTL：24小时）
 
-3. For returning users:
-   - Check Redis cache for personalized recommendations
-   - If not found, generate recommendations based on interests
-   - Cache results for future requests
+## 冷启动算法
 
-## Performance Considerations
+1. 对于未认证用户：
+   - 显示基于浏览量、点赞数和时间的热门帖子
 
-- Redis caching reduces database load
-- Staggered cache expiration times for different data types
-- Background jobs can pre-generate recommendations for active users
-- Post scoring algorithm balances relevance and recency
+2. 对于新认证用户：
+   - 在首次登录时显示兴趣选择对话框
+   - 初始显示热门帖子
+   - 兴趣选择后，个性化推荐
 
-## Future Improvements
+3. 对于返回用户：
+   - 检查Redis缓存中的个性化推荐
+   - 如果未找到，则基于兴趣生成推荐
+   - 缓存结果以供将来请求使用
 
-- Implement collaborative filtering for more refined recommendations
-- Add content-based filtering using post embeddings
-- Incorporate user behavior analysis (click patterns, read time)
-- A/B testing for recommendation algorithms
-- Periodic retraining of recommendation models
+## 性能考虑
 
-## API Routes
+- Redis缓存减少数据库负载
+- 不同数据类型的分级缓存过期时间
+- 后台作业可以为活跃用户预生成推荐
+- 帖子评分算法平衡相关性和时效性
 
-For future API implementation:
+## 未来改进
 
-- `GET /api/recommendations` - Get personalized recommendations
-- `POST /api/interests` - Save user interests
-- `GET /api/trending` - Get trending content 
+- 实现协同过滤以获得更精确的推荐
+- 使用帖子嵌入向量添加基于内容的过滤
+- 纳入用户行为分析（点击模式、阅读时间）
+- 对推荐算法进行A/B测试
+- 定期重新训练推荐模型
+
+## 前后端分离
+
+- 所有推荐逻辑都在后端API路由中实现
+- 前端组件通过API请求获取数据
+- 服务器组件使用API路由获取初始数据
+- 客户端组件处理用户交互和状态更新 

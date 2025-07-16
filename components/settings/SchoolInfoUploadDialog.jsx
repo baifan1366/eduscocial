@@ -199,6 +199,7 @@ export default function SchoolInfoUploadDialog({ open, onOpenChange }) {
             Cancel
           </Button>
           <Button 
+            variant="orange"
             onClick={handleSubmit}
             disabled={isSubmitting}
           >

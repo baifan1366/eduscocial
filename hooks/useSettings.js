@@ -2,6 +2,7 @@
 
 import { useState, useEffect, createContext, useContext } from 'react';
 import { useSession } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 
 // Default settings
 const defaultSettings = {
@@ -63,6 +64,10 @@ export function SettingsProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const { data: session, status } = useSession();
   const isAuthenticated = !!session?.user;
+  const pathname = usePathname();
+  
+  // Get the locale from the pathname
+  const locale = pathname?.split('/')[1] || 'en';
 
   // Fetch settings when user is authenticated
   useEffect(() => {
@@ -74,7 +79,8 @@ export function SettingsProvider({ children }) {
       }
 
       try {
-        const response = await fetch('/api/users/settings');
+        // Use API route with locale prefix
+        const response = await fetch(`/api/users/settings`);
         
         if (!response.ok) {
           // If unauthorized or any other error, use default settings
@@ -109,7 +115,8 @@ export function SettingsProvider({ children }) {
     try {
       setLoading(true);
       
-      const response = await fetch('/api/users/settings', {
+      // Use API route with locale prefix
+      const response = await fetch(`/api/users/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,12 +125,27 @@ export function SettingsProvider({ children }) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update settings');
+        let errorMessage = 'Failed to update settings';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If we can't parse the error response, use the status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
-      setSettings(newSettings);
-      return { success: true };
+      // Parse the successful response
+      const result = await response.json();
+      
+      // Update local settings only if the server confirms success
+      if (result.success) {
+        setSettings(newSettings);
+        return { success: true };
+      } else {
+        throw new Error(result.message || 'Failed to update settings');
+      }
     } catch (error) {
       console.error('Error updating settings:', error);
       return { success: false, error: error.message };

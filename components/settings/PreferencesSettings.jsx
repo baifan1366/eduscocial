@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import useSettings from '@/hooks/useSettings';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 export default function PreferencesSettings() {
   const { settings, loading, updateSetting } = useSettings();
@@ -16,44 +17,86 @@ export default function PreferencesSettings() {
   // Handle theme change
   const handleThemeChange = async (value) => {
     setIsSaving(true);
-    await updateSetting('preferences.theme', value);
-    setIsSaving(false);
+    try {
+      const result = await updateSetting('preferences.theme', value);
+      if (result.success) {
+        toast.success('Theme updated successfully');
+      } else {
+        toast.error(result.error || 'Failed to update theme');
+      }
+    } catch (error) {
+      toast.error('Failed to update theme');
+      console.error('Theme update error:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   // Handle language change
   const handleLanguageChange = async (value) => {
     setIsSaving(true);
-    await updateSetting('preferences.language', value);
-    
-    // Redirect to the selected language path
-    const currentPath = window.location.pathname;
-    const pathWithoutLocale = currentPath.substring(currentPath.indexOf('/', 1) || currentPath.length);
-    router.push(`/${value}${pathWithoutLocale}`);
-    
-    setIsSaving(false);
+    try {
+      const result = await updateSetting('preferences.language', value);
+      if (result.success) {
+        toast.success('Language updated successfully');
+        
+        // Redirect to the selected language path
+        const currentPath = window.location.pathname;
+        const pathWithoutLocale = currentPath.substring(currentPath.indexOf('/', 1) || currentPath.length);
+        router.push(`/${value}${pathWithoutLocale}`);
+      } else {
+        toast.error(result.error || 'Failed to update language');
+      }
+    } catch (error) {
+      toast.error('Failed to update language');
+      console.error('Language update error:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   // Handle font size change
   const handleFontSizeChange = async (value) => {
     setIsSaving(true);
-    await updateSetting('preferences.fontSize', value);
-    setIsSaving(false);
-    
-    // Apply font size to document
-    document.documentElement.style.fontSize = getFontSizeValue(value);
+    try {
+      const result = await updateSetting('preferences.fontSize', value);
+      if (result.success) {
+        toast.success('Font size updated successfully');
+        // Apply font size to document
+        document.documentElement.style.fontSize = getFontSizeValue(value);
+      } else {
+        toast.error(result.error || 'Failed to update font size');
+      }
+    } catch (error) {
+      toast.error('Failed to update font size');
+      console.error('Font size update error:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   // Handle accessibility toggle
   const handleAccessibilityToggle = async (key, value) => {
     setIsSaving(true);
-    await updateSetting(`preferences.${key}`, value);
-    setIsSaving(false);
-    
-    // Apply accessibility settings
-    if (key === 'reducedMotion') {
-      document.documentElement.classList.toggle('reduce-motion', value);
-    } else if (key === 'highContrast') {
-      document.documentElement.classList.toggle('high-contrast', value);
+    try {
+      const result = await updateSetting(`preferences.${key}`, value);
+      if (result.success) {
+        toast.success('Setting updated successfully');
+        
+        // Apply accessibility settings
+        if (key === 'reducedMotion') {
+          document.documentElement.classList.toggle('reduce-motion', value);
+        } else if (key === 'highContrast') {
+          document.documentElement.classList.toggle('high-contrast', value);
+        }
+      } else {
+        toast.error(result.error || 'Failed to update setting');
+      }
+    } catch (error) {
+      toast.error('Failed to update setting');
+      console.error('Setting update error:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
   

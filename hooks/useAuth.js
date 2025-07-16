@@ -1,19 +1,10 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import { useSession, signOut as nextAuthSignOut, getSession } from 'next-auth/react';
+import { useSession, signOut as nextAuthSignOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
-// Create context with a default value to avoid undefined errors
-const AuthContext = createContext({
-  user: null,
-  loading: true,
-  isAuthenticated: false,
-  login: async () => ({ success: false, error: 'AuthContext not initialized' }),
-  logout: async () => ({ success: false, error: 'AuthContext not initialized' }),
-  register: async () => ({ success: false, error: 'AuthContext not initialized' }),
-  session: null
-});
+const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
@@ -21,20 +12,9 @@ export function AuthProvider({ children }) {
   const { data: session, status } = useSession();
   const isSessionLoading = status === "loading";
 
-  // Explicitly sync with NextAuth session
   useEffect(() => {
-    const syncSession = async () => {
-      try {
-        // Refresh session data
-        await getSession();
-        setLoading(isSessionLoading);
-      } catch (error) {
-        console.error("Failed to sync session:", error);
-        setLoading(false);
-      }
-    };
-
-    syncSession();
+    // We can rely on NextAuth session loading
+    setLoading(isSessionLoading);
   }, [isSessionLoading]);
 
   const login = async (email, password) => {
@@ -55,7 +35,6 @@ export function AuthProvider({ children }) {
       }
 
       // Refresh the session
-      await getSession();
       router.refresh();
       
       return { success: true, user: data.user };
@@ -69,7 +48,9 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     setLoading(true);
     try {
-      // First call our custom logout endpoint
+      await nextAuthSignOut({ redirect: false });
+      
+      // Also call our custom logout endpoint
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
       });
@@ -78,9 +59,6 @@ export function AuthProvider({ children }) {
         const data = await response.json();
         throw new Error(data.error || 'Logout failed');
       }
-      
-      // Then signout from NextAuth
-      await nextAuthSignOut({ redirect: false });
 
       router.push('/login');
       return { success: true };
@@ -130,12 +108,5 @@ export function AuthProvider({ children }) {
 }
 
 export default function useAuth() {
-  const context = useContext(AuthContext);
-  // Provide a useful console message in development if used outside provider
-  if (process.env.NODE_ENV !== 'production' && !context) {
-    console.warn(
-      'useAuth() was called outside of AuthProvider. Make sure your component is wrapped in AuthProvider.'
-    );
-  }
-  return context;
+  return useContext(AuthContext);
 } 

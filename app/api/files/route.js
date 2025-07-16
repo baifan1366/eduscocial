@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '../auth/[...nextauth]/route';
 import { supabase } from '@/lib/supabase';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';

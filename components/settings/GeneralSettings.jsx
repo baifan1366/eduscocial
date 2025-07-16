@@ -286,7 +286,7 @@ export default function GeneralSettings() {
             <Button 
               type="submit" 
               disabled={isSaving}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              variant="orange"
             >
               Add
             </Button>
@@ -351,7 +351,7 @@ export default function GeneralSettings() {
             <Button 
               type="submit" 
               disabled={isSaving || isLoadingBoards}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              variant="orange"
             >
               添加
             </Button>

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { isNewUser } from '@/lib/redis/redisUtils';
 import InterestSelectionDialog from '@/components/onboarding/InterestSelectionDialog';
 
 export default function NewUserInterestCheck() {
@@ -12,27 +11,20 @@ export default function NewUserInterestCheck() {
   useEffect(() => {
     const checkIfNewUser = async () => {
       if (status === 'authenticated' && session?.user?.id) {
-        // Check if we're coming back from a refresh after closing the dialog
-        const searchParams = new URLSearchParams(window.location.search);
-        const refreshParam = searchParams.get('refresh');
-        
-        // If we have a refresh parameter, don't show the dialog again
-        if (refreshParam) {
-          return;
-        }
-        
         try {
-          const userIsNew = await isNewUser(session.user.id);
+          // 使用API路由检查是否为新用户
+          const response = await fetch('/api/recommend/check-new-user');
           
-          // Show interest selection dialog for new users
-          // Only show dialog if we got a definitive "true" response
-          if (userIsNew === true) {
-            setShowInterestDialog(true);
+          if (response.ok) {
+            const data = await response.json();
+            
+            // 为新用户显示兴趣选择对话框
+            if (data.isNewUser) {
+              setShowInterestDialog(true);
+            }
           }
         } catch (error) {
           console.error('Error checking user status:', error);
-          // Don't show dialog if there was an error checking user status
-          setShowInterestDialog(false);
         }
       }
     };
@@ -42,7 +34,7 @@ export default function NewUserInterestCheck() {
   
   const handleCloseInterestDialog = () => {
     setShowInterestDialog(false);
-    // Refresh the page to get personalized recommendations
+    // 刷新页面以获取个性化推荐
     window.location.href = window.location.pathname + '?refresh=' + Date.now();
   };
 

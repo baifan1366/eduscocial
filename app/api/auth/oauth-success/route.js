@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -10,18 +10,10 @@ export async function GET(request) {
   try {
     // Get the current session
     const session = await getServerSession(authOptions);
-    const url = new URL(request.url);
-    const callbackUrl = url.searchParams.get('callbackUrl');
-    
-    console.log('OAuth success - Session exists:', !!session);
-    console.log('OAuth success - Callback URL:', callbackUrl);
-    
-    // Get locale from URL path or default to 'en'
-    const locale = url.pathname.split('/')[1] || 'en';
+    const callbackUrl = request.nextUrl.searchParams.get('callbackUrl');
     
     if (!session?.user) {
-      console.log('OAuth success - No session user, redirecting to login');
-      return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+      return NextResponse.redirect(new URL('/login', request.url));
     }
     
     const { id, name, email, image } = session.user;
@@ -85,22 +77,10 @@ export async function GET(request) {
         });
     }
     
-    // Handle redirect
-    if (callbackUrl) {
-      // Simple validation to prevent open redirect
-      if (callbackUrl.startsWith('/') || callbackUrl.startsWith(url.origin)) {
-        console.log('OAuth success - Redirecting to callback URL:', callbackUrl);
-        return NextResponse.redirect(new URL(callbackUrl, request.url));
-      }
-    }
-    
-    // Default to homepage with locale
-    console.log('OAuth success - Redirecting to homepage with locale:', `/${locale}`);
-    return NextResponse.redirect(new URL(`/${locale}`, request.url));
-    
+    // Redirect to callback URL or homepage
+    return NextResponse.redirect(new URL(callbackUrl || '/', request.url));
   } catch (error) {
     console.error('OAuth success handler error:', error);
-    const locale = new URL(request.url).pathname.split('/')[1] || 'en';
-    return NextResponse.redirect(new URL(`/${locale}/login?error=oauth`, request.url));
+    return NextResponse.redirect(new URL('/login?error=oauth', request.url));
   }
 } 

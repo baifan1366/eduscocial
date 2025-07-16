@@ -269,19 +269,20 @@ FOR EACH ROW
 EXECUTE FUNCTION set_matched_date();
 
 -- Function to trigger cache invalidation
-CREATE OR REPLACE FUNCTION trigger_cache_invalidation()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO cache_invalidation_queue (object_type, object_id, operation)
-    VALUES (TG_TABLE_NAME, NEW.id, TG_OP);
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- LATEST: drop by wx already
+-- CREATE OR REPLACE FUNCTION trigger_cache_invalidation()
+-- RETURNS TRIGGER AS $$
+-- BEGIN
+--     INSERT INTO cache_invalidation_queue (object_type, object_id, operation)
+--     VALUES (TG_TABLE_NAME, NEW.id, TG_OP);
+--     RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
 -- Apply the trigger to relevant tables
-CREATE TRIGGER cache_invalidation_posts AFTER INSERT OR UPDATE OR DELETE ON posts FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
-CREATE TRIGGER cache_invalidation_comments AFTER INSERT OR UPDATE OR DELETE ON comments FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
-CREATE TRIGGER cache_invalidation_boards AFTER INSERT OR UPDATE OR DELETE ON boards FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
+-- CREATE TRIGGER cache_invalidation_posts AFTER INSERT OR UPDATE OR DELETE ON posts FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
+-- CREATE TRIGGER cache_invalidation_comments AFTER INSERT OR UPDATE OR DELETE ON comments FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
+-- CREATE TRIGGER cache_invalidation_boards AFTER INSERT OR UPDATE OR DELETE ON boards FOR EACH ROW EXECUTE FUNCTION trigger_cache_invalidation();
 
 -- Content Versioning Trigger
 CREATE OR REPLACE FUNCTION track_content_versions()
@@ -345,3 +346,42 @@ CREATE TRIGGER assign_anonymous_avatar_to_message
 BEFORE INSERT ON messages 
 FOR EACH ROW
 EXECUTE FUNCTION assign_message_anonymous_avatar();
+
+CREATE OR REPLACE FUNCTION update_notifications_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for updated_at
+DROP TRIGGER IF EXISTS trigger_notifications_updated_at ON notifications;
+CREATE TRIGGER trigger_notifications_updated_at
+    BEFORE UPDATE ON notifications
+    FOR EACH ROW
+    EXECUTE FUNCTION update_notifications_updated_at();
+
+-- Enable Row Level Security
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies
+DROP POLICY IF EXISTS "Users can view their own notifications" ON notifications;
+CREATE POLICY "Users can view their own notifications" ON notifications
+    FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own notifications" ON notifications;
+CREATE POLICY "Users can update their own notifications" ON notifications
+    FOR UPDATE USING (auth.uid() = user_id);
+
+-- Create function to get unread count
+CREATE OR REPLACE FUNCTION get_unread_notifications_count(target_user_id UUID)
+RETURNS INTEGER AS $$
+BEGIN
+    RETURN (
+        SELECT COUNT(*)::INTEGER
+        FROM notifications
+        WHERE user_id = target_user_id AND read = FALSE
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

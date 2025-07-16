@@ -3,9 +3,8 @@
 import { useState, useEffect } from 'react';
 import AuthProvider from '../auth/AuthProvider';
 import AdminAuthProvider from '../admin/login/AdminAuthProvider';
-import { NextIntlClientProvider } from 'next-intl';
 
-export default function ClientProviders({ children, locale, messages }) {
+export default function ClientProviders({ children }) {
   const [isClient, setIsClient] = useState(false);
   
   // 确保客户端水合完成后再渲染
@@ -15,13 +14,11 @@ export default function ClientProviders({ children, locale, messages }) {
   
   // 页面内容包装器，解决水合不匹配问题
   const content = (
-    <NextIntlClientProvider locale={locale} messages={messages} timeZone="UTC">
-      <AuthProvider>
-        <AdminAuthProvider>
-          {children}
-        </AdminAuthProvider>
-      </AuthProvider>
-    </NextIntlClientProvider>
+    <AuthProvider>
+      <AdminAuthProvider>
+        {children}
+      </AdminAuthProvider>
+    </AuthProvider>
   );
   
   // 在服务器端渲染基本结构，在客户端完成水合后渲染完整内容

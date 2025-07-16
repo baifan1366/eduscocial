@@ -89,6 +89,7 @@ export default function SecuritySettings() {
                   {t('cancel')}
                 </Button>
                 <Button
+                  variant="orange"
                   onClick={() => {
                     // Here we would normally redirect to a 2FA setup page
                     // For now, we'll just simulate enabling 2FA

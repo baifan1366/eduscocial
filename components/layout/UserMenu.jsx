@@ -1,6 +1,5 @@
 'use client';
 
-
 import { Popover, Transition } from '@headlessui/react';
 import { useRouter } from 'next/navigation';
 import { Fragment } from 'react';
@@ -36,7 +35,7 @@ export default function UserMenu({ onLogout }) {
       router.push(`${baseUrl}/login?callbackUrl=${callbackUrl}`);
     }
   };
-  
+
   // Handle logout
   const handleLogout = async () => {
     if (onLogout) {
@@ -59,13 +58,13 @@ export default function UserMenu({ onLogout }) {
     <Popover className="relative">
       {({ open }) => (
         <>
-          <Popover.Button 
+          <Popover.Button
             className="flex items-center gap-2 outline-none focus:outline-none"
             aria-label="User menu"
           >
             <div className="flex items-center gap-2">
-              <ChevronDown 
-                className={`w-4 h-4 text-white transition-transform ${open ? 'transform rotate-180' : ''}`} 
+              <ChevronDown
+                className={`w-4 h-4 text-white transition-transform ${open ? 'transform rotate-180' : ''}`}
               />
             </div>
           </Popover.Button>
@@ -81,13 +80,13 @@ export default function UserMenu({ onLogout }) {
           >
             <Popover.Panel className="absolute right-0 mt-2 w-80 bg-[#132F4C] shadow-md rounded-lg p-4 z-50">
               <nav className="flex flex-col space-y-1">
-                <Link href="/terms-of-service" className="px-4 py-2 hover:bg-[#1E4976] text-white">服务条款</Link>
-                <Link href="/help-center" className="px-4 py-2 hover:bg-[#1E4976] text-white">帮助中心</Link>
-                <Link href="/contact-us" className="px-4 py-2 hover:bg-[#1E4976] text-white">联系我们</Link>
-                <Link href="/careers" className="px-4 py-2 hover:bg-[#1E4976] text-white">征才</Link>
-                <Link href="/download-app" className="px-4 py-2 hover:bg-[#1E4976] text-white">免费下载 App</Link>
-                <button onClick={() => handleNavigate(`${baseUrl}/?settings=true`)} className="px-4 py-2 hover:bg-[#1E4976] text-white text-left">设置</button>
-                <button onClick={handleLogout} className="px-4 py-2 hover:bg-[#1E4976] text-white text-left">登出</button>
+                <Link href="/terms-of-service" className="px-4 py-2 hover:bg-[#1E4976] text-white">{t('termsOfService')}</Link>
+                <Link href="/help-center" className="px-4 py-2 hover:bg-[#1E4976] text-white">{t('helpCenter')}</Link>
+                <Link href="/contact-us" className="px-4 py-2 hover:bg-[#1E4976] text-white">{t('contactUs')}</Link>
+                <Link href="/careers" className="px-4 py-2 hover:bg-[#1E4976] text-white">{t('careers')}</Link>
+                <Link href="/download-app" className="px-4 py-2 hover:bg-[#1E4976] text-white">{t('downloadApp')}</Link>
+                <button onClick={() => handleNavigate(`${baseUrl}/my?settings=true&tab=general`)} className="px-4 py-2 hover:bg-[#1E4976] text-white text-left">{t('settings')}</button>
+                <button onClick={handleLogout} className="px-4 py-2 hover:bg-[#1E4976] text-white text-left">{t('logout')}</button>
               </nav>
             </Popover.Panel>
           </Transition>
