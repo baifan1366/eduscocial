@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { getTrendingTags, getTopicCategories, saveUserInterests } from '@/lib/recommend/coldStart';
 import useAuth from '@/hooks/useAuth';
 
 const InterestSelectionDialog = ({ isOpen, onClose }) => {
@@ -20,13 +19,20 @@ const InterestSelectionDialog = ({ isOpen, onClose }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [topicsData, tagsData] = await Promise.all([
-          getTopicCategories(),
-          getTrendingTags(30) // Get top 30 tags
+        const [topicsResponse, tagsResponse] = await Promise.all([
+          fetch('/api/recommend/topics'),
+          fetch('/api/recommend/tags?limit=30') // 获取前30个标签
         ]);
         
-        setTopics(topicsData);
-        setTags(tagsData);
+        if (topicsResponse.ok && tagsResponse.ok) {
+          const topicsData = await topicsResponse.json();
+          const tagsData = await tagsResponse.json();
+          
+          setTopics(topicsData.topics || []);
+          setTags(tagsData.tags || []);
+        } else {
+          console.error('Failed to fetch topics or tags');
+        }
       } catch (error) {
         console.error('Error fetching topics and tags:', error);
       } finally {
@@ -60,7 +66,23 @@ const InterestSelectionDialog = ({ isOpen, onClose }) => {
     
     try {
       setSaving(true);
-      await saveUserInterests(user.id, selectedTopics, selectedTags);
+      
+      // 使用API保存用户兴趣
+      const response = await fetch('/api/recommend/interests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          selectedTopics,
+          selectedTags
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save interests');
+      }
+      
       onClose();
     } catch (error) {
       console.error('Error saving interests:', error);
