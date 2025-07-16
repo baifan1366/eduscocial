@@ -2,18 +2,43 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../ui/dialog';
 import { Input } from '../../ui/input';
+import { Textarea } from '../../ui/textarea';
+import { Icon } from '@iconify/react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
+import { Checkbox } from '../../ui/checkbox';
 import { Button } from '../../ui/button';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '../../ui/form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
+import { ChevronDown, PaintBucket } from 'lucide-react';
+import { SketchPicker } from 'react-color'
+import PreviewBoard from './PreviewBoard';
 
 export default function CreateBoardDialog({ children }) {
     const [openDialog, setOpenDialog] = useState(false);
+    const [showColorPicker, setShowColorPicker] = useState(false);
     const t = useTranslations('Board');
+
+    //set slug url bsed on board name
+    //replace the empty space to -
+    //make it lowercase
+    //make it 20 characters max
+    //update on typing
+    const setSlug = (boardName) => {
+        return boardName.toLowerCase().replace(/[^a-z0-9-]/g, '').substring(0, 20);
+    }
+
+    const allIcons = [
+    'mdi:account', 'mdi:school', 'mdi:food', 'mdi:gamepad-variant', 'mdi:music', 'mdi:movie-open', 
+    'mdi:palette', 'mdi:briefcase-outline', 'mdi:robot-outline', 'mdi:book-open-page-variant', 'mdi:leaf', 'mdi:dog', 
+    'mdi:airplane', 'mdi:basketball', 'mdi:comment-question-outline', 'mdi:hand-heart', 'mdi:star-outline', 'mdi:emoji-happy', 
+    'mdi:compass-outline', 'mdi:alarm'
+    ];
 
     const form = useForm({
         resolver: zodResolver(
@@ -21,18 +46,60 @@ export default function CreateBoardDialog({ children }) {
                 boardName: z.string({
                     required_error: t('boardNameRequired'),
                     invalid_type_error: t('boardNameInvalidType'),
-                }).min(1, {message: t('boardNameRequired')}).max(50, {message: t('boardNameMaxLength')}),
+                }).min(1, {message: t('boardNameRequired')}).max(20, {message: t('boardNameMaxLength')}),
+                slug: z.string({ //only lowercase and dash accepted
+                    required_error: t('slugRequired'),
+                    invalid_type_error: t('slugInvalidType'),
+                    pattern: /^[a-z0-9-]+$/,
+                    message: t('slugInvalidFormat'),
+                }).min(1, {message: t('slugRequired')}).max(20, {message: t('slugMaxLength')}),
+                description: z.string({
+                    required_error: t('descriptionRequired'),
+                    invalid_type_error: t('descriptionInvalidType'),
+                }).max(100, {message: t('descriptionMaxLength')}),
+                color: z.string({
+                    required_error: t('colorRequired'),
+                    invalid_type_error: t('colorInvalidType'),
+                }).max(20, {message: t('colorMaxLength')}),
+                categoryIcon: z.string({
+                    required_error: t('categoryIconRequired'),
+                    invalid_type_error: t('categoryIconInvalidType'),
+                }).max(20, {message: t('categoryIconMaxLength')}),
+                visibility: z.enum(['public', 'private'], {
+                    required_error: t('visibilityRequired'),
+                    invalid_type_error: t('visibilityInvalidType'),
+                }),
+                anonymousPost: z.boolean({
+                    required_error: t('anonymousPostRequired'),
+                    invalid_type_error: t('anonymousPostInvalidType'),
+                })
             })
         ),
         defaultValues: {
             boardName: '',
-        }
+            slug: '',
+            description: '',
+            color: '#000000',
+            categoryIcon: 'mdi:emoji-happy',
+            visibility: 'private',   
+            anonymousPost: false,
+        },  
     });
 
     //reset form
     useEffect(() => {
-        form.reset();
-    }, [openDialog]);
+        if (openDialog) {
+            form.reset({
+                boardName: '',
+                slug: '',
+                description: '',
+                color: '#000000',
+                categoryIcon: 'mdi:emoji-happy',
+                visibility: 'private',   
+                anonymousPost: false,
+            });
+        }
+    }, [openDialog, form]);
 
     const onSubmit = (data) => {
         console.log(data);
@@ -53,62 +120,251 @@ export default function CreateBoardDialog({ children }) {
             )}
             
             <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-                <DialogContent className="max-w-md text-muted-foreground">
+                <DialogContent className="text-muted-foreground overflow-y-auto space-y-4 min-w-100">
                     <DialogHeader>
                         <DialogTitle>{t('createBoardTitle')}</DialogTitle>
                         <DialogDescription>{t('createBoardDescription')}</DialogDescription>
                     </DialogHeader>
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)}>
+                    <Form {...form} className="space-y-4">
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* LEFT 1st Row: Board Name */}
+                            <div>
                             <FormField
                                 control={form.control}
                                 name="boardName"
                                 render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{t('boardName')} <span className="text-red-500">*</span></FormLabel>
+                                    <FormControl>
+                                    <Input 
+                                        id="boardName" 
+                                        {...field}
+                                        className="w-full"
+                                        autoFocus
+                                        placeholder={t('boardNamePlaceholder')}
+                                        maxLength={20}
+                                        onChange={(e) => {
+                                            field.onChange(e);
+                                            // 当输入板块名称时自动更新 slug
+                                            const newSlug = setSlug(e.target.value);
+                                            form.setValue('slug', newSlug);
+                                        }}
+                                    />
+                                    </FormControl>
+                                    <div className="flex justify-between mt-1">
+                                        <FormMessage className="text-red-500 text-sm" /> 
+                                        <span />
+                                        <span className="text-muted-foreground text-sm">
+                                            {field.value?.trim().length || 0}/20
+                                        </span>
+                                    </div>
+                                </FormItem>
+                                )}
+                            />
+                            </div>
+                            {/* RIGHT 2nd Row: Color, Icon, Visibility */}
+                            <div className="space-y-4">
+                                <div className="flex flex-row gap-4">
+                                    {/* Color */}
+                                    <div className="w-20">
+                                        <FormField
+                                            control={form.control}
+                                            name="color"
+                                            render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{t('color')} <span className="text-red-500">*</span></FormLabel>
+                                                <FormControl>
+                                                    <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
+                                                        <PopoverTrigger asChild>
+                                                            <Button variant="outline" className="w-full flex justify-center" style={{
+                                                                backgroundColor: field.value,
+                                                            }}>
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0 border-none">
+                                                            <SketchPicker 
+                                                                color={field.value}
+                                                                onChange={(color) => {
+                                                                    field.onChange(color.hex);
+                                                                }}
+                                                                onChangeComplete={(color) => {
+                                                                    field.onChange(color.hex);
+                                                                    setShowColorPicker(false);
+                                                                }}
+                                                            />
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </FormControl>
+                                                <FormMessage className="text-red-500 text-sm mt-1" />
+                                            </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    {/* Category Icon */}
+                                    <div className="w-28">
+                                        <FormField
+                                            control={form.control}
+                                            name="categoryIcon"
+                                            render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{t('categoryIcon')} <span className="text-red-500">*</span></FormLabel>
+                                                <FormControl>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="outline">
+                                                            {field.value && <Icon icon={field.value} className="text-xl mr-1" />}
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent>
+                                                    {allIcons.map((iconName) => (
+                                                        <DropdownMenuItem key={iconName} onClick={() => field.onChange(iconName)}>
+                                                            <Icon icon={iconName} className="text-xl" />
+                                                            <span className="text-sm">{iconName.split(':')[1]}</span>
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            {/* LEFT 2nd Row: Description */}
+                            <div>
+                            <FormField
+                                control={form.control}
+                                name="description"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{t('description')}</FormLabel>
+                                    <FormControl>
+                                    <Textarea
+                                        id="description"
+                                        {...field}
+                                        className="w-full"
+                                        placeholder={t('enterDescription')}
+                                        maxLength={100}
+                                    />
+                                    </FormControl>
+                                    <div className="flex justify-between mt-1">
+                                    <FormMessage className="text-red-500 text-sm" />
+                                    <span />
+                                    <span className="text-muted-foreground text-sm">
+                                        {field.value?.trim().length || 0}/100
+                                    </span>
+                                    </div>
+                                </FormItem>
+                                )}
+                            />
+                            </div>
+                            {/* RIGHT 1st Row: Slug */}
+                            <div>
+                                <FormField
+                                    control={form.control}
+                                    name="slug"
+                                    render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>{t('boardName')} <span className="text-red-500">*</span></FormLabel>
+                                        <FormLabel>{t('slugOrUrl')} <span className="text-red-500">*</span></FormLabel>
                                         <FormControl>
-                                            <Input 
-                                                id="boardName" 
-                                                {...field}
-                                                className="w-full"
-                                                autoFocus
-                                                placeholder={t('boardNamePlaceholder')}
-                                                maxLength={50}
-                                            />
+                                        <Input
+                                            id="slug"
+                                            {...field}
+                                            className="w-full"
+                                            placeholder={t('enterSlug')}
+                                            maxLength={20}
+                                            onChange={(e) => {
+                                                const newSlug = setSlug(e.target.value);
+                                                field.onChange(newSlug);
+                                            }} 
+                                        />
                                         </FormControl>
                                         <div className="flex justify-between mt-1">
                                             <FormMessage className="text-red-500 text-sm" />
-                                            <span/>
-                                            <span className="text-muted-foreground text-sm"> 
-                                                {field.value?.trim().length || 0}/50
+                                            <span />
+                                            <span className="text-muted-foreground text-sm">
+                                                {field.value?.trim().length || 0}/20
                                             </span>
                                         </div>
                                     </FormItem>
-                                )}
-                            />
+                                    )}
+                                />
+                            </div>
+                            {/* Visibility: if tick means public, else private */}
+                            <div className="md:col-span-2">
+                                <FormField
+                                    control={form.control}
+                                    name="visibility"
+                                    render={({ field }) => (
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                        <FormControl>
+                                        <Checkbox
+                                            checked={field.value === 'public'}
+                                            onCheckedChange={(checked) => {
+                                                field.onChange(checked ? 'public' : 'private');
+                                            }}
+                                        />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                            <FormDescription>
+                                                {t('enableVisibilityPublicDescription')}
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </div>
+                                    </FormItem>
+                                    )}
+                                />
+                            </div>
+                            {/* Bottom: Anonymous Post (full width) */}
+                            <div className="md:col-span-2">
+                                <FormField
+                                    control={form.control}
+                                    name="anonymousPost"
+                                    render={({ field }) => (
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                        <FormControl>
+                                        <Checkbox
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                        />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                            <FormDescription>
+                                                {t('enableAnonymousPostDescription')}
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </div>
+                                    </FormItem>
+                                    )}
+                                />
+                            </div>
                         </form>
                     </Form>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>
-                            {t('cancel')}
-                        </Button>
-                        <Button type="submit" variant="orange" onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
-                            {t('createBoardButton')}
-                        </Button>
+                        <div className="flex justify-between w-full">
+                            <PreviewBoard 
+                                boardData={() => form.getValues()}
+                                trigger={
+                                    <Button type="button" variant="orange">
+                                        {t('previewBoard')}
+                                    </Button>
+                                }
+                            />
+                            <div className="flex flex-row gap-2">
+                                <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>
+                                    {t('cancel')}
+                                </Button>
+                                <Button type="submit" variant="orange" onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
+                                    {t('createBoardButton')}
+                                </Button>
+                            </div>
+                        </div>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>
     );
 }
-
-// Key Fields for a "Create Forum" Dialog
-// Field	Type	Purpose
-// Forum Name	Text Input	Display name (e.g., "感情")
-// Slug / URL	Text Input	Used in the URL (e.g., love)
-// Description	Textarea	Short intro or purpose
-// Category Icon	Optional (select/upload)	Emoji/icon
-// Visibility	Select (public / private / hidden)	Controls who can see it
-// Allow Anonymous Posts?	Toggle	Dcard-style setting
-// Enable Moderation?	Toggle	Flag/report system
-// Create Button	Button	Trigger form submission
