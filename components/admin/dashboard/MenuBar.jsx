@@ -19,8 +19,11 @@ export default function MenuBar() {
     const locale = useLocale();
     const isDashboard = pathname === `/${locale}/admin/dashboard`; 
     const isBoards = pathname === `/${locale}/admin/boards`;
+    const shouldShowMenuBar = !pathname.includes("/admin/login") && !pathname.includes("/admin/forgot-password");
     const t = useTranslations('AdminDashboard');
     const router = useRouter();
+
+    if (!shouldShowMenuBar) return null;
 
     return (
         <Menubar className="bg-transparent rounded-none border-none mt-2">

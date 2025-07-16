@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getTrendingTags, getTopicCategories, saveUserInterests } from '@/lib/recommend/coldStart';
-import { useAuth } from '@/hooks/useAuth';
+import useAuth from '@/hooks/useAuth';
 
 const InterestSelectionDialog = ({ isOpen, onClose }) => {
   const { user } = useAuth();

@@ -1,6 +1,6 @@
 import { getHomePagePosts } from '@/lib/recommend/coldStart';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import PostsList from '@/components/home/PostsList';
 import Sidebar from '@/components/home/Sidebar';
 import NewUserInterestCheck from '@/components/home/NewUserInterestCheck';
