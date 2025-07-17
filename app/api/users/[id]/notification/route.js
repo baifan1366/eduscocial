@@ -1,270 +1,180 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../auth/[...nextauth]/route';
 import { supabase } from '@/lib/supabase';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import redis from '@/lib/redis/redis';
 
-// GET handler to retrieve user notifications
+// 获取用户通知
 export async function GET(request, { params }) {
   try {
     const session = await getServerSession(authOptions);
-    const { id: userId } = params;
-
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user can access these notifications (own notifications only)
-    if (session.user.id !== userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const { id } = await params;
+    
+    // 验证用户只能访问自己的通知
+    if (session.user.id !== id) {
+      return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const unreadOnly = searchParams.get('unread') === 'true';
-    const type = searchParams.get('type'); // 'like', 'comment', 'follow', etc.
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page')) || 1;
+    const limit = parseInt(url.searchParams.get('limit')) || 20;
+    const unreadOnly = url.searchParams.get('unread') === 'true';
+    const type = url.searchParams.get('type');
+
+    // 计算分页偏移量
     const offset = (page - 1) * limit;
 
-    // Build query
+    // 构建查询
     let query = supabase
       .from('notifications')
-      .select(`
-        id,
-        type,
-        title,
-        content,
-        data,
-        post_id,
-        comment_id,
-        triggered_by,
-        is_read,
-        created_at,
-        updated_at,
-        triggered_by_user:users!notifications_triggered_by_fkey(
-          id,
-          display_name,
-          username,
-          avatar_url
-        )
-      `)
-      .eq('user_id', userId)
+      .select('*', { count: 'exact' })
+      .eq('user_id', id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
+    // 应用过滤条件
     if (unreadOnly) {
-      query = query.eq('read', false);
+      query = query.eq('is_read', false);
     }
 
     if (type) {
       query = query.eq('type', type);
     }
 
-    const { data: notifications, error } = await query;
+    // 执行查询
+    const { data: notifications, count, error } = await query;
 
     if (error) {
-      console.error('Error fetching notifications:', error);
-      return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
+      console.error('error:', error);
+      return NextResponse.json({ error: 'Get notifications failed' }, { status: 500 });
     }
 
-    // Get unread count from Redis cache or database
-    let unreadCount = 0;
-    try {
-      const cachedCount = await redis.get(`user:${userId}:unread_count`);
-      if (cachedCount !== null) {
-        unreadCount = parseInt(cachedCount);
-      } else {
-        // Fallback to database count
-        const { data: countData, error: countError } = await supabase
-          .rpc('get_unread_notifications_count', { target_user_id: userId });
-        
-        if (!countError && countData !== null) {
-          unreadCount = countData;
-          // Cache the count for 5 minutes
-          await redis.setex(`user:${userId}:unread_count`, 300, unreadCount);
-        }
-      }
-    } catch (redisError) {
-      console.error('Redis error:', redisError);
-      // Fallback to database count
-      const { data: countData } = await supabase
-        .rpc('get_unread_notifications_count', { target_user_id: userId });
-      unreadCount = countData || 0;
+    // 获取未读通知数量
+    const { count: unreadCount, error: unreadError } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact' })
+      .eq('user_id', id)
+      .eq('is_read', false);
+
+    if (unreadError) {
+      console.error('error:', unreadError);
+      return NextResponse.json({ error: 'Get unread notifications count failed' }, { status: 500 });
     }
 
     return NextResponse.json({
       notifications,
+      totalCount: count,
       unreadCount,
-      pagination: {
-        page,
-        limit,
-        hasMore: notifications.length === limit
-      }
+      page,
+      limit
     });
   } catch (error) {
-    console.error('Unexpected error in notifications GET:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('error:', error);
+    return NextResponse.json({ error: 'Get notifications failed' }, { status: 500 });
   }
 }
 
-// POST handler to create a new notification
-export async function POST(request, { params }) {
-  try {
-    const session = await getServerSession(authOptions);
-    const { id: userId } = params;
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { type, title, message, data = {}, post_id, comment_id, triggered_by } = body;
-
-    // Validate required fields
-    if (!type || !title || !message) {
-      return NextResponse.json({ 
-        error: 'type, title, and message are required' 
-      }, { status: 400 });
-    }
-
-    // Validate notification type
-    const validTypes = ['like', 'comment', 'reply', 'follow', 'mention', 'system'];
-    if (!validTypes.includes(type)) {
-      return NextResponse.json({ 
-        error: 'Invalid notification type' 
-      }, { status: 400 });
-    }
-
-    // Create notification
-    const { data: notification, error } = await supabase
-      .from('notifications')
-      .insert({
-        user_id: userId,
-        type,
-        title,
-        content,
-        data,
-        post_id,
-        comment_id,
-        triggered_by: triggered_by || session.user.id,
-        read: false
-      })
-      .select(`
-        id,
-        type,
-        title,
-        content,
-        data,
-        post_id,
-        comment_id,
-        triggered_by,
-        is_read,
-        created_at,
-        updated_at,
-        triggered_by_user:users!notifications_triggered_by_fkey(
-          id,
-          display_name,
-          username,
-          avatar_url
-        )
-      `)
-      .single();
-
-    if (error) {
-      console.error('Error creating notification:', error);
-      return NextResponse.json({ error: 'Failed to create notification' }, { status: 500 });
-    }
-
-    // Update unread count in Redis
-    try {
-      const newCount = await redis.incr(`user:${userId}:unread_count`);
-      await redis.expire(`user:${userId}:unread_count`, 300); // 5 minutes TTL
-
-      // Publish to Redis PubSub for real-time updates
-      await redis.publish(`notifications:${userId}`, JSON.stringify({
-        type: 'new_notification',
-        notification,
-        unreadCount: newCount
-      }));
-    } catch (redisError) {
-      console.error('Redis error updating unread count:', redisError);
-    }
-
-    return NextResponse.json({
-      success: true,
-      notification
-    });
-  } catch (error) {
-    console.error('Unexpected error in notifications POST:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-// PATCH handler to mark notifications as read
+// 标记通知为已读
 export async function PATCH(request, { params }) {
   try {
     const session = await getServerSession(authOptions);
-    const { id: userId } = params;
-
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user can modify these notifications (own notifications only)
-    if (session.user.id !== userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const { id } = params;
+    
+    // 验证用户只能修改自己的通知
+    if (session.user.id !== id) {
+      return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
     }
 
     const body = await request.json();
-    const { notification_ids, mark_all_read = false } = body;
+    const { notification_ids, mark_all_read } = body;
 
-    let query = supabase
-      .from('notifications')
-      .update({ read: true, updated_at: new Date().toISOString() })
-      .eq('user_id', userId)
-      .eq('read', false);
+    let result;
 
-    if (!mark_all_read && notification_ids && notification_ids.length > 0) {
-      query = query.in('id', notification_ids);
+    if (mark_all_read) {
+      // 标记所有通知为已读
+      const { data, error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', id)
+        .select();
+
+      if (error) {
+        console.error('error:', error);
+        return NextResponse.json({ error: 'Mark all notifications as read failed' }, { status: 500 });
+      }
+
+      result = data;
+    } else if (notification_ids && notification_ids.length > 0) {
+      // 标记指定通知为已读
+      const { data, error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', id)
+        .in('id', notification_ids)
+        .select();
+
+      if (error) {
+        console.error('error:', error);
+        return NextResponse.json({ error: 'Mark notifications as read failed' }, { status: 500 });
+      }
+
+      result = data;
+    } else {
+      return NextResponse.json({ error: 'Invalid request parameters' }, { status: 400 });
     }
 
-    const { data, error } = await query.select('id');
+    return NextResponse.json({ success: true, updated: result });
+  } catch (error) {
+    console.error('error:', error);
+    return NextResponse.json({ error: 'Mark notifications as read failed' }, { status: 500 });
+  }
+}
+
+// 为用户创建通知
+export async function POST(request, { params }) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = params;
+    const body = await request.json();
+    
+    // 仅管理员或系统可以为其他用户创建通知
+    if (session.user.id !== id && session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
+    }
+    
+    // 添加用户ID到通知数据
+    const notificationData = {
+      ...body,
+      user_id: id,
+      is_read: false,
+      created_at: new Date().toISOString()
+    };
+
+    // 创建通知
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert(notificationData)
+      .select();
 
     if (error) {
-      console.error('Error marking notifications as read:', error);
-      return NextResponse.json({ error: 'Failed to mark notifications as read' }, { status: 500 });
+      console.error('error:', error);
+      return NextResponse.json({ error: 'Create notification failed' }, { status: 500 });
     }
 
-    const updatedCount = data?.length || 0;
-
-    // Update unread count in Redis
-    try {
-      if (mark_all_read) {
-        await redis.set(`user:${userId}:unread_count`, 0);
-      } else if (updatedCount > 0) {
-        const currentCount = await redis.get(`user:${userId}:unread_count`) || 0;
-        const newCount = Math.max(0, parseInt(currentCount) - updatedCount);
-        await redis.set(`user:${userId}:unread_count`, newCount);
-      }
-      await redis.expire(`user:${userId}:unread_count`, 300);
-
-      // Publish to Redis PubSub for real-time updates
-      const finalCount = await redis.get(`user:${userId}:unread_count`) || 0;
-      await redis.publish(`notifications:${userId}`, JSON.stringify({
-        type: 'notifications_read',
-        unreadCount: parseInt(finalCount),
-        updatedIds: notification_ids || []
-      }));
-    } catch (redisError) {
-      console.error('Redis error updating unread count:', redisError);
-    }
-
-    return NextResponse.json({ 
-      success: true, 
-      updatedCount 
-    });
+    return NextResponse.json({ success: true, notification: data[0] });
   } catch (error) {
-    console.error('Unexpected error in notifications PATCH:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('error:', error);
+    return NextResponse.json({ error: 'Create notification failed' }, { status: 500 });
   }
 }

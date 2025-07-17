@@ -100,6 +100,10 @@ export default function Navbar() {
             alt="EduSocial Logo"
             width={40}
             height={40}
+            style={{
+              width: '40px',
+              height: '40px',
+            }}
           />
           <span className="text-white text-2xl font-bold">EduSocial</span>
         </Link>
@@ -110,7 +114,7 @@ export default function Navbar() {
             isAdminAuthenticated && adminUser ? (
               <>
                 <span className="text-white">
-                  Hi, {adminUser.name || 'Admin'}
+                  {t('hi')} {adminUser.name || 'Admin'}
                 </span>
                 <Button
                   variant="orange"
@@ -118,7 +122,7 @@ export default function Navbar() {
                   disabled={isLoggingOut}
                   className="transition-colors disabled:opacity-50"
                 >
-                  {isLoggingOut ? 'Logging out...' : 'Logout'}
+                  {isLoggingOut ? t('loggingOut') : t('logout')}
                 </Button>
               </>
             ) : null
@@ -226,22 +230,24 @@ export default function Navbar() {
           ) : (
             // Not authenticated
             <>
-              {!isAdmin && (
-                isRegister ? (
-                  <Link
-                    href="/login"
-                    className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
-                  >
-                    {t('login')}
-                  </Link>
-                ) : (
-                  <Link
-                    href="/register"
-                    className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
-                  >
-                    {t('register')}
-                  </Link>
-                )
+              {!isAuthenticated && !isAdmin && (
+                <>
+                  {isRegister ? (
+                    <Link
+                      href="/login"
+                      className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
+                    >
+                      {t('login')}
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/register"
+                      className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
+                    >
+                      {t('register')}
+                    </Link>
+                  )}
+                </>
               )}
             </>
           )}

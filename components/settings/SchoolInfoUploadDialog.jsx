@@ -9,17 +9,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { supabase } from '@/lib/supabase';
 import useSettings from '@/hooks/useSettings';
+import useUploadSchoolInfo from '@/hooks/useUploadSchoolInfo';
 
 export default function SchoolInfoUploadDialog({ open, onOpenChange }) {
   const [country, setCountry] = useState('');
   const [school, setSchool] = useState('');
   const [department, setDepartment] = useState('');
   const [file, setFile] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const { settings, updateSetting } = useSettings();
+  const { mutate: uploadSchoolInfo, isLoading: isSubmitting } = useUploadSchoolInfo();
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -46,43 +46,23 @@ export default function SchoolInfoUploadDialog({ open, onOpenChange }) {
       return;
     }
 
-    setIsSubmitting(true);
     setError('');
 
-    try {
-      // Upload file to storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `school-verification/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('files')
-        .upload(filePath, file);
-        
-      if (uploadError) {
-        throw new Error('File upload failed');
+    uploadSchoolInfo(
+      { country, school, department, file },
+      {
+        onSuccess: async (data) => {
+          // 更新用户设置
+          await updateSetting('security.academicInfo', data.data);
+          // 关闭对话框
+          onOpenChange(false);
+        },
+        onError: (err) => {
+          console.error('Error submitting school info:', err);
+          setError(err.message || 'Submission failed, please try again later');
+        }
       }
-      
-      // Update user settings
-      await updateSetting('security.academicInfo', {
-        country,
-        school,
-        department,
-        verified: false,
-        pendingVerification: true,
-        documentPath: filePath,
-        submittedAt: new Date().toISOString()
-      });
-      
-      // Close dialog
-      onOpenChange(false);
-      
-    } catch (err) {
-      console.error('Error submitting school info:', err);
-      setError('Submission failed, please try again later');
-    } finally {
-      setIsSubmitting(false);
-    }
+    );
   };
 
   return (

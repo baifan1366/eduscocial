@@ -115,17 +115,48 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await logoutMutation();
+      // 设置超时控制
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 10000); // 10秒超时
+      });
       
-      // 清除内存中的用户状态
-      setUser(null);
-
-      // 从pathname获取语言前缀
-      const locale = pathname?.split('/')[1] || 'en';
+      // 添加重试逻辑
+      let attempts = 0;
+      const maxAttempts = 3;
+      let lastError = null;
       
-      // 使用完整的URL路径，确保包含语言前缀
-      router.push(`/${locale}/admin/login`);
-      return { success: true };
+      while (attempts < maxAttempts) {
+        try {
+          // 使用Promise.race实现超时控制
+          await Promise.race([
+            logoutMutation(),
+            timeoutPromise
+          ]);
+          
+          // 清除内存中的用户状态
+          setUser(null);
+          
+          // 从pathname获取语言前缀
+          const locale = pathname?.split('/')[1] || 'en';
+          
+          // 使用完整的URL路径，确保包含语言前缀
+          router.push(`/${locale}/admin/login`);
+          return { success: true };
+        } catch (error) {
+          attempts++;
+          lastError = error;
+          console.warn(`Logout attempt ${attempts}/${maxAttempts} failed:`, error.message);
+          
+          // 如果不是最后一次尝试，等待一段时间后重试
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // 逐次增加等待时间
+          }
+        }
+      }
+      
+      // 所有重试都失败了
+      console.error('Logout failed, reached maximum retry attempts:', lastError);
+      return { success: false, error: lastError?.message || 'Logout failed, please try again later' };
     } catch (error) {
       return { success: false, error: error.message };
     }

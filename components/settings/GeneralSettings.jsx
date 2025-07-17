@@ -5,43 +5,20 @@ import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import useSettings from '@/hooks/useSettings';
 import { useTranslations } from 'next-intl';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
+import useGetBoards from '@/hooks/useGetBoards';
 
 export default function GeneralSettings() {
   const { settings, loading, updateSetting } = useSettings();
   const [isSaving, setIsSaving] = useState(false);
   const [blockedCards, setBlockedCards] = useState([]);
   const [hiddenBoards, setHiddenBoards] = useState([]);
-  const [boards, setBoards] = useState([]);
-  const [isLoadingBoards, setIsLoadingBoards] = useState(false);
+  const { data: boardsData, isLoading: isLoadingBoards } = useGetBoards();
   const t = useTranslations('Settings');
   
-  // Fetch boards for the hidden boards list
-  useEffect(() => {
-    const fetchBoards = async () => {
-      setIsLoadingBoards(true);
-      try {
-        const { data, error } = await supabase
-          .from('boards')
-          .select('id, name, slug')
-          .order('name');
-          
-        if (error) {
-          console.error('Error fetching boards:', error);
-        } else {
-          setBoards(data || []);
-        }
-      } catch (err) {
-        console.error('Unexpected error fetching boards:', err);
-      } finally {
-        setIsLoadingBoards(false);
-      }
-    };
-    
-    fetchBoards();
-  }, []);
+  // 从查询结果中提取面板列表
+  const boards = boardsData?.boards || [];
   
   // Load blocked cards and hidden boards from settings
   useEffect(() => {

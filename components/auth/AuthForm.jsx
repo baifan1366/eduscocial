@@ -77,16 +77,22 @@ export default function AuthForm({ isRegister = false }) {
   return (
     <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-20 px-4 md:px-0 min-h-[80vh]">
       <div className="w-full md:w-[50%] flex flex-col items-center justify-center gap-2 order-2 md:order-1">
-        <Image src="/qr-folder.webp" alt="EduSocial" width={0} height={0} className="w-[60%] h-[60%] object-cover" />
+        <Image src="/qr-folder.webp" alt="EduSocial" width={0} height={0} className="w-[60%] h-[60%] object-cover" priority={true}/>
         <p className="text-center text-2xl font-bold">{t('youngPeopleDiscussing')}</p>
         <p className="text-center text-xl text-gray-500">{t('dontWantToMiss')}</p>
         <p className="text-center text-xl text-gray-500">{t('joinUsNow')}</p>
         <div className="flex flex-row items-center justify-center gap-2 mt-4">
           <Link href="https://play.google.com/store/apps/details?id=com.edusocial.app" target="_blank">
-            <Image src="/google-play.webp" alt="EduSocial" width={180} height={0} />
+            <Image src="/google-play.webp" alt="EduSocial" width={0} height={0} style={{
+              width: '180px',
+              height: 'auto',
+            }}/>
           </Link>
           <Link href="https://apps.apple.com/app/id6466398332" target="_blank">
-            <Image src="/app-store.webp" alt="EduSocial" width={180} height={0} />
+            <Image src="/app-store.webp" alt="EduSocial" width={0} height={0} style={{
+              width: '180px',
+              height: 'auto',
+            }}/>
           </Link>
         </div>
       </div>

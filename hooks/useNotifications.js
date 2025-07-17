@@ -2,195 +2,231 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { supabase } from '@/lib/supabase';
+import { notifyApi, usersApi } from '@/lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export function useNotifications() {
-  const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  
+  // 为React Query定义缓存键
+  const notificationsKey = ['notifications', session?.user?.id];
 
-  // Fetch notifications using the new API endpoint
-  const fetchNotifications = useCallback(async (page = 1, limit = 20, unreadOnly = false, type = null) => {
+  // 获取通知的查询函数
+  const fetchNotificationsFromApi = async ({ page = 1, limit = 20, unreadOnly = false, type = null }) => {
     if (!session?.user?.id) {
-      setLoading(false);
-      return;
+      return { notifications: [], unreadCount: 0, totalCount: 0, page, limit };
     }
 
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        ...(unreadOnly && { unread: 'true' }),
-        ...(type && { type })
-      });
+    const params = {
+      page,
+      limit,
+      ...(unreadOnly && { unread: 'true' }),
+      ...(type && { type })
+    };
 
-      const response = await fetch(`/api/users/${session.user.id}/notification?${params}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch notifications');
-      }
+    return usersApi.getNotifications(session.user.id, params);
+  };
 
-      const data = await response.json();
-      
-      if (page === 1) {
-        setNotifications(data.notifications);
-      } else {
-        setNotifications(prev => [...prev, ...data.notifications]);
-      }
-      
-      setUnreadCount(data.unreadCount);
-      return data;
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, [session?.user?.id]);
+  // 使用React Query获取通知
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: [...notificationsKey, 'list'],
+    queryFn: () => fetchNotificationsFromApi({}),
+    enabled: !!session?.user?.id,
+    staleTime: 1000 * 60, // 1分钟后数据过期
+  });
 
-  // Mark notifications as read
-  const markAsRead = useCallback(async (notificationIds = [], markAllRead = false) => {
-    if (!session?.user?.id) return;
-
-    try {
-      const response = await fetch(`/api/users/${session.user.id}/notification`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          notification_ids: notificationIds,
-          mark_all_read: markAllRead
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to mark notifications as read');
-      }
-
-      // Update local state
-      if (markAllRead) {
-        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-        setUnreadCount(0);
-      } else if (notificationIds.length > 0) {
-        setNotifications(prev => 
-          prev.map(n => 
-            notificationIds.includes(n.id) ? { ...n, is_read: true } : n
-          )
-        );
-        setUnreadCount(prev => Math.max(0, prev - notificationIds.length));
-      }
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error marking notifications as read:', error);
-      throw error;
-    }
-  }, [session?.user?.id]);
-
-  // Create notification (for testing or system notifications)
-  const createNotification = useCallback(async (notificationData) => {
-    if (!session?.user?.id) return;
-
-    try {
-      const response = await fetch(`/api/users/${session.user.id}/notification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(notificationData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create notification');
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error creating notification:', error);
-      throw error;
-    }
-  }, [session?.user?.id]);
-
-  // Set up real-time subscription using Supabase Realtime
+  // 通知数据和计数
+  const notifications = data?.notifications || [];
+  
   useEffect(() => {
-    if (!session?.user?.id) return;
+    if (data?.unreadCount !== undefined) {
+      setUnreadCount(data.unreadCount);
+    }
+  }, [data?.unreadCount]);
 
-    const channel = supabase
-      .channel(`notifications:${session.user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${session.user.id}`
-        },
-        (payload) => {
-          console.log('New notification received:', payload);
-          
-          // Add new notification to the beginning of the list
-          setNotifications(prev => [payload.new, ...prev]);
-          setUnreadCount(prev => prev + 1);
+  // 标记通知为已读的变更函数
+  const markAsReadMutation = useMutation({
+    mutationFn: async ({ notificationIds = [], markAllRead = false }) => {
+      if (!session?.user?.id) return;
+      
+      return usersApi.markNotificationsRead(session.user.id, {
+        notification_ids: notificationIds,
+        mark_all_read: markAllRead
+      });
+    },
+    onSuccess: (data, variables) => {
+      // 更新本地状态和缓存
+      const { notificationIds, markAllRead } = variables;
+      
+      queryClient.setQueryData([...notificationsKey, 'list'], (oldData) => {
+        if (!oldData) return oldData;
+        
+        let updatedNotifications;
+        if (markAllRead) {
+          updatedNotifications = oldData.notifications.map(n => ({ ...n, is_read: true }));
+          setUnreadCount(0);
+        } else {
+          updatedNotifications = oldData.notifications.map(n => 
+            notificationIds.includes(n.id) ? { ...n, is_read: true } : n
+          );
+          setUnreadCount(prev => Math.max(0, prev - notificationIds.length));
         }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${session.user.id}`
-        },
-        (payload) => {
-          console.log('Notification updated:', payload);
+        
+        return {
+          ...oldData,
+          notifications: updatedNotifications,
+          unreadCount: markAllRead ? 0 : Math.max(0, oldData.unreadCount - notificationIds.length)
+        };
+      });
+    }
+  });
+
+  // 创建通知的变更函数
+  const createNotificationMutation = useMutation({
+    mutationFn: async (notificationData) => {
+      if (!session?.user?.id) return;
+      
+      return usersApi.createNotification(session.user.id, notificationData);
+    },
+    onSuccess: () => {
+      // 创建通知成功后刷新数据
+      queryClient.invalidateQueries({ queryKey: notificationsKey });
+    }
+  });
+
+  // 获取更多通知（加载更多/分页）
+  const fetchMoreNotifications = useCallback(async (page = 1, limit = 20, unreadOnly = false, type = null) => {
+    if (!session?.user?.id) return;
+    
+    try {
+      const newData = await fetchNotificationsFromApi({ page, limit, unreadOnly, type });
+      
+      // 如果是第一页，完全替换数据
+      if (page === 1) {
+        queryClient.setQueryData([...notificationsKey, 'list'], newData);
+      } else {
+        // 否则，添加到现有数据
+        queryClient.setQueryData([...notificationsKey, 'list'], (oldData) => {
+          if (!oldData) return newData;
+          return {
+            ...newData,
+            notifications: [...oldData.notifications, ...newData.notifications],
+          };
+        });
+      }
+      
+      return newData;
+    } catch (error) {
+      console.error('error:', error);
+      throw error;
+    }
+  }, [session?.user?.id, queryClient, notificationsKey]);
+
+  // 设置实时SSE订阅
+  useEffect(() => {
+    if (!session?.user?.id || typeof window === 'undefined') return;
+
+    // 创建SSE连接
+    const eventSource = notifyApi.createSSEConnection();
+    
+    if (!eventSource) return;
+
+    // 监听连接事件
+    eventSource.addEventListener('connected', (event) => {
+      console.log('SSE notification connection established', event);
+    });
+
+    // 监听新通知事件
+    eventSource.addEventListener('new_notification', (event) => {
+      try {
+        const newNotification = JSON.parse(event.data);
+        console.log('Received new notification:', newNotification);
+        
+        // 更新React Query缓存
+        queryClient.setQueryData([...notificationsKey, 'list'], (oldData) => {
+          if (!oldData) return oldData;
           
-          // Update notification in the list
-          setNotifications(prev => 
-            prev.map(n => n.id === payload.new.id ? payload.new : n)
+          // 添加新通知到列表开头
+          return {
+            ...oldData,
+            notifications: [newNotification, ...oldData.notifications],
+            unreadCount: (oldData.unreadCount || 0) + 1
+          };
+        });
+        
+        // 更新未读计数
+        setUnreadCount(prev => prev + 1);
+      } catch (error) {
+        console.error('error:', error);
+      }
+    });
+
+    // 监听通知更新事件
+    eventSource.addEventListener('notification_updated', (event) => {
+      try {
+        const updatedNotification = JSON.parse(event.data);
+        console.log('Notification updated:', updatedNotification);
+        
+        // 更新React Query缓存中的通知
+        queryClient.setQueryData([...notificationsKey, 'list'], (oldData) => {
+          if (!oldData) return oldData;
+          
+          // 更新通知列表
+          const updatedNotifications = oldData.notifications.map(n => 
+            n.id === updatedNotification.id ? updatedNotification : n
           );
           
-          // Update unread count if read status changed
-          if (payload.old.read === false && payload.new.read === true) {
+          // 如果阅读状态发生变化，更新未读计数
+          let updatedUnreadCount = oldData.unreadCount;
+          const oldNotification = oldData.notifications.find(n => n.id === updatedNotification.id);
+          
+          if (oldNotification && oldNotification.is_read === false && updatedNotification.is_read === true) {
+            updatedUnreadCount = Math.max(0, updatedUnreadCount - 1);
             setUnreadCount(prev => Math.max(0, prev - 1));
           }
-        }
-      )
-      .subscribe();
+          
+          return {
+            ...oldData,
+            notifications: updatedNotifications,
+            unreadCount: updatedUnreadCount
+          };
+        });
+      } catch (error) {
+        console.error('error:', error);
+      }
+    });
 
+    // 监听错误
+    eventSource.addEventListener('error', (error) => {
+      console.error('SSE notification connection error:', error);
+      // 可以在这里添加重连逻辑
+    });
+
+    // 清理函数
     return () => {
-      supabase.removeChannel(channel);
+      eventSource.close();
     };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, queryClient, notificationsKey]);
 
-  // Set up Redis PubSub subscription for real-time updates
-  useEffect(() => {
-    if (!session?.user?.id) return;
+  // 包装API函数供组件使用
+  const markAsRead = useCallback((notificationIds = [], markAllRead = false) => {
+    return markAsReadMutation.mutate({ notificationIds, markAllRead });
+  }, [markAsReadMutation]);
 
-    // This would be implemented with a WebSocket connection or Server-Sent Events
-    // For now, we'll rely on Supabase Realtime
-    
-    return () => {
-      // Cleanup Redis subscription
-    };
-  }, [session?.user?.id]);
-
-  // Initial fetch
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchNotifications();
-    }
-  }, [session?.user?.id, fetchNotifications]);
+  const createNotification = useCallback((notificationData) => {
+    return createNotificationMutation.mutate(notificationData);
+  }, [createNotificationMutation]);
 
   return {
     notifications,
     unreadCount,
-    loading,
-    fetchNotifications,
+    loading: isLoading,
+    error,
+    fetchNotifications: fetchMoreNotifications,
     markAsRead,
     createNotification,
-    refetch: () => fetchNotifications(1, 20, false)
+    refetch
   };
 }
