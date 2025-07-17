@@ -3,15 +3,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import useAuth from '@/hooks/useAuth';
-import useAdminAuth from '@/hooks/useAdminAuth';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/dropdown-menu';
-import { ChevronDown, Sun, Moon, Plus, Bell, Mail, User } from 'lucide-react';
-import { Button } from '../ui/button';
+import { Bell, Plus, Mail, User } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useSession } from 'next-auth/react';
 import UserMenu from './UserMenu';
 import { Popover, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
@@ -20,76 +15,28 @@ import NotificationItem from '@/components/notifications/NotificationItem';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user: regularUser, isAuthenticated, logout: regularLogout } = useAuth();
-  const { user: adminUser, logout: adminLogout, isAuthenticated: isAdminAuthenticated } = useAdminAuth();
-  const { data: session } = useSession();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, isAuthenticated, logout } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState('english');
-  const [darkMode, setDarkMode] = useState(true);
   const [isRegister, setIsRegister] = useState(false);
   const t = useTranslations('Navbar');
   
   // Use the notifications hook
   const { notifications, unreadCount, loading, markAsRead } = useNotifications();
 
-  // 检测路径
+  // Check if current page is register page
   useEffect(() => {
     setIsRegister(pathname?.includes('/register'));
-    const isAdminPath = pathname?.includes('/admin');
-    setIsAdmin(isAdminPath);
   }, [pathname]);
 
-  // 添加新的useEffect来监听认证状态变化
-  useEffect(() => {
-    // 当认证状态变化时，强制组件重新渲染
-    console.log('authenticate changed');
-
-    // 如果处于管理员路径但没有管理员认证，可以记录日志
-    if (isAdmin && !isAdminAuthenticated) {
-      console.log('admin path but not authenticated');
-    }
-  }, [isAuthenticated, isAdminAuthenticated, isAdmin]);
-
-  // 处理普通用户登出
+  // Handle user logout
   const handleUserLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await regularLogout();
+      await logout();
     } finally {
       setIsLoggingOut(false);
     }
   };
-
-  // 处理管理员登出
-  const handleAdminLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      const result = await adminLogout();
-      if (!result.success) {
-        console.error('Admin logout failed:', result.error);
-        // 如果登出失败，可以手动强制重定向
-        const locale = pathname.split('/')[1] || 'en';
-        router.push(`/${locale}/admin/login`);
-      }
-      // 成功登出时，adminLogout内部已经处理了重定向
-    } catch (error) {
-      console.error('Admin logout error:', error);
-      // 发生错误时强制重定向
-      const locale = pathname.split('/')[1] || 'en';
-      router.push(`/${locale}/admin/login`);
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
-
-  const toggleMode = () => {
-    setDarkMode(!darkMode);
-  };
-
-  // Create a unified logout handler for UserMenu
-  const handleLogout = isAdmin ? handleAdminLogout : handleUserLogout;
 
   return (
     <nav className="w-full py-2 px-2 bg-[#0A1929] shadow-md">
@@ -109,24 +56,7 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center space-x-4">
-          {isAdmin ? (
-            // Admin pages
-            isAdminAuthenticated && adminUser ? (
-              <>
-                <span className="text-white">
-                  {t('hi')} {adminUser.name || 'Admin'}
-                </span>
-                <Button
-                  variant="orange"
-                  onClick={handleAdminLogout}
-                  disabled={isLoggingOut}
-                  className="transition-colors disabled:opacity-50"
-                >
-                  {isLoggingOut ? t('loggingOut') : t('logout')}
-                </Button>
-              </>
-            ) : null
-          ) : isAuthenticated ? (
+          {isAuthenticated ? (
             // Regular user authenticated
             <div className="flex items-center gap-4">
               {/* Post Button */}
@@ -225,29 +155,25 @@ export default function Navbar() {
               >
                 <User className="w-6 h-6 text-white hover:text-[#FF7D00] transition-colors" />
               </Link>
-              <UserMenu onLogout={handleLogout} />
+              <UserMenu onLogout={handleUserLogout} />
             </div>
           ) : (
             // Not authenticated
             <>
-              {!isAuthenticated && !isAdmin && (
-                <>
-                  {isRegister ? (
-                    <Link
-                      href="/login"
-                      className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
-                    >
-                      {t('login')}
-                    </Link>
-                  ) : (
-                    <Link
-                      href="/register"
-                      className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
-                    >
-                      {t('register')}
-                    </Link>
-                  )}
-                </>
+              {isRegister ? (
+                <Link
+                  href="/login"
+                  className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
+                >
+                  {t('login')}
+                </Link>
+              ) : (
+                <Link
+                  href="/register"
+                  className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
+                >
+                  {t('register')}
+                </Link>
               )}
             </>
           )}
