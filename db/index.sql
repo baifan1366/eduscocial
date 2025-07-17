@@ -15,6 +15,9 @@ CREATE INDEX idx_votes_comment_id ON votes(comment_id);
 
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX idx_notifications_is_read ON notifications(is_read);
+CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read) WHERE read = FALSE;
+CREATE INDEX idx_notifications_type ON notifications(type);
 
 CREATE INDEX idx_hashtags_name ON hashtags(name);
 CREATE INDEX idx_hashtags_usage_count ON hashtags(usage_count DESC);

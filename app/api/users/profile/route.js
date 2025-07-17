@@ -1,25 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { supabase } from '@/lib/supabase';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { profileUpdateSchema } from '@/lib/validations/profile';
+import { authOptions } from '@/lib/auth';
+import { profileSchema, profileUpdateSchema } from '@/lib/validations/profile';
 
 // GET handler to retrieve user profile
-export async function GET(request, { params }) {
+export async function GET(request) {
   try {
     // Get the session to verify the user is authenticated
     const session = await getServerSession(authOptions);
-    const { id: userId } = params;
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user can access this profile (own profile or public access)
-    if (session.user.id !== userId) {
-      // For now, only allow users to access their own profile
-      // You can modify this logic later to allow public profile access
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Query the users table for profile information
@@ -35,7 +27,7 @@ export async function GET(request, { params }) {
         avatar_url,
         country
       `)
-      .eq('id', userId)
+      .eq('id', session.user.id)
       .single();
 
     if (error) {
@@ -50,7 +42,7 @@ export async function GET(request, { params }) {
         hashtags(name),
         topics(name)
       `)
-      .eq('user_id', userId);
+      .eq('user_id', session.user.id);
 
     // Process interests data
     let interests = '';
@@ -66,8 +58,8 @@ export async function GET(request, { params }) {
       profile: {
         displayName: data.display_name || '',
         bio: data.bio || '',
-        birthday: data.birth_year ? data.birth_year.toString() : null,
-        interests: interests,
+        birthday: data.birth_year ? data.birth_year.toString() : null, // Convert birth_year to string
+        interests: interests, // From user_interests table
         university: data.school || '',
         department: data.department || '',
         avatarUrl: data.avatar_url || '',
@@ -81,19 +73,13 @@ export async function GET(request, { params }) {
 }
 
 // PUT handler to update user profile
-export async function PUT(request, { params }) {
+export async function PUT(request) {
   try {
     // Get the session to verify the user is authenticated
     const session = await getServerSession(authOptions);
-    const { id: userId } = params;
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user can modify this profile (only own profile)
-    if (session.user.id !== userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Parse the request body
@@ -115,9 +101,9 @@ export async function PUT(request, { params }) {
     const dbData = {
       display_name: profileData.displayName,
       bio: profileData.bio,
-      school: profileData.university,
+      school: profileData.university, // Map university to school field
       department: profileData.department,
-      birth_year: profileData.birthday ? parseInt(profileData.birthday) : null,
+      birth_year: profileData.birthday ? parseInt(profileData.birthday) : null, // Convert birthday string to birth_year integer
       avatar_url: profileData.avatarUrl,
       country: profileData.country,
       updated_at: new Date().toISOString()
@@ -130,11 +116,11 @@ export async function PUT(request, { params }) {
       }
     });
 
-    // Update the user record
+    // Update the user record directly
     const { error } = await supabase
       .from('users')
       .update(dbData)
-      .eq('id', userId);
+      .eq('id', session.user.id);
 
     if (error) {
       console.error('Error saving user profile:', error);

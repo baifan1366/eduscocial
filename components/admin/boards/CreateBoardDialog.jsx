@@ -15,7 +15,6 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { ChevronDown, PaintBucket } from 'lucide-react';
 import { SketchPicker } from 'react-color'
 import PreviewBoard from './PreviewBoard';
 import useCreateBoard from '@/hooks/admin/useCreateBoard';

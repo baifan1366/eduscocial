@@ -150,6 +150,7 @@ CREATE TABLE notifications (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     type TEXT NOT NULL CHECK (type IN ('like', 'comment', 'reply', 'follow', 'mention')),
     title TEXT NOT NULL,
+    data JSONB DEFAULT '{}',
     content TEXT,
     post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
     comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
