@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import useAuth from '@/hooks/useAuth';
 import { Bell, Plus, Mail, User } from 'lucide-react';
@@ -12,10 +12,13 @@ import { Popover, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import NotificationItem from '@/components/notifications/NotificationItem';
+import { useSession } from 'next-auth/react';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user, isAuthenticated, logout } = useAuth();
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const { data: session, status } = useSession();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
   const t = useTranslations('Navbar');
@@ -28,11 +31,22 @@ export default function Navbar() {
     setIsRegister(pathname?.includes('/register'));
   }, [pathname]);
 
-  // Handle user logout
+  // Handle user logout with improved error handling
   const handleUserLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await logout();
+      const result = await logout();
+      
+      if (!result.success) {
+        console.error('Logout failed:', result.error);
+        // Force redirect if logout fails
+        router.push('/login');
+      }
+      // Successful logout is handled in the logout function
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force redirect on error
+      router.push('/login');
     } finally {
       setIsLoggingOut(false);
     }
@@ -56,7 +70,7 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center space-x-4">
-          {isAuthenticated ? (
+          {status === "authenticated" ? (
             // Regular user authenticated
             <div className="flex items-center gap-4">
               {/* Post Button */}

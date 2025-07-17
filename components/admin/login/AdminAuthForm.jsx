@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Button } from '../../ui/button';
@@ -21,6 +21,8 @@ export default function AdminAuthForm() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '';
   const t = useTranslations('auth');
   const [showPassword, setShowPassword] = useState(false);
   
@@ -51,15 +53,20 @@ export default function AdminAuthForm() {
       if (result.success) {
         toast.success(t('loginSuccess'));
         
-        // 从pathname获取语言前缀
-        const locale = pathname.split('/')[1] || 'en';
+        // 优先使用回调URL，如果存在
+        if (callbackUrl) {
+          router.push(callbackUrl);
+        } else {
+          // 从pathname获取语言前缀
+          const locale = pathname.split('/')[1] || 'en';
+          router.push(`/${locale}/admin/dashboard`);
+        }
         
         // 添加一个短暂延迟，确保认证状态有时间更新
         setTimeout(() => {
           //reset input
           setEmail('');
           setPassword('');
-          router.push(`/${locale}/admin/dashboard`);
         }, 100); // 短暂延迟以允许状态更新
       } else {
         setError(result.error || t('loginFailed'));
@@ -178,4 +185,4 @@ export default function AdminAuthForm() {
       </div>
     </div>
   );
-} 
+}

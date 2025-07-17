@@ -21,7 +21,7 @@ const currentYear = new Date().getFullYear();
 
 export default async function RootLayout(props) {
   const { children, params } = props;
-  const { locale = 'en' } = params; 
+  const { locale = 'en' } = await params; 
   const messages = await getMessages(locale);
   
   return (

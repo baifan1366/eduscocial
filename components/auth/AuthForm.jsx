@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Button } from '../ui/button';
 import { Card, CardHeader, CardContent, CardFooter } from '../ui/card';
 import Image from 'next/image';
 import useAuth from '../../hooks/useAuth';
 import { Eye, EyeOff } from 'lucide-react';
+import { useLocale } from 'next-intl';
 
 export default function AuthForm({ isRegister = false }) {
   const [email, setEmail] = useState('');
@@ -20,9 +20,13 @@ export default function AuthForm({ isRegister = false }) {
   const [isLoading, setIsLoading] = useState(false);
   const { login, register } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '';
   const t = useTranslations('auth');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const locale = useLocale();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,7 +45,7 @@ export default function AuthForm({ isRegister = false }) {
         const result = await register({ name, email, password });
         
         if (result.success) {
-          router.push('/login');
+          router.push(`/${locale}/login`);
         } else {
           setError(result.error || t('registrationFailed'));
         }
@@ -49,7 +53,21 @@ export default function AuthForm({ isRegister = false }) {
         const result = await login(email, password);
         
         if (result.success) {
-          router.push('/');
+          // 确保会话已更新，强制刷新路由
+          router.refresh();
+          
+          // 清除callbackUrl中可能的循环重定向
+          let targetUrl = callbackUrl;
+          if (targetUrl && targetUrl.includes('/login')) {
+            targetUrl = `/${locale}/my`;
+          } else if (!targetUrl) {
+            targetUrl = `/${locale}/my`;
+          }
+          
+          // 直接导航到目标页面
+          setTimeout(() => {
+            router.push(targetUrl); 
+          }, 100); // 短暂延迟确保会话已更新
         } else {
           setError(result.error || t('loginFailed'));
         }
@@ -65,11 +83,14 @@ export default function AuthForm({ isRegister = false }) {
   const handleOAuthSignIn = async (provider) => {
     try {
       setIsLoading(true);
-      await signIn(provider, { callbackUrl: '/' });
+      
+      // 使用Next.js路由导航到OAuth端点
+      const callbackUrl = searchParams.get('callbackUrl') || `/${locale}/my`;
+      router.push(`/api/auth/${provider}?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+      
     } catch (error) {
       console.error(`${provider} sign in error:`, error);
       setError(t('oauthError', { provider }));
-    } finally {
       setIsLoading(false);
     }
   };

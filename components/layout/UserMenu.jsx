@@ -4,7 +4,7 @@ import { Popover, Transition } from '@headlessui/react';
 import { useRouter } from 'next/navigation';
 import { Fragment } from 'react';
 import { ChevronDown, LogOut, User } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathnameContext } from '@/app/providers';
@@ -14,10 +14,8 @@ export default function UserMenu({ onLogout }) {
   const pathname = usePathnameContext();
   const { data: session, status } = useSession();
 
-
   // Get the locale from the pathname
-  const locale = pathname?.split('/')[1] || 'en';
-  const baseUrl = `/${locale}`;
+  const locale = useLocale();
 
   // Use next-auth session to determine authentication status
   const isAuthenticated = status === 'authenticated';
@@ -31,8 +29,7 @@ export default function UserMenu({ onLogout }) {
       router.push(href);
     } else {
       // Only if not authenticated, redirect to login with callback
-      const callbackUrl = encodeURIComponent(href);
-      router.push(`${baseUrl}/login?callbackUrl=${callbackUrl}`);
+      router.push(`/${locale}/login?callbackUrl=${href}`);
     }
   };
 
@@ -41,7 +38,7 @@ export default function UserMenu({ onLogout }) {
     if (onLogout) {
       await onLogout();
     }
-    await signOut({ redirect: true, callbackUrl: `${baseUrl}/login` });
+    await signOut({ redirect: true, callbackUrl: `/${locale}/login` });
   };
 
   // If session is loading, show loading state
@@ -85,7 +82,7 @@ export default function UserMenu({ onLogout }) {
                 <Link href="/contact-us" className="px-4 py-2 hover:bg-[#1E4976] text-white">{t('contactUs')}</Link>
                 <Link href="/careers" className="px-4 py-2 hover:bg-[#1E4976] text-white">{t('careers')}</Link>
                 <Link href="/download-app" className="px-4 py-2 hover:bg-[#1E4976] text-white">{t('downloadApp')}</Link>
-                <button onClick={() => handleNavigate(`${baseUrl}/my?settings=true&tab=general`)} className="px-4 py-2 hover:bg-[#1E4976] text-white text-left">{t('settings')}</button>
+                <button onClick={() => handleNavigate(`/${locale}/my?settings=true&tab=general`)} className="px-4 py-2 hover:bg-[#1E4976] text-white text-left">{t('settings')}</button>
                 <button onClick={handleLogout} className="px-4 py-2 hover:bg-[#1E4976] text-white text-left">{t('logout')}</button>
               </nav>
             </Popover.Panel>

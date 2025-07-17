@@ -8,6 +8,7 @@ import MySidebar from '@/components/my/MySidebar';
 import MyWrapper from '@/components/my/MyWrapper';
 import { ProfileProvider } from '@/contexts/profile-context';
 import { SettingsProvider } from '@/hooks/useSettings';
+import { useLocale } from 'next-intl';
 
 export default function MyLayout({ children }) {
   const { data: session, status } = useSession();
@@ -15,15 +16,14 @@ export default function MyLayout({ children }) {
   const pathname = usePathnameContext();
 
   // Get the locale from the pathname
-  const locale = pathname?.split('/')[1] || 'en';
-  const baseUrl = `/${locale}`;
+  const locale = useLocale();
 
   // Protect this route - redirect to login if not authenticated
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push(`${baseUrl}/login?callbackUrl=${baseUrl}/my`);
+      router.push(`/${locale}/login?callbackUrl=/${locale}/my`);
     }
-  }, [status, router, baseUrl]);
+  }, [status, router, locale]);
 
   // Show loading state
   if (status === 'loading') {

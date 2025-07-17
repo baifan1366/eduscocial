@@ -12,7 +12,7 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, status, update: updateSession } = useSession();
   const isSessionLoading = status === "loading";
 
   // Use React Query login mutation
@@ -44,13 +44,64 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      const result = await loginMutation({ email, password });
+      // 调用自定义登录API
+      const data = await loginMutation({ email, password });
+      console.log('Login mutation result:', data);
       
-      // Refresh the session
+      // 确保用户有完整的信息
+      const userData = {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name || email.split('@')[0] || 'User',
+        role: data.user.role || 'USER',
+      };
+      
+      // 使用 NextAuth signIn 方法登录
+      try {
+        console.log('Signing in with NextAuth...');
+        // 导入 signIn 函数
+        const { signIn } = await import("next-auth/react");
+        
+        // 执行登录，设置redirect: false确保不会自动重定向
+        const result = await signIn('credentials', { 
+          redirect: false,
+          email: email,
+          password: password
+        });
+        
+        console.log('NextAuth sign in result:', result);
+        
+        if (result?.error) {
+          console.error('NextAuth sign in error:', result.error);
+          return { success: false, error: result.error || 'Authentication failed' };
+        }
+      } catch (nextAuthError) {
+        console.error('NextAuth sign in error:', nextAuthError);
+        // 继续，因为我们的自定义API登录已经成功
+      }
+      
+      // 更新next-auth会话
+      try {
+        console.log('Updating session with user data:', userData);
+        await updateSession({
+          ...session,
+          user: {
+            ...session?.user,
+            ...userData,
+            isSignedIn: true
+          }
+        });
+        console.log('Session updated successfully');
+      } catch (sessionError) {
+        console.error('Update session error:', sessionError);
+      }
+
+      // 强制刷新路由状态和页面
       router.refresh();
       
-      return { success: true, user: result.user };
+      return { success: true, user: userData };
     } catch (error) {
+      console.error('Login failed with error:', error);
       return { success: false, error: error.message || 'Login failed' };
     }
   };
@@ -79,7 +130,6 @@ export function AuthProvider({ children }) {
     login,
     logout,
     register,
-    isAuthenticated: !!session?.user,
     session
   };
 
