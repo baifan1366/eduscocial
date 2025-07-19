@@ -1,21 +1,21 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+import useAuth from '@/hooks/useAuth';
 import { notifyApi, usersApi } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
-  const { data: session } = useSession();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   
   // 为React Query定义缓存键
-  const notificationsKey = ['notifications', session?.user?.id];
+  const notificationsKey = ['notifications', user?.id];
 
   // 获取通知的查询函数
   const fetchNotificationsFromApi = async ({ page = 1, limit = 20, unreadOnly = false, type = null }) => {
-    if (!session?.user?.id) {
+    if (!user?.id) {
       return { notifications: [], unreadCount: 0, totalCount: 0, page, limit };
     }
 
@@ -26,14 +26,14 @@ export function useNotifications() {
       ...(type && { type })
     };
 
-    return usersApi.getNotifications(session.user.id, params);
+    return usersApi.getNotifications(user.id, params);
   };
 
   // 使用React Query获取通知
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: [...notificationsKey, 'list'],
     queryFn: () => fetchNotificationsFromApi({}),
-    enabled: !!session?.user?.id,
+    enabled: !!user?.id,
     staleTime: 1000 * 60, // 1分钟后数据过期
   });
 
@@ -49,9 +49,9 @@ export function useNotifications() {
   // 标记通知为已读的变更函数
   const markAsReadMutation = useMutation({
     mutationFn: async ({ notificationIds = [], markAllRead = false }) => {
-      if (!session?.user?.id) return;
+      if (!user?.id) return;
       
-      return usersApi.markNotificationsRead(session.user.id, {
+      return usersApi.markNotificationsRead(user.id, {
         notification_ids: notificationIds,
         mark_all_read: markAllRead
       });
@@ -86,9 +86,9 @@ export function useNotifications() {
   // 创建通知的变更函数
   const createNotificationMutation = useMutation({
     mutationFn: async (notificationData) => {
-      if (!session?.user?.id) return;
+      if (!user?.id) return;
       
-      return usersApi.createNotification(session.user.id, notificationData);
+      return usersApi.createNotification(user.id, notificationData);
     },
     onSuccess: () => {
       // 创建通知成功后刷新数据
@@ -98,7 +98,7 @@ export function useNotifications() {
 
   // 获取更多通知（加载更多/分页）
   const fetchMoreNotifications = useCallback(async (page = 1, limit = 20, unreadOnly = false, type = null) => {
-    if (!session?.user?.id) return;
+    if (!user?.id) return;
     
     try {
       const newData = await fetchNotificationsFromApi({ page, limit, unreadOnly, type });
@@ -122,11 +122,11 @@ export function useNotifications() {
       console.error('error:', error);
       throw error;
     }
-  }, [session?.user?.id, queryClient, notificationsKey]);
+  }, [user?.id, queryClient, notificationsKey]);
 
   // 设置实时SSE订阅
   useEffect(() => {
-    if (!session?.user?.id || typeof window === 'undefined') return;
+    if (!user?.id || typeof window === 'undefined') return;
 
     // 创建SSE连接
     const eventSource = notifyApi.createSSEConnection();
@@ -208,7 +208,7 @@ export function useNotifications() {
     return () => {
       eventSource.close();
     };
-  }, [session?.user?.id, queryClient, notificationsKey]);
+  }, [user?.id, queryClient, notificationsKey]);
 
   // 包装API函数供组件使用
   const markAsRead = useCallback((notificationIds = [], markAllRead = false) => {

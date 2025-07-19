@@ -1,6 +1,6 @@
 import createIntlMiddleware from 'next-intl/middleware';
 import { NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { verifyJWT, isTokenValid } from './lib/auth/jwt';
 
 // 创建国际化中间件
 const intlMiddleware = createIntlMiddleware({
@@ -40,14 +40,22 @@ export async function middleware(request) {
   const { pathname } = request.nextUrl;
   const locale = request.nextUrl.locale || 'en';
   
+  // Bypass middleware for static assets and API routes
+  if (pathname.includes('/api/') || 
+      pathname.includes('/_next/') ||
+      pathname.match(/\.(png|jpg|jpeg|webp|svg|ico|css|js|glb)$/)) {
+    return NextResponse.next();
+  }
+  
   // 检查是否存在重定向计数cookie
   const redirectCountCookie = request.cookies.get(REDIRECT_COUNT_COOKIE);
   const redirectCount = redirectCountCookie ? parseInt(redirectCountCookie.value) : 0;
   
   // 如果重定向次数过多，可能存在循环，返回错误页面
-  if (redirectCount > 3) {
+  if (redirectCount > 2) {
     // 创建新响应，清除重定向计数
-    const response = NextResponse.redirect(new URL(`/${locale}/error?code=redirect_loop`, request.url));
+    console.error(`Redirect loop detected for path: ${pathname}`);
+    const response = NextResponse.redirect(new URL(`/${locale}/error?code=redirect_loop&from=${encodeURIComponent(pathname)}`, request.url));
     response.cookies.delete(REDIRECT_COUNT_COOKIE);
     return response;
   }
@@ -80,21 +88,24 @@ export async function middleware(request) {
   // 如果这是一个需要保护的路由，检查身份验证
   if (isProtectedRoute || isAdminRoute) {
     // 获取JWT token
-    const token = await getToken({ 
-      req: request,
-      secret: process.env.NEXTAUTH_SECRET
-    });
+    const authToken = request.cookies.get('auth_token')?.value;
+    
+    let tokenData = null;
+    if (authToken) {
+      const decoded = await verifyJWT(authToken);
+      if (isTokenValid(decoded)) {
+        tokenData = decoded;
+      }
+    }
     
     // 如果没有token，重定向到登录页面
-    if (!token) {
-      // 检查请求URL，避免循环重定向
-      const requestUrl = new URL(request.url);
-      const callbackParam = requestUrl.searchParams.get('callbackUrl');
+    if (!tokenData) {
+      // 避免相同URL的重复重定向
+      const referer = request.headers.get('referer');
+      const currentUrl = request.url;
       
-      // 如果URL包含login和callbackUrl指向受保护页面，可能是循环
-      if (pathname.includes('/login') && callbackParam && 
-          protectedRoutes.some(route => callbackParam.includes(`/${locale}${route}`))) {
-        // 这可能是循环重定向，发送到错误页面
+      // 如果当前URL与来源URL相同，可能存在循环
+      if (referer === currentUrl) {
         return NextResponse.redirect(new URL(`/${locale}/error?code=auth_required`, request.url));
       }
       
@@ -106,7 +117,9 @@ export async function middleware(request) {
         redirectUrl = new URL(`/${locale}/login`, request.url);
       }
       
-      redirectUrl.searchParams.set('callbackUrl', request.url);
+      // 简化callback URL - 只存储路径部分，避免URL变得过长
+      const currentPath = new URL(request.url).pathname;
+      redirectUrl.searchParams.set('callbackUrl', currentPath);
       
       // 创建响应并增加重定向计数
       const response = NextResponse.redirect(redirectUrl);
@@ -126,7 +139,7 @@ export async function middleware(request) {
     response.cookies.delete(REDIRECT_COUNT_COOKIE);
     
     // 检查管理员权限
-    if (isAdminRoute && token.role !== 'ADMIN') {
+    if (isAdminRoute && tokenData.role !== 'ADMIN') {
       return NextResponse.redirect(
         new URL(`/${locale}/unauthorized`, request.url)
       );
@@ -142,10 +155,12 @@ export async function middleware(request) {
   return response;
 }
 
-// 更新 matcher 配置以包含更多特定路径
+// 更新 matcher 配置
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|.*\\.png|.*\\.webp|.*\\.svg|.*\\.glb|favicon.ico).*)',
+    // Match all paths except explicitly excluded ones
+    '/((?!api|_next|favicon.ico).*)',
+    // Match locale paths
     '/:locale(en|zh|my)/:path*'
   ]
 };

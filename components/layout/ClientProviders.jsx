@@ -1,10 +1,42 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
+import { usePathname } from 'next/navigation';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import AuthProvider from '../auth/AuthProvider';
-import AdminAuthProvider from '../admin/login/AdminAuthProvider';
+import { SettingsProvider } from '@/hooks/useSettings';
+import { ProfileProvider } from '@/contexts/profile-context';
+import { Toaster } from '@/components/ui/sonner';
+import { AuthProvider } from '@/components/auth/AuthProvider';
+
+// Create a context for pathname to avoid repeated usePathname() calls
+const PathnameContext = createContext(null);
+
+export function PathnameProvider({ children }) {
+  const pathname = usePathname();
+  return (
+    <PathnameContext.Provider value={pathname}>
+      {children}
+    </PathnameContext.Provider>
+  );
+}
+
+export function usePathnameContext() {
+  const context = useContext(PathnameContext);
+  if (context === undefined) {
+    throw new Error('usePathnameContext must be used within a PathnameProvider');
+  }
+  return context;
+}
+
+// Safe version of usePathname that won't break SSR
+export function useSafePathname() {
+  if (typeof window === 'undefined') {
+    return null; // Return null on server side
+  }
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return usePathname();
+}
 
 export default function ClientProviders({ children }) {
   const [isClient, setIsClient] = useState(false);
@@ -37,24 +69,29 @@ export default function ClientProviders({ children }) {
     },
   }));
   
-  // 确保客户端水合完成后再渲染
+  // Ensure client hydration is complete before rendering
   useEffect(() => {
     setIsClient(true);
   }, []);
   
-  // 页面内容包装器，解决水合不匹配问题
+  // Combined provider structure with hydration protection
   const content = (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AdminAuthProvider>
-          {children}
-        </AdminAuthProvider>
-      </AuthProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
+        <PathnameProvider>
+          <AuthProvider>
+            <SettingsProvider>
+              <ProfileProvider>
+                {children}
+                <Toaster />
+                <ReactQueryDevtools initialIsOpen={false} />
+              </ProfileProvider>
+            </SettingsProvider>
+          </AuthProvider>
+        </PathnameProvider>
     </QueryClientProvider>
   );
   
-  // 在服务器端渲染基本结构，在客户端完成水合后渲染完整内容
+  // Handle hydration mismatch by conditional rendering
   return (
     <>
       <div suppressHydrationWarning>

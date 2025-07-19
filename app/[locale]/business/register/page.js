@@ -1,16 +1,16 @@
-import AuthForm from '@/components/auth/AuthForm';
 import { Suspense } from 'react';
+import BusinessRegisterForm from '../../../../components/business/register/BusinessRegisterForm';
 
 export const metadata = {
-  title: 'Register | EduSocial',
-  description: 'Create your EduSocial account',
+  title: 'Business Registration | EduSocial',
+  description: 'Register your business account on EduSocial',
   openGraph: {
-    title: 'Register to EduSocial',
+    title: 'Create a Business Account on EduSocial',
     images: ['/slogan-removebg-preview.png'],
   },
 };
 
-// Loader component to show while the authentication context initializes
+// Loader component to show while the form loads
 function RegisterFormLoader() {
   return (
     <div className="flex items-center justify-center py-12">
@@ -21,8 +21,8 @@ function RegisterFormLoader() {
             <div className="h-4 bg-[#1E3A5F] rounded mb-4 w-3/4 mx-auto"></div>
             <div className="h-10 bg-[#1E3A5F] rounded mb-4"></div>
             <div className="h-10 bg-[#1E3A5F] rounded mb-4"></div>
-            <div className="h-10 bg-[#1E3A5F] rounded mb-6"></div>
-            <div className="h-12 bg-[#FF7D00] rounded mb-4"></div>
+            <div className="h-10 bg-[#1E3A5F] rounded mb-4"></div>
+            <div className="h-12 bg-[#FF7D00] rounded mb-6"></div>
           </div>
         </div>
       </div>
@@ -30,14 +30,14 @@ function RegisterFormLoader() {
   );
 }
 
-export default function RegisterPage() {
+export default function BusinessRegisterPage() {
   return (
     <main>
-      <div className="max-w-md mx-auto py-10 min-w-[80%]">
+      <div className="max-w-md mx-auto py-0 min-w-[80%]">
         <Suspense fallback={<RegisterFormLoader />}>
-          <AuthForm isRegister={true} />
+          <BusinessRegisterForm />
         </Suspense>
       </div>
     </main>
   );
-} 
+}

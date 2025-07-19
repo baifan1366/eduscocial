@@ -12,13 +12,11 @@ import { Popover, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import NotificationItem from '@/components/notifications/NotificationItem';
-import { useSession } from 'next-auth/react';
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { data: session, status } = useSession();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
   const t = useTranslations('Navbar');
@@ -70,7 +68,7 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center space-x-4">
-          {status === "authenticated" ? (
+          {user ? (
             // Regular user authenticated
             <div className="flex items-center gap-4">
               {/* Post Button */}

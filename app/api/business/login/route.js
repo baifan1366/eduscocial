@@ -6,8 +6,8 @@ import { setAuthCookie } from '../../../../lib/auth/cookies';
 import { hashPassword } from '../../../../lib/auth/password';
 
 /**
- * Admin login API route
- * POST /api/admin/login
+ * Business login API route
+ * POST /api/business/login
  */
 export async function POST(request) {
   try {
@@ -30,15 +30,15 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Check if user is an admin
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('role')
-      .eq('user_id', user.id)
+    // Check if this is a business account
+    const { data: advertiser, error: advertiserError } = await supabase
+      .from('advertisers')
+      .select('id')
+      .eq('contact_email', email)
       .single();
 
-    if (adminError || !adminUser) {
-      return NextResponse.json({ message: 'Not an admin account' }, { status: 403 });
+    if (advertiserError || !advertiser) {
+      return NextResponse.json({ message: 'Not a valid business account' }, { status: 403 });
     }
 
     // Verify password
@@ -53,7 +53,8 @@ export async function POST(request) {
       email: user.email,
       username: user.username,
       name: user.display_name || user.username,
-      role: adminUser.role
+      role: 'business',
+      advertiserId: advertiser.id
     });
 
     // Store session in Redis
@@ -62,7 +63,8 @@ export async function POST(request) {
       email: user.email,
       username: user.username,
       displayName: user.display_name || user.username,
-      role: adminUser.role
+      role: 'business',
+      advertiserId: advertiser.id
     });
 
     // Update user's last login timestamp
@@ -79,7 +81,7 @@ export async function POST(request) {
         email: user.email,
         username: user.username,
         displayName: user.display_name || user.username,
-        role: adminUser.role
+        role: 'business'
       }
     }, { status: 200 });
 
@@ -87,7 +89,7 @@ export async function POST(request) {
 
     return response;
   } catch (error) {
-    console.error('Admin login error:', error);
+    console.error('Business login error:', error);
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
   }
-}
+} 

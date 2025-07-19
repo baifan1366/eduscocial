@@ -3,22 +3,19 @@
 import { Popover, Transition } from '@headlessui/react';
 import { useRouter } from 'next/navigation';
 import { Fragment } from 'react';
-import { ChevronDown, LogOut, User } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
-import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
-import { usePathnameContext } from '@/app/providers';
+import { usePathnameContext } from '@/components/layout/ClientProviders';
+import useAuth from '@/hooks/useAuth';
 
 export default function UserMenu({ onLogout }) {
   const router = useRouter();
   const pathname = usePathnameContext();
-  const { data: session, status } = useSession();
+  const { user, isAuthenticated, status } = useAuth();
 
   // Get the locale from the pathname
   const locale = useLocale();
-
-  // Use next-auth session to determine authentication status
-  const isAuthenticated = status === 'authenticated';
 
   const t = useTranslations('UserMenu');
 
@@ -38,7 +35,6 @@ export default function UserMenu({ onLogout }) {
     if (onLogout) {
       await onLogout();
     }
-    await signOut({ redirect: true, callbackUrl: `/${locale}/login` });
   };
 
   // If session is loading, show loading state

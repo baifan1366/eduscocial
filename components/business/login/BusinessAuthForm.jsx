@@ -1,19 +1,18 @@
-'use client';
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
-import { useAdminLogin } from '../../../hooks/useAuth';
+import { useBusinessLogin } from '../../../hooks/business/useBusinessLoginMutation';
 
-export default function AdminAuthForm() {
+export default function BusinessAuthForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState(null);
 
   const router = useRouter();
-  const { login, isLoading, error } = useAdminLogin();
+  const { login, isLoading, error } = useBusinessLogin();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,8 +35,8 @@ export default function AdminAuthForm() {
     <div className="flex flex-col items-center justify-center py-8">
       <div className="w-full max-w-md p-8 bg-[#132F4C] rounded-lg shadow-lg">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-white">Admin Login</h2>
-          <p className="text-gray-400 mt-2">Sign in to access the admin dashboard</p>
+          <h2 className="text-2xl font-bold text-white">Business Login</h2>
+          <p className="text-gray-400 mt-2">Sign in to your business account</p>
         </div>
 
         {(loginError || error) && (
@@ -80,8 +79,17 @@ export default function AdminAuthForm() {
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </Button>
+
+          <div className="text-center mt-4">
+            <p className="text-gray-400">
+              Don't have a business account?{' '}
+              <Link href="/business/register" className="text-[#FF7D00] hover:underline">
+                Register here
+              </Link>
+            </p>
+          </div>
         </form>
       </div>
     </div>
   );
-}
+} 

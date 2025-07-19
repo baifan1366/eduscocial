@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import { useSession } from 'next-auth/react';
+import useAuth from '@/hooks/useAuth';
 import { usePathname } from 'next/navigation';
 
 // Default settings
@@ -62,8 +62,8 @@ const SettingsContext = createContext({
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(true);
-  const { data: session, status } = useSession();
-  const isAuthenticated = !!session?.user;
+  const { user, status } = useAuth();
+  const isAuthenticated = !!user;
   const pathname = usePathname();
   
   // Get the locale from the pathname
