@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl';
 import UserMenu from './UserMenu';
 import { Popover, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
-import { useNotifications } from '@/hooks/useNotifications';
+// import { useNotifications } from '@/hooks/useNotifications';
 import NotificationItem from '@/components/notifications/NotificationItem';
 
 export default function Navbar() {
@@ -22,7 +22,7 @@ export default function Navbar() {
   const t = useTranslations('Navbar');
   
   // Use the notifications hook
-  const { notifications, unreadCount, loading, markAsRead } = useNotifications();
+  // const { notifications, unreadCount, loading, markAsRead } = useNotifications();
 
   // Check if current page is register page
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function Navbar() {
               {/* Navigation Icons */}
               <div className="flex items-center space-x-1">
                 {/* Notifications */}
-                <Popover className="relative">
+                {/* <Popover className="relative">
                   {({ open }) => (
                     <>
                       <Popover.Button className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#132F4C] transition-colors outline-none relative">
@@ -147,7 +147,7 @@ export default function Navbar() {
                       </Transition>
                     </>
                   )}
-                </Popover>
+                </Popover> */}
 
                 {/* Card Draw */}
                 <button className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#132F4C] transition-colors">

@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { User, Plus, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 export default function MyPage() {
   const { data: session } = useSession();
   const { profile } = useProfile();
+  const router = useRouter();
   const user = session?.user;
   const [showCardDialog, setShowCardDialog] = useState(false);
   const [cardData, setCardData] = useState({ id: '', name: '' });
@@ -86,8 +88,8 @@ export default function MyPage() {
       toast.success('Card created successfully!');
       setShowCardDialog(false);
       setCardData({ id: '', name: '' });
-      // Refresh the page or update the cards list
-      window.location.reload();
+      // 使用router.refresh()代替window.location.reload()
+      router.refresh();
     } catch (error) {
       console.error('Error creating card:', error);
       toast.error(error.message || 'Failed to create card');

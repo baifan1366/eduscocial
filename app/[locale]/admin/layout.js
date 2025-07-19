@@ -1,5 +1,5 @@
 import AdminAuthProvider from '../../../components/admin/login/AdminAuthProvider';
-import AdminNavbar from '../../../components/layout/AdminNavbar';
+// import AdminNavbar from '../../../components/layout/AdminNavbar';
 import '../../../app/globals.css';
 
 export const metadata = {
@@ -30,7 +30,7 @@ export default function AdminLayout({ children, params }) {
       <body>
         <AdminAuthProvider>
           <div className="min-h-screen bg-[#0A1929] text-white">
-            <AdminNavbar />
+            {/* <AdminNavbar /> */}
             <div className="container mx-auto p-4">
               {children}
             </div>

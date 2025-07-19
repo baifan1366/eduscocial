@@ -9,13 +9,14 @@ import { User, Camera, Upload } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export function ProfileForm() {
   const t = useTranslations('Profile');
   const { profile, loading, error, updateProfile, updateField } = useProfile();
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
-
+  const router = useRouter();
 
 
   const handleFieldUpdate = async (field, value) => {
@@ -101,7 +102,7 @@ export function ProfileForm() {
             <p className="text-red-400">Error loading profile: {error}</p>
             <Button 
               variant="orange" 
-              onClick={() => window.location.reload()} 
+              onClick={() => router.refresh()} 
               className="mt-4"
             >
               Retry

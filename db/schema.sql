@@ -7,6 +7,7 @@ CREATE TABLE users (
     username TEXT UNIQUE NOT NULL,
     display_name TEXT,
     avatar_url TEXT,
+    password_hash TEXT NOT NULL,
     bio TEXT,
     gender TEXT CHECK (gender IN ('male', 'female', 'other')),
     birth_year INTEGER,

@@ -73,6 +73,16 @@
     "emailAndPasswordRequired": "Email and password are required",
     "adminOAuthNotSupported": "Admin OAuth is not supported",
     "loginSuccess": "Login successful",
+    "welcomeBack":"Welcome back!",
+    "loginToContinue":"Login to continue",
+    "email": "Email",
+    "dontHaveAccount": "Don't have an account?",    
+    "joinCommunity": "Join Community",
+    "username": "Username",
+    "enterUsername": "Enter username",
+    "confirmYourPassword": "Confirm your password",
+    "passwordMismatch": "Passwords don't match",
+    "registerSuccess": "Register successful",
     "Login": {
       "title": "Sign in to your account",
       "createAccount": "Or create a new account",
@@ -298,5 +308,16 @@
     "noContent": "No content yet.",
     "saveProfile": "Save Profile",
     "profileSaved": "Profile saved successfully!"
+  },
+  "HomePage": {
+    "title": "Welcome to EduSocial",
+    "description": "A social platform for educational communities",
+    "getStarted": "Get Started",
+    "signIn": "Sign In",
+    "welcomeBack": "Welcome back, {name}!",
+    "exploreBoards": "Explore Boards",
+    "viewProfile": "View Profile",
+    "connectWithCommunity": "Connect with Community",
+    "welcome": "Welcome"
   }
 }

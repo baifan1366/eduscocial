@@ -24,12 +24,21 @@ const adminRoutes = [
   '/admin/settings',
 ];
 
+// List of business-only routes that require business authentication
+const businessRoutes = [
+  '/business/dashboard',
+  '/business/profile',
+  '/business/settings',
+  '/business/analytics',
+];
+
 // List of public routes that should be excluded from protection
 const publicRoutes = [
   '/login',
   '/register',
   '/forgot-password',
   '/admin/login',
+  '/business/login',
   '/error',
 ];
 
@@ -85,8 +94,16 @@ export async function middleware(request) {
   );
   const isAdminRoute = isAdminPath && !isAdminPublic;
 
+  // Check if this is a business route
+  const isBusinessPath = pathname.startsWith(`/${locale}/business`);
+  const isBusinessPublic = publicRoutes.some(route => 
+    route.startsWith('/business') && 
+    (pathname === `/${locale}${route}` || pathname.startsWith(`/${locale}${route}/`))
+  );
+  const isBusinessRoute = isBusinessPath && !isBusinessPublic;
+
   // 如果这是一个需要保护的路由，检查身份验证
-  if (isProtectedRoute || isAdminRoute) {
+  if (isProtectedRoute || isAdminRoute || isBusinessRoute) {
     // 获取JWT token
     const authToken = request.cookies.get('auth_token')?.value;
     
@@ -113,6 +130,8 @@ export async function middleware(request) {
       let redirectUrl;
       if (isAdminRoute) {
         redirectUrl = new URL(`/${locale}/admin/login`, request.url);
+      } else if (isBusinessRoute) {
+        redirectUrl = new URL(`/${locale}/business/login`, request.url);
       } else {
         redirectUrl = new URL(`/${locale}/login`, request.url);
       }
@@ -140,6 +159,13 @@ export async function middleware(request) {
     
     // 检查管理员权限
     if (isAdminRoute && tokenData.role !== 'ADMIN') {
+      return NextResponse.redirect(
+        new URL(`/${locale}/unauthorized`, request.url)
+      );
+    }
+    
+    // 检查商家权限
+    if (isBusinessRoute && tokenData.role !== 'business') {
       return NextResponse.redirect(
         new URL(`/${locale}/unauthorized`, request.url)
       );

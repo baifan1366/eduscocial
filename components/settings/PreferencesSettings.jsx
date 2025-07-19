@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import useSettings from '@/hooks/useSettings';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 
 export default function PreferencesSettings() {
@@ -13,6 +13,7 @@ export default function PreferencesSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const t = useTranslations('Settings');
   const router = useRouter();
+  const pathname = usePathname();
   
   // Handle theme change
   const handleThemeChange = async (value) => {
@@ -41,7 +42,7 @@ export default function PreferencesSettings() {
         toast.success('Language updated successfully');
         
         // Redirect to the selected language path
-        const currentPath = window.location.pathname;
+        const currentPath = pathname;
         const pathWithoutLocale = currentPath.substring(currentPath.indexOf('/', 1) || currentPath.length);
         router.push(`/${value}${pathWithoutLocale}`);
       } else {

@@ -108,7 +108,8 @@ export default async function HomePage({ searchParams }) {
   const t = await getTranslations('HomePage');
   
   // 使用自定义认证检查用户会话
-  const authToken = cookies().get('auth_token')?.value;
+  const cookieStore = await cookies();
+  const authToken = cookieStore.get('auth_token')?.value;
   let userId = null;
   let isAuthenticated = false;
   

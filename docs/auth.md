@@ -133,6 +133,39 @@ const isNotEdu = isEducationalEmail('user@gmail.com'); // false
 
 The system checks for common educational domains like `.edu`, `.ac.`, and keywords like "university", "school", etc.
 
+## 密码处理
+
+### Bcrypt 密码哈希
+
+系统使用 bcrypt 库进行密码哈希和验证。这是一种行业标准的加密哈希函数，专门为密码存储设计。
+
+#### 特点
+
+- 集成了盐（salt）功能，每次生成的哈希都不同
+- 可配置的工作因子（work factor），默认设置为10
+- 防止彩虹表攻击
+- 自动包含版本、工作因子和盐信息
+
+#### API
+
+```js
+// 哈希密码
+const hashedPassword = await hashPassword(plainTextPassword);
+
+// 验证密码
+const isMatch = await comparePassword(plainTextPassword, hashedPassword);
+```
+
+#### 密码验证规则
+
+所有用户密码必须符合以下条件：
+
+1. 最少8个字符
+2. 至少包含一个数字
+3. 至少包含一个大写字母
+4. 至少包含一个小写字母
+5. 至少包含一个特殊字符
+
 ## API Routes
 
 ### Login:

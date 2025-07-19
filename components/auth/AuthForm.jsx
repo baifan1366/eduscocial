@@ -74,12 +74,8 @@ export default function AuthForm({ isRegister = false }) {
       toast.success(isRegister ? t('registerSuccess') : t('loginSuccess'));
       
       // Navigate to callback URL or home page
-      if (callbackUrl) {
-        router.push(callbackUrl);
-      } else {
-        const locale = pathname.split('/')[1] || 'en';
-        router.push(`/${locale}/home`);
-      }
+      // 注意：由于在useAuth.js中已经处理了重定向逻辑，这里不需要再执行重定向
+      // 重定向会在useAuth hooks的onSuccess回调中处理
       
     } catch (error) {
       console.error(isRegister ? 'Registration error:' : 'Login error:', error);
