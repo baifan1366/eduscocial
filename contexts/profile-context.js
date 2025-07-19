@@ -32,11 +32,19 @@ const profileReducer = (state, action) => {
 const initialState = {
   profile: {
     displayName: '',
+    email: '',
+    gender: '',
     bio: '',
     birthday: null,
+    relationshipStatus: 'prefer_not_to_say',
     interests: '',
     university: '',
     department: '',
+    favoriteQuotes: '',
+    favoriteCountry: '',
+    dailyActiveTime: 'varies',
+    studyAbroad: 'no',
+    leisureActivities: '',
     avatarUrl: '',
     country: ''
   },

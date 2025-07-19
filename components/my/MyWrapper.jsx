@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import SettingsPanel from './SettingsPanel';
-import { useSession } from 'next-auth/react';
+import useAuth from '@/hooks/useAuth';
 import { getQueryParams } from '@/lib/utils';
 import { usePathnameContext } from '@/app/providers';
 
@@ -11,14 +11,11 @@ export default function MyWrapper({ children }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathnameContext();
-  const { data: session, status } = useSession();
+  const { user, status, isAuthenticated } = useAuth();
   
   // Get the locale from the pathname
   const locale = pathname?.split('/')[1] || 'en';
   const baseUrl = `/${locale}`;
-  
-  // Use next-auth session to determine authentication status
-  const isAuthenticated = status === 'authenticated';
   
   // Use the utility function to get query parameters
   const { showSettings, activeTab } = getQueryParams(searchParams);

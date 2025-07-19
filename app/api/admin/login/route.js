@@ -22,7 +22,7 @@ export async function POST(request) {
     // Check if user exists
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, email, username, display_name, password_hash')
+      .select('id, email, username, password_hash')
       .eq('email', email)
       .single();
 
@@ -52,7 +52,6 @@ export async function POST(request) {
       id: user.id,
       email: user.email,
       username: user.username,
-      name: user.display_name || user.username,
       role: adminUser.role
     });
 
@@ -61,7 +60,6 @@ export async function POST(request) {
       id: user.id,
       email: user.email,
       username: user.username,
-      displayName: user.display_name || user.username,
       role: adminUser.role
     });
 
@@ -78,7 +76,6 @@ export async function POST(request) {
         id: user.id,
         email: user.email,
         username: user.username,
-        displayName: user.display_name || user.username,
         role: adminUser.role
       }
     }, { status: 200 });

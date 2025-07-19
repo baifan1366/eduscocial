@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { getServerSession } from '@/lib/auth/serverAuth';
 import redis from '@/lib/redis/redis';
 import { generateEmbedding } from '@/lib/embedding';
 import { processPostHashtags } from '@/lib/hashtags';
@@ -21,7 +20,7 @@ import { processPostHashtags } from '@/lib/hashtags';
 export async function POST(request) {
   try {
     // Authenticate the user
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     
     if (!session || !session.user) {
       return NextResponse.json(

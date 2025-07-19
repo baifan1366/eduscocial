@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { comparePassword } from '@/lib/auth/password';
+import { generateJWT } from '@/lib/auth/jwt';
+import { setAuthCookie } from '@/lib/auth/cookies';
 
 export async function POST(request) {
   try {
@@ -46,24 +48,39 @@ export async function POST(request) {
       .update({ last_login_at: new Date().toISOString() })
       .eq('id', user.id);
 
-    // 生成会话
-    const session = {
+    // 生成JWT令牌
+    const tokenPayload = {
       id: user.id,
-      created_at: new Date().toISOString()
+      email: user.email,
+      username: user.username,
+      name: user.name || user.username,
+      role: user.role || 'user'
     };
-
-    // 返回成功响应和用户数据
-    return NextResponse.json({
+    
+    const token = await generateJWT(tokenPayload);
+    
+    // 创建响应
+    const response = NextResponse.json({
       message: '登录成功',
       user: {
         id: user.id,
+        userId: user.id, // 添加一个明确的userId字段，确保前端可以识别
         email: user.email,
         username: user.username,
         role: user.role || 'user',
         name: user.name || user.username
       },
-      session: session
+      session: {
+        id: user.id,
+        created_at: new Date().toISOString()
+      },
+      token: token // 添加token字段到响应中，让前端可以获取
     });
+    
+    // 设置auth_token cookie
+    setAuthCookie(response, token);
+    
+    return response;
   } catch (error) {
     console.error('登录路由错误:', error);
     return NextResponse.json(

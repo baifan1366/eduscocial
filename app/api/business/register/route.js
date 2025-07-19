@@ -34,21 +34,48 @@ export async function POST(request) {
     // Hash password
     const passwordHash = await hashPassword(password);
 
-    // Start a transaction
+    // Create user record
     const { data: newUser, error: createUserError } = await supabase
       .from('users')
       .insert({
         email,
         username: email.split('@')[0], // Generate username from email
-        display_name: name,
-        password_hash: passwordHash
+        password_hash: passwordHash,
+        is_active: true,
+        is_verified: true,
+        gender: 'other', // Default value
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
-      .select('id, email, username, display_name')
+      .select('id, email, username')
       .single();
 
     if (createUserError) {
       console.error('Create user error:', createUserError);
       return NextResponse.json({ message: 'Failed to create user account' }, { status: 500 });
+    }
+
+    // Create user_profiles record
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .insert({
+        user_id: newUser.id,
+        interests: '',
+        relationship_status: 'prefer_not_to_say',
+        favorite_quotes: '',
+        favorite_country: '',
+        daily_active_time: 'varies',
+        study_abroad: 'no',
+        leisure_activities: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+    if (profileError) {
+      // Rollback user creation if profile creation fails
+      await supabase.from('users').delete().eq('id', newUser.id);
+      console.error('Create profile error:', profileError);
+      return NextResponse.json({ message: 'Failed to create user profile' }, { status: 500 });
     }
 
     // Create advertiser record
@@ -75,7 +102,6 @@ export async function POST(request) {
       id: newUser.id,
       email: newUser.email,
       username: newUser.username,
-      name: newUser.display_name || newUser.username,
       role: 'business',
       advertiserId: advertiser.id
     });
@@ -85,7 +111,6 @@ export async function POST(request) {
       id: newUser.id,
       email: newUser.email,
       username: newUser.username,
-      displayName: newUser.display_name || newUser.username,
       role: 'business',
       advertiserId: advertiser.id
     });
@@ -97,7 +122,6 @@ export async function POST(request) {
         id: newUser.id,
         email: newUser.email,
         username: newUser.username,
-        displayName: newUser.display_name || newUser.username,
         role: 'business'
       }
     }, { status: 201 });

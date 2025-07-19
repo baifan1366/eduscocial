@@ -5,20 +5,35 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email TEXT UNIQUE NOT NULL,
     username TEXT UNIQUE NOT NULL,
-    display_name TEXT,
     avatar_url TEXT,
     password_hash TEXT NOT NULL,
-    bio TEXT,
     gender TEXT CHECK (gender IN ('male', 'female', 'other')),
-    birth_year INTEGER,
-    school TEXT,
-    department TEXT,
     is_verified BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,
     last_login_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- User profiles table for extended profile information
+CREATE TABLE user_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    bio TEXT,
+    birthday DATE,
+    relationship_status TEXT CHECK (relationship_status IN ('single', 'in_relationship', 'married', 'complicated', 'prefer_not_to_say')),
+    interests TEXT NOT NULL,
+    university TEXT,
+    favorite_quotes TEXT,
+    favorite_country TEXT,
+    daily_active_time TEXT CHECK (daily_active_time IN ('morning', 'afternoon', 'evening', 'night', 'varies')),
+    study_abroad TEXT NOT NULL,
+    leisure_activities TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES users(id),
+    UNIQUE(user_id)
 );
 
 CREATE TABLE schools (

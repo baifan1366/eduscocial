@@ -49,10 +49,7 @@ CREATE OR REPLACE FUNCTION users_search_vector_update() RETURNS trigger AS $$
 BEGIN
     NEW.search_vector := 
         setweight(to_tsvector('public.chinese_english', COALESCE(NEW.username, '')), 'A') ||
-        setweight(to_tsvector('public.chinese_english', COALESCE(NEW.display_name, '')), 'B') ||
-        setweight(to_tsvector('public.chinese_english', COALESCE(NEW.bio, '')), 'C') ||
-        setweight(to_tsvector('public.chinese_english', COALESCE(NEW.school, '')), 'C') ||
-        setweight(to_tsvector('public.chinese_english', COALESCE(NEW.department, '')), 'C');
+        setweight(to_tsvector('public.chinese_english', COALESCE(NEW.email, '')), 'B');
     RETURN NEW;
 END
 $$ LANGUAGE plpgsql;
@@ -60,6 +57,28 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trig_users_search_vector_update
 BEFORE INSERT OR UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION users_search_vector_update();
+
+-- User profiles search vector
+ALTER TABLE user_profiles ADD COLUMN search_vector tsvector;
+CREATE INDEX idx_user_profiles_search_vector ON user_profiles USING gin(search_vector);
+
+-- Create trigger function to update user profile search vector
+CREATE OR REPLACE FUNCTION user_profiles_search_vector_update() RETURNS trigger AS $$
+BEGIN
+    NEW.search_vector := 
+        setweight(to_tsvector('public.chinese_english', COALESCE(NEW.bio, '')), 'B') ||
+        setweight(to_tsvector('public.chinese_english', COALESCE(NEW.university, '')), 'C') ||
+        setweight(to_tsvector('public.chinese_english', COALESCE(NEW.favorite_country, '')), 'C') ||
+        setweight(to_tsvector('public.chinese_english', COALESCE(NEW.favorite_quotes, '')), 'D') ||
+        setweight(to_tsvector('public.chinese_english', COALESCE(NEW.interests, '')), 'B') ||
+        setweight(to_tsvector('public.chinese_english', COALESCE(NEW.leisure_activities, '')), 'C');
+    RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trig_user_profiles_search_vector_update
+BEFORE INSERT OR UPDATE ON user_profiles
+FOR EACH ROW EXECUTE FUNCTION user_profiles_search_vector_update();
 
 -- Boards search vector
 ALTER TABLE boards ADD COLUMN search_vector tsvector;
@@ -120,12 +139,15 @@ BEGIN
     -- Search users
     SELECT 'user' AS object_type,
            u.id AS object_id,
-           COALESCE(u.display_name, u.username) AS title,
-           COALESCE(u.bio, '') AS snippet,
+           COALESCE(u.username) AS title,
+           COALESCE(up.bio, '') AS snippet,
            u.created_at,
-           ts_rank(u.search_vector, to_tsquery('public.chinese_english', query_text)) AS rank
+           ts_rank(u.search_vector, to_tsquery('public.chinese_english', query_text)) + 
+           COALESCE(ts_rank(up.search_vector, to_tsquery('public.chinese_english', query_text)), 0) AS rank
     FROM users u
-    WHERE u.search_vector @@ to_tsquery('public.chinese_english', query_text)
+    LEFT JOIN user_profiles up ON u.id = up.user_id
+    WHERE (u.search_vector @@ to_tsquery('public.chinese_english', query_text) OR
+           up.search_vector @@ to_tsquery('public.chinese_english', query_text))
       AND u.is_active = TRUE
     
     UNION ALL

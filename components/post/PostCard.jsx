@@ -32,13 +32,13 @@ export default function PostCard({ post }) {
         <div className="h-6 w-6 rounded-full overflow-hidden bg-slate-200 mr-2">
           <img
             src={post.users?.avatar_url || '/images/default-avatar.png'}
-            alt={post.users?.display_name || post.users?.username || 'User'}
+            alt={post.users?.username || 'User'}
             className="h-full w-full object-cover"
           />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-slate-800 truncate">
-            {post.users?.display_name || post.users?.username || 'Anonymous'}
+            {post.users?.username || 'Anonymous'}
           </p>
         </div>
         <div className="flex items-center text-xs text-slate-500">

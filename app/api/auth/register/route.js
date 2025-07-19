@@ -71,20 +71,55 @@ export async function POST(request) {
     // 对密码进行哈希处理
     const hashedPassword = await hashPassword(password);
 
-    // 直接创建用户记录
-    const { error: createUserError } = await supabase
+    // 创建用户记录并返回创建的数据
+    const { data: newUser, error: createUserError } = await supabase
       .from('users')
       .insert({
         email,
         username,
         password_hash: hashedPassword,
-        created_at: new Date().toISOString()
-      });
+        is_active: true,
+        is_verified: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select('id')
+      .single();
 
     if (createUserError) {
       console.error('创建用户错误:', createUserError);
       return NextResponse.json(
         { error: '创建账户时出错' },
+        { status: 500 }
+      );
+    }
+
+    // 为用户创建一个空的 user_profiles 记录
+    const { error: createProfileError } = await supabase
+      .from('user_profiles')
+      .insert({
+        user_id: newUser.id,
+        interests: '',
+        relationship_status: 'prefer_not_to_say',
+        favorite_quotes: '',
+        favorite_country: '',
+        daily_active_time: 'varies',
+        study_abroad: 'no',
+        leisure_activities: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+    if (createProfileError) {
+      console.error('创建用户配置文件错误:', createProfileError);
+      // 尝试删除刚刚创建的用户，以防配置文件创建失败
+      await supabase
+        .from('users')
+        .delete()
+        .eq('id', newUser.id);
+        
+      return NextResponse.json(
+        { error: '创建用户配置文件时出错' },
         { status: 500 }
       );
     }

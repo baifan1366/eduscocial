@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getServerSession } from "@/lib/auth/serverAuth";
 
-//get current user id using nextauth
+// Get current user session
 
 // get board data content
 // create board
@@ -11,7 +10,7 @@ export async function POST(request) {
     const { data } = await request.json();
     
     // 获取用户会话
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     
     if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

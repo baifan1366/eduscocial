@@ -1,6 +1,5 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
 import { useProfile } from '@/contexts/profile-context';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,12 +7,12 @@ import { User, Plus, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import useAuth from '@/hooks/useAuth';
 
 export default function MyPage() {
-  const { data: session } = useSession();
+  const { user } = useAuth();
   const { profile } = useProfile();
   const router = useRouter();
-  const user = session?.user;
   const [showCardDialog, setShowCardDialog] = useState(false);
   const [cardData, setCardData] = useState({ id: '', name: '' });
   const [isCreating, setIsCreating] = useState(false);
@@ -36,12 +35,12 @@ export default function MyPage() {
       }
     };
 
-    if (session?.user) {
+    if (user) {
       fetchCards();
     } else {
       setLoading(false);
     }
-  }, [session]);
+  }, [user]);
 
   // Handle Add New Card Block button click
   const handleAddCardBlock = () => {

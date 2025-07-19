@@ -10,24 +10,41 @@ import { useTranslations } from 'next-intl';
 import UserMenu from './UserMenu';
 import { Popover, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
-// import { useNotifications } from '@/hooks/useNotifications';
+import { useNotifications } from '@/hooks/useNotifications';
 import NotificationItem from '@/components/notifications/NotificationItem';
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated, status, isLoading } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
   const t = useTranslations('Navbar');
   
   // Use the notifications hook
-  // const { notifications, unreadCount, loading, markAsRead } = useNotifications();
+  const { notifications, unreadCount, loading, markAsRead } = useNotifications();
 
   // Check if current page is register page
   useEffect(() => {
     setIsRegister(pathname?.includes('/register'));
   }, [pathname]);
+
+  // Determine if we're in a loading state or if we're ready to show authenticated UI
+  const actuallyLoading = isLoading && (!user || status === 'loading');
+  const readyToShowAuth = isAuthenticated || (user && user.id) || status === 'authenticated';
+
+  // Add debug logging
+  useEffect(() => {
+    console.log('Navbar auth status:', { 
+      status, 
+      isLoading,
+      actuallyLoading,
+      isAuthenticated, 
+      readyToShowAuth,
+      userId: user?.id || 'none',
+      localStorageUserId: typeof window !== 'undefined' ? localStorage.getItem('userId') : 'not available'
+    });
+  }, [status, isLoading, isAuthenticated, actuallyLoading, readyToShowAuth, user]);
 
   // Handle user logout with improved error handling
   const handleUserLogout = async () => {
@@ -35,8 +52,8 @@ export default function Navbar() {
     try {
       const result = await logout();
       
-      if (!result.success) {
-        console.error('Logout failed:', result.error);
+      if (!result?.success) {
+        console.error('Logout failed:', result?.error);
         // Force redirect if logout fails
         router.push('/login');
       }
@@ -49,6 +66,32 @@ export default function Navbar() {
       setIsLoggingOut(false);
     }
   };
+
+  // Display loading state - only show loading spinner if we're actually loading
+  if (actuallyLoading) {
+    return (
+      <nav className="w-full py-2 px-2 bg-[#0A1929] shadow-md">
+        <div className="container mx-auto flex items-center justify-between">
+          <Link href="/" className="text-white text-2xl font-bold flex items-center gap-2">
+            <Image
+              src="/slogan-removebg-preview.png"
+              alt="EduSocial Logo"
+              width={40}
+              height={40}
+              style={{
+                width: '40px',
+                height: '40px',
+              }}
+            />
+            <span className="text-white text-2xl font-bold">EduSocial</span>
+          </Link>
+          <div className="flex items-center space-x-4">
+            <div className="w-6 h-6 border-2 border-t-[#FF7D00] border-gray-300 rounded-full animate-spin"></div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <nav className="w-full py-2 px-2 bg-[#0A1929] shadow-md">
@@ -68,7 +111,7 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center space-x-4">
-          {user ? (
+          {readyToShowAuth ? (
             // Regular user authenticated
             <div className="flex items-center gap-4">
               {/* Post Button */}
@@ -79,7 +122,7 @@ export default function Navbar() {
               {/* Navigation Icons */}
               <div className="flex items-center space-x-1">
                 {/* Notifications */}
-                {/* <Popover className="relative">
+                <Popover className="relative">
                   {({ open }) => (
                     <>
                       <Popover.Button className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#132F4C] transition-colors outline-none relative">
@@ -147,7 +190,7 @@ export default function Navbar() {
                       </Transition>
                     </>
                   )}
-                </Popover> */}
+                </Popover>
 
                 {/* Card Draw */}
                 <button className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#132F4C] transition-colors">

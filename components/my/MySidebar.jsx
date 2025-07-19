@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathnameContext } from '@/app/providers';
-import { useSession } from 'next-auth/react';
+import useAuth from '@/hooks/useAuth';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ import {
 
 export default function MySidebar() {
   const pathname = usePathnameContext();
-  const { data: session } = useSession();
+  const { user } = useAuth();
   const router = useRouter();
   
   // Get the locale from the pathname

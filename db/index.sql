@@ -21,15 +21,10 @@ CREATE INDEX idx_notifications_type ON notifications(type);
 
 CREATE INDEX idx_hashtags_name ON hashtags(name);
 CREATE INDEX idx_hashtags_usage_count ON hashtags(usage_count DESC);
-
+-- Index for faster lookups
+CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_school ON users(school);
-CREATE INDEX idx_users_department ON users(department);
-
-CREATE INDEX idx_schools_name ON schools(name);
-CREATE INDEX idx_departments_school_id ON departments(school_id);
-CREATE INDEX idx_departments_name ON departments(name);
 
 CREATE INDEX idx_daily_matches_user_a ON daily_matches(user_a);
 CREATE INDEX idx_daily_matches_user_b ON daily_matches(user_b);

@@ -204,6 +204,36 @@ export function ProfileForm() {
           />
           
           <ProfileField 
+            label="Gender" 
+            value={profile.gender}
+            field="gender"
+            type="select"
+            options={[
+              { value: 'male', label: t('Gender.male') },
+              { value: 'female', label: t('Gender.female') },
+              { value: 'other', label: t('Gender.other') }
+            ]}
+            placeholder="Select gender"
+            onUpdate={handleFieldUpdate}
+          />
+
+          <ProfileField 
+            label="Relationship Status" 
+            value={profile.relationshipStatus}
+            field="relationshipStatus"
+            type="select"
+            options={[
+              { value: 'single', label: t('RelationshipStatus.single') },
+              { value: 'in_relationship', label: t('RelationshipStatus.in_relationship') },
+              { value: 'married', label: t('RelationshipStatus.married') },
+              { value: 'complicated', label: t('RelationshipStatus.complicated') },
+              { value: 'prefer_not_to_say', label: t('RelationshipStatus.prefer_not_to_say') }
+            ]}
+            placeholder="Select relationship status"
+            onUpdate={handleFieldUpdate}
+          />
+          
+          <ProfileField 
             label="Interests & Hobbies" 
             value={profile.interests}
             field="interests"
@@ -218,6 +248,62 @@ export function ProfileForm() {
             value={profile.university}
             field="university"
             placeholder="Enter your school or organization"
+            onUpdate={handleFieldUpdate}
+          />
+          
+          <ProfileField 
+            label="Study Abroad" 
+            value={profile.studyAbroad}
+            field="studyAbroad"
+            type="select"
+            options={[
+              { value: 'yes', label: t('StudyAbroad.yes') },
+              { value: 'no', label: t('StudyAbroad.no') },
+              { value: 'planning', label: t('StudyAbroad.planning') }
+            ]}
+            placeholder="Select study abroad status"
+            onUpdate={handleFieldUpdate}
+          />
+
+          <ProfileField 
+            label="Leisure Activities" 
+            value={profile.leisureActivities}
+            field="leisureActivities"
+            type="textarea"
+            placeholder="Enter your leisure activities"
+            onUpdate={handleFieldUpdate}
+          />
+
+          <ProfileField 
+            label="Favorite Quotes" 
+            value={profile.favoriteQuotes}
+            field="favoriteQuotes"
+            type="textarea"
+            placeholder="Enter your favorite quotes"
+            onUpdate={handleFieldUpdate}
+          />
+
+          <ProfileField 
+            label="Favorite Country" 
+            value={profile.favoriteCountry}
+            field="favoriteCountry"
+            placeholder="Enter your favorite country"
+            onUpdate={handleFieldUpdate}
+          />
+
+          <ProfileField 
+            label="Daily Active Time" 
+            value={profile.dailyActiveTime}
+            field="dailyActiveTime"
+            type="select"
+            options={[
+              { value: 'morning', label: t('DailyActiveTime.morning') },
+              { value: 'afternoon', label: t('DailyActiveTime.afternoon') },
+              { value: 'evening', label: t('DailyActiveTime.evening') },
+              { value: 'night', label: t('DailyActiveTime.night') },
+              { value: 'varies', label: t('DailyActiveTime.varies') }
+            ]}
+            placeholder="Select daily active time"
             onUpdate={handleFieldUpdate}
           />
           

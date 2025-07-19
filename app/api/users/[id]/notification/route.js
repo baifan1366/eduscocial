@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../../auth/[...nextauth]/route';
+import { getServerSession } from '@/lib/auth/serverAuth';
 import { supabase } from '@/lib/supabase';
 
 // 获取用户通知
 export async function GET(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id } = params;
     
     // 验证用户只能访问自己的通知
     if (session.user.id !== id) {
@@ -80,7 +79,7 @@ export async function GET(request, { params }) {
 // 标记通知为已读
 export async function PATCH(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -140,7 +139,7 @@ export async function PATCH(request, { params }) {
 // 为用户创建通知
 export async function POST(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

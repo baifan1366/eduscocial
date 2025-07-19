@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import useAuth from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { usePathnameContext } from '@/app/providers';
@@ -11,7 +11,7 @@ import { SettingsProvider } from '@/hooks/useSettings';
 import { useLocale } from 'next-intl';
 
 export default function MyLayout({ children }) {
-  const { data: session, status } = useSession();
+  const { user, status, isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathnameContext();
 

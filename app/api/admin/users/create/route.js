@@ -52,8 +52,12 @@ export async function POST(request) {
       .insert({
         email,
         username,
-        display_name: displayName || username,
         password_hash: passwordHash,
+        is_active: true,
+        is_verified: true,
+        gender: 'other',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         created_by: session.user.id
       })
       .select('id')
@@ -62,6 +66,30 @@ export async function POST(request) {
     if (createUserError) {
       console.error('Create admin user error:', createUserError);
       return NextResponse.json({ message: 'Failed to create user account' }, { status: 500 });
+    }
+
+    // Create user_profiles record for admin user
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .insert({
+        user_id: newUser.id,
+        interests: '',
+        relationship_status: 'prefer_not_to_say',
+        favorite_quotes: '',
+        favorite_country: '',
+        daily_active_time: 'varies',
+        study_abroad: 'no',
+        leisure_activities: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        created_by: session.user.id
+      });
+
+    if (profileError) {
+      // Rollback user creation if profile creation fails
+      await supabase.from('users').delete().eq('id', newUser.id);
+      console.error('Create profile error:', profileError);
+      return NextResponse.json({ message: 'Failed to create user profile' }, { status: 500 });
     }
 
     // Create admin record

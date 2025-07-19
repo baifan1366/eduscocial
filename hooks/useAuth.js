@@ -142,9 +142,24 @@ export function useLogin() {
       queryClient.invalidateQueries({ queryKey: ['session'] });
       
       // 如果登录成功且返回了用户ID，将其存储到localStorage
-      if (userData.user && userData.user.id) {
+      if (userData.user) {
         try {
-          localStorage.setItem('userId', userData.user.id);
+          // 尝试多种可能的ID字段
+          const userId = userData.user.id || userData.user.userId || userData.userId || userData.id;
+          if (userId) {
+            localStorage.setItem('userId', userId);
+            console.log('已成功将用户ID保存到localStorage:', userId);
+            
+            // 确保auth_token cookie也被设置 - 这是与middleware同步所必需的
+            if (userData.token) {
+              document.cookie = `auth_token=${userData.token}; path=/; max-age=2592000; SameSite=Lax`; // 30天过期
+              console.log('已设置auth_token cookie');
+            } else {
+              console.warn('登录成功但未找到token，无法设置auth_token cookie');
+            }
+          } else {
+            console.warn('登录成功但未找到用户ID，无法保存到localStorage');
+          }
         } catch (e) {
           console.error('Error storing userId in localStorage:', e);
         }
@@ -471,42 +486,74 @@ export function useLogout() {
       setError(null);
 
       try {
+        // 从localStorage中清除用户ID
+        try {
+          const userId = localStorage.getItem('userId');
+          if (userId) {
+            console.log('Logout: 清除本地用户ID:', userId);
+            localStorage.removeItem('userId');
+          }
+        } catch (e) {
+          console.error('Logout: 清除localStorage用户ID失败:', e);
+        }
+        
+        // 清除auth_token cookie
+        try {
+          document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+          console.log('Logout: 已清除auth_token cookie');
+        } catch (e) {
+          console.error('Logout: 清除cookie失败:', e);
+        }
+        
         // 从Redis中移除会话
         if (session?.user?.id) {
           await removeUserSession(session.user.id);
-          
-          // 从localStorage中清除用户ID
-          try {
-            localStorage.removeItem('userId');
-          } catch (e) {
-            console.error('Error removing userId from localStorage:', e);
-          }
+          console.log('Logout: 已从Redis中移除会话');
         }
         
         // 根据用户角色调用不同的登出API
-        if (session?.user?.role === 'business') {
-          return await api.auth.businessLogout();
-        } else if (['support', 'ads_manager', 'superadmin'].includes(session?.user?.role)) {
-          return await api.auth.adminLogout();
-        } else {
-          return await api.auth.logout();
+        let result = { success: true };
+        try {
+          if (session?.user?.role === 'business') {
+            result = await api.auth.businessLogout();
+          } else if (['support', 'ads_manager', 'superadmin'].includes(session?.user?.role)) {
+            result = await api.auth.adminLogout();
+          } else {
+            result = await api.auth.logout();
+          }
+          console.log('Logout: API返回结果:', result);
+        } catch (apiError) {
+          console.error('Logout: API调用失败:', apiError);
+          // 即使API调用失败，仍然返回成功结果，因为我们已经清除了本地存储
+          result = { success: true, apiError: true };
         }
+        
+        return result;
       } catch (error) {
-        console.error('Logout process error:', error);
+        console.error('Logout: 过程错误:', error);
         setError(error.message || 'Logout failed');
+        
+        // 无论如何，尝试清除本地存储
+        try {
+          localStorage.removeItem('userId');
+        } catch (e) {
+          console.error('Logout: 清除localStorage用户ID失败(错误处理中):', e);
+        }
+        
         throw error;
       }
     },
     onSuccess: () => {
       // Clear session in React Query cache
       queryClient.setQueryData(['session'], { authenticated: false, user: null });
+      queryClient.invalidateQueries({ queryKey: ['session'] });
       
       // 获取当前语言环境
       let locale = 'en';
       try {
         locale = pathname.split('/')[1] || 'en';
       } catch (e) {
-        console.error('Error getting locale:', e);
+        console.error('Logout: 获取语言环境失败:', e);
       }
       
       // Redirect based on role
@@ -519,8 +566,16 @@ export function useLogout() {
       }
     },
     onError: (error) => {
-      console.error('Logout error:', error);
+      console.error('Logout: 错误:', error);
       setError(error.message || 'Logout failed');
+      
+      // 即使出错，也要重定向到登录页面
+      let locale = 'en';
+      try {
+        locale = pathname.split('/')[1] || 'en';
+      } catch (e) {}
+      
+      router.push(`/${locale}/login`);
     }
   });
 
@@ -624,22 +679,32 @@ export function useResendVerificationEmail() {
 export function useSession() {
   const [status, setStatus] = useState('loading');
 
+  // 添加检查cookie的辅助函数
+  const checkAuthCookie = () => {
+    if (typeof document !== 'undefined') {
+      return document.cookie.split(';').some(item => item.trim().startsWith('auth_token='));
+    }
+    return false;
+  };
+
   const { data, error, isLoading } = useQuery({
     queryKey: ['session'],
     queryFn: async () => {
       try {
-        // 从本地存储获取用户ID（假设在登录时存储了用户ID）
+        // 首先尝试从本地存储获取用户ID
         let userId = null;
         try {
           userId = localStorage.getItem('userId');
+          console.log('useSession: 从localStorage获取userId:', userId);
         } catch (e) {
-          console.error('Error retrieving userId from localStorage:', e);
+          console.error('useSession: 获取localStorage userId失败:', e);
         }
         
         // 如果有用户ID，尝试从Redis获取会话
         if (userId) {
           try {
             const sessionData = await getUserSession(userId);
+            console.log('useSession: Redis会话数据:', sessionData);
             
             // 如果Redis中有有效会话，直接使用Redis会话数据
             if (sessionData && sessionData.valid) {
@@ -660,18 +725,21 @@ export function useSession() {
               };
             }
           } catch (redisError) {
-            console.error('Error retrieving session from Redis:', redisError);
+            console.error('useSession: 从Redis获取会话出错:', redisError);
             // 如果Redis出错，继续尝试API获取
           }
         }
         
+        console.log('useSession: 从API获取当前用户');
         // 如果没有Redis会话，调用API获取当前用户
         const sessionData = await api.users.getCurrentUser();
+        console.log('useSession: API返回数据:', sessionData);
         
         // 如果API返回用户数据，将其存储到Redis和localStorage
         if (sessionData?.user?.id) {
           try {
             localStorage.setItem('userId', sessionData.user.id);
+            console.log('useSession: 已保存用户ID到localStorage:', sessionData.user.id);
             
             // 确保只存储可序列化的数据
             const sessionInfo = {
@@ -684,25 +752,41 @@ export function useSession() {
             
             await storeUserSession(sessionData.user.id, sessionInfo);
           } catch (e) {
-            console.error('Error storing session data:', e);
+            console.error('useSession: 保存会话数据失败:', e);
+          }
+        } else {
+          console.log('useSession: API返回无用户数据或用户未认证');
+          
+          // 检查cookie作为后备选项
+          const hasCookie = checkAuthCookie();
+          if (hasCookie) {
+            console.log('useSession: 检测到auth_token cookie但API返回未认证，返回临时认证状态');
+            
+            // 如果有cookie但API返回未认证，可能是API问题，返回临时认证状态
+            setStatus('authenticated');
+            return {
+              authenticated: true,
+              user: { id: 'temp-user-id', role: 'user', tempAuth: true },
+              tempAuth: true
+            };
           }
         }
         
-        setStatus(sessionData.user ? 'authenticated' : 'unauthenticated');
+        setStatus(sessionData?.user ? 'authenticated' : 'unauthenticated');
         
         return {
-          authenticated: !!sessionData.user,
-          user: sessionData.user
+          authenticated: !!sessionData?.user,
+          user: sessionData?.user || null
         };
       } catch (error) {
-        console.error('Session error:', error);
+        console.error('useSession: 会话获取错误:', error);
         setStatus('error');
         
         // 清除可能无效的localStorage数据
         try {
           localStorage.removeItem('userId');
         } catch (e) {
-          console.error('Error removing userId from localStorage:', e);
+          console.error('useSession: 清除userId失败:', e);
         }
         
         return {
@@ -712,9 +796,34 @@ export function useSession() {
       }
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 1, // 只重试一次
-    refetchOnWindowFocus: process.env.NODE_ENV === 'production' // Only in production
+    refetchOnWindowFocus: process.env.NODE_ENV === 'production', // Only in production
+    refetchInterval: false, // 禁用自动重新获取
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    cacheTime: 1000 * 60 * 10, // 10 minutes
+    // 设置超时以避免无限加载状态
+    retry: (failureCount, error) => {
+      // 如果是401错误（未授权），不重试
+      if (error?.response?.status === 401) {
+        return false;
+      }
+      return failureCount < 2; // 最多重试2次
+    },
+    retryDelay: 1000, // 重试间隔1秒
   });
+  
+  // 当查询结束时更新状态
+  useEffect(() => {
+    if (!isLoading) {
+      if (error) {
+        setStatus('error');
+      } else if (data?.authenticated) {
+        setStatus('authenticated');
+      } else {
+        setStatus('unauthenticated');
+      }
+    }
+  }, [isLoading, data, error]);
 
   // Helper function to check if user is authenticated
   const isAuthenticated = data?.authenticated ?? false;

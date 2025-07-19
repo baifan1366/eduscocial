@@ -295,19 +295,47 @@
   },
   "Profile": {
     "title": "Card Self-Introduction",
-    "birthday": "Birthday",
-    "relationshipStatus": "Relationship Status",
+    "saveProfile": "Save Profile",
+    "savingProfile": "Saving...",
+    "profileSaved": "Profile saved successfully!",
+    "uploadProfilePicture": "Upload Profile Picture",
+    "displayName": "Display Name",
+    "bio": "Bio",
+    "birthYear": "Birth Year",
     "interests": "Interests & Hobbies",
     "university": "School/Organization",
+    "department": "Department",
+    "country": "Country",
+    "Gender": {
+      "male": "Male",
+      "female": "Female",
+      "other": "Other"
+    },
+    "RelationshipStatus": {
+      "single": "Single",
+      "in_relationship": "In a relationship",
+      "married": "Married",
+      "complicated": "It's complicated",
+      "prefer_not_to_say": "Prefer not to say"
+    },
+    "StudyAbroad": {
+      "yes": "Yes",
+      "no": "No",
+      "planning": "Planning"
+    },
+    "DailyActiveTime": {
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "night": "Night",
+      "varies": "Varies"
+    },
+    "relationshipStatus": "Relationship Status",
+    "studyAbroad": "Study Abroad",
+    "leisureActivities": "Leisure Activities",
     "favoriteQuotes": "Favorite Quotes",
     "favoriteCountry": "Favorite Country",
-    "dailyActiveTime": "Most Active Time of Day",
-    "studyAbroad": "Skills for Exchange Learning",
-    "leisureActivities": "Leisure Activities",
-    "required": "Required",
-    "noContent": "No content yet.",
-    "saveProfile": "Save Profile",
-    "profileSaved": "Profile saved successfully!"
+    "dailyActiveTime": "Daily Active Time"
   },
   "HomePage": {
     "title": "Welcome to EduSocial",
@@ -318,6 +346,8 @@
     "exploreBoards": "Explore Boards",
     "viewProfile": "View Profile",
     "connectWithCommunity": "Connect with Community",
-    "welcome": "Welcome"
+    "welcome": "Welcome",
+    "pageTitle": "EduSocial - Home",
+    "pageDescription": "Connect with your educational community"
   }
 }

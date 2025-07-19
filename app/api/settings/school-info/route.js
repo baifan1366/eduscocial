@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from '@/lib/auth/serverAuth';
 import { supabase } from '@/lib/supabase';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 /**
  * 处理学校认证文件上传请求
@@ -9,7 +8,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 export async function POST(request) {
   try {
     // 验证用户会话
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized access' }, { status: 401 });
     }

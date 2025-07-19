@@ -23,18 +23,28 @@ export async function GET(request, { params }) {
 
     // Query the users table for profile information
     const { data, error } = await supabase
-      .from('users')
+      .from('user_profiles')
       .select(`
         id,
-        display_name,
+        user_id,
         bio,
-        school,
-        department,
-        birth_year,
-        avatar_url,
-        country
+        university,
+        birthday,
+        interests,
+        relationship_status,
+        favorite_quotes,
+        favorite_country,
+        daily_active_time,
+        study_abroad,
+        leisure_activities,
+        users!user_profiles_user_id_fkey (
+          username,
+          email,
+          avatar_url,
+          gender
+        )
       `)
-      .eq('id', userId)
+      .eq('user_id', userId)
       .single();
 
     if (error) {
@@ -42,35 +52,25 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
     }
 
-    // Fetch user interests from user_interests table
-    const { data: interestsData, error: interestsError } = await supabase
-      .from('user_interests')
-      .select(`
-        hashtags(name),
-        topics(name)
-      `)
-      .eq('user_id', userId);
-
-    // Process interests data
-    let interests = '';
-    if (!interestsError && interestsData) {
-      const interestNames = interestsData.map(item => {
-        return item.hashtags?.name || item.topics?.name;
-      }).filter(Boolean);
-      interests = interestNames.join(', ');
-    }
-
     // Return profile data with camelCase conversion using actual database fields
+    const userData = data.users?.user_profiles_user_id_fkey || {};
+    
     return NextResponse.json({
       profile: {
-        displayName: data.display_name || '',
+        displayName: userData.username || '',
+        email: userData.email || '',
+        gender: userData.gender || '',
         bio: data.bio || '',
-        birthday: data.birth_year ? data.birth_year.toString() : null,
-        interests: interests,
-        university: data.school || '',
-        department: data.department || '',
-        avatarUrl: data.avatar_url || '',
-        country: data.country || ''
+        birthday: data.birthday ? new Date(data.birthday).toISOString() : null,
+        interests: data.interests || '',
+        university: data.university || '',
+        relationshipStatus: data.relationship_status || 'prefer_not_to_say',
+        favoriteQuotes: data.favorite_quotes || '',
+        favoriteCountry: data.favorite_country || '',
+        dailyActiveTime: data.daily_active_time || 'varies',
+        studyAbroad: data.study_abroad || 'no',
+        leisureActivities: data.leisure_activities || '',
+        avatarUrl: userData.avatar_url || ''
       }
     });
   } catch (error) {
@@ -110,15 +110,18 @@ export async function PUT(request, { params }) {
 
     const profileData = validationResult.data;
 
-    // Convert camelCase to snake_case for database and map to users table fields
+    // Convert camelCase to snake_case for database and map to user_profiles table fields
     const dbData = {
-      display_name: profileData.displayName,
       bio: profileData.bio,
-      school: profileData.university,
-      department: profileData.department,
-      birth_year: profileData.birthday ? parseInt(profileData.birthday) : null,
-      avatar_url: profileData.avatarUrl,
-      country: profileData.country,
+      university: profileData.university,
+      birthday: profileData.birthday ? new Date(profileData.birthday) : null,
+      interests: profileData.interests || '',
+      relationship_status: profileData.relationshipStatus || 'prefer_not_to_say',
+      favorite_quotes: profileData.favoriteQuotes || '',
+      favorite_country: profileData.favoriteCountry || '',
+      daily_active_time: profileData.dailyActiveTime || 'varies',
+      study_abroad: profileData.studyAbroad || 'no',
+      leisure_activities: profileData.leisureActivities || '',
       updated_at: new Date().toISOString()
     };
 
@@ -129,11 +132,36 @@ export async function PUT(request, { params }) {
       }
     });
 
-    // Update the user record
+    // Update the avatar_url and gender in the users table
+    if (profileData.avatarUrl !== undefined || profileData.gender !== undefined) {
+      const userUpdateData = {
+        updated_at: new Date().toISOString()
+      };
+      
+      if (profileData.avatarUrl !== undefined) {
+        userUpdateData.avatar_url = profileData.avatarUrl;
+      }
+      
+      if (profileData.gender !== undefined) {
+        userUpdateData.gender = profileData.gender;
+      }
+      
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update(userUpdateData)
+        .eq('id', userId);
+      
+      if (userUpdateError) {
+        console.error('Error updating user data:', userUpdateError);
+        return NextResponse.json({ error: 'Failed to update user data' }, { status: 500 });
+      }
+    }
+
+    // Update the user profile record
     const { error } = await supabase
-      .from('users')
+      .from('user_profiles')
       .update(dbData)
-      .eq('id', userId);
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Error saving user profile:', error);
