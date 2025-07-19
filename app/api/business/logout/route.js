@@ -4,8 +4,8 @@ import { verifyJWT } from '../../../../lib/auth/jwt';
 import { deleteSession } from '../../../../lib/auth/session';
 
 /**
- * Admin logout API route
- * POST /api/admin/logout
+ * Business logout API route
+ * POST /api/business/logout
  */
 export async function POST(request) {
   try {
@@ -33,7 +33,7 @@ export async function POST(request) {
     
     return response;
   } catch (error) {
-    console.error('Admin logout error:', error);
+    console.error('Business logout error:', error);
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
   }
 } 

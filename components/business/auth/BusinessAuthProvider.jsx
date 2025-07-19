@@ -1,51 +1,49 @@
-'use client';
-
 import { createContext, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useAuth from '../../../hooks/useAuth';
 
 // Create auth context
-export const AdminAuthContext = createContext({
-  isAdmin: false,
+export const BusinessAuthContext = createContext({
+  isBusiness: false,
   user: null,
   isLoading: true,
   error: null,
   logout: () => {},
 });
 
-export default function AdminAuthProvider({ children }) {
+export default function BusinessAuthProvider({ children }) {
   const router = useRouter();
-  const { user, status, isLoading, error, logout, isAdmin } = useAuth();
+  const { user, status, isLoading, error, logout, isBusiness } = useAuth();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  // Redirect if not authenticated or not an admin
+  // Redirect if not authenticated or not a business user
   useEffect(() => {
     if (!isLoading && status !== 'loading') {
       setIsCheckingAuth(false);
 
       // If not authenticated, redirect to login
       if (status === 'unauthenticated') {
-        router.replace('/admin/login');
+        router.replace('/business/login');
         return;
       }
 
-      // If authenticated but not an admin, redirect to unauthorized page
-      if (user && !isAdmin()) {
+      // If authenticated but not a business user, redirect to unauthorized page
+      if (user && !isBusiness()) {
         router.replace('/unauthorized');
         return;
       }
     }
-  }, [isLoading, status, user, isAdmin, router]);
+  }, [isLoading, status, user, isBusiness, router]);
 
   // Logout handler
   const handleLogout = useCallback(async () => {
     await logout();
-    router.replace('/admin/login');
+    router.replace('/business/login');
   }, [logout, router]);
 
   // Context value
   const value = {
-    isAdmin: user ? isAdmin() : false,
+    isBusiness: user ? isBusiness() : false,
     user,
     isLoading: isLoading || isCheckingAuth,
     error,
@@ -61,14 +59,14 @@ export default function AdminAuthProvider({ children }) {
     );
   }
 
-  // If not authenticated or not an admin, don't render children
-  if (status === 'unauthenticated' || (user && !isAdmin())) {
+  // If not authenticated or not a business user, don't render children
+  if (status === 'unauthenticated' || (user && !isBusiness())) {
     return null;
   }
 
   return (
-    <AdminAuthContext.Provider value={value}>
+    <BusinessAuthContext.Provider value={value}>
       {children}
-    </AdminAuthContext.Provider>
+    </BusinessAuthContext.Provider>
   );
 } 

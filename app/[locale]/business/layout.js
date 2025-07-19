@@ -1,19 +1,18 @@
-import AdminAuthProvider from '../../../components/admin/login/AdminAuthProvider';
-import AdminNavbar from '../../../components/layout/AdminNavbar';
+import BusinessAuthProvider from '../../../components/business/auth/BusinessAuthProvider';
 import '../../../app/globals.css';
 
 export const metadata = {
-  title: 'Admin | EduSocial',
-  description: 'Admin dashboard for EduSocial',
+  title: 'Business Portal | EduSocial',
+  description: 'Business portal for EduSocial',
 };
 
-export default function AdminLayout({ children, params }) {
+export default function BusinessLayout({ children, params }) {
   const { locale } = params;
 
-  // Only wrap the children with AdminAuthProvider if not on the login page
-  const isLoginPage = children.props.childProp.segment === 'login';
+  // Only wrap the children with BusinessAuthProvider if not on the login or register pages
+  const isAuthPage = children.props.childProp.segment === 'login' || children.props.childProp.segment === 'register';
 
-  if (isLoginPage) {
+  if (isAuthPage) {
     return (
       <html lang={locale} suppressHydrationWarning>
         <body>
@@ -28,14 +27,13 @@ export default function AdminLayout({ children, params }) {
   return (
     <html lang={locale} suppressHydrationWarning>
       <body>
-        <AdminAuthProvider>
+        <BusinessAuthProvider>
           <div className="min-h-screen bg-[#0A1929] text-white">
-            <AdminNavbar />
             <div className="container mx-auto p-4">
               {children}
             </div>
           </div>
-        </AdminAuthProvider>
+        </BusinessAuthProvider>
       </body>
     </html>
   );
