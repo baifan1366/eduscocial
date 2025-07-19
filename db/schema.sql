@@ -213,6 +213,16 @@ CREATE TABLE post_hashtags (
     CONSTRAINT unique_post_hashtag UNIQUE (post_id, hashtag_id)
 );
 
+CREATE TABLE anonymous_avatars (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  avatar_url TEXT NOT NULL,
+  description TEXT,
+  is_premium_only BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -282,16 +292,6 @@ CREATE TABLE subscriptions (
   end_at TIMESTAMPTZ NOT NULL,
   auto_renew BOOLEAN DEFAULT TRUE,
   status TEXT NOT NULL CHECK(status IN ('active','cancelled','expired')),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
-);
-
-CREATE TABLE anonymous_avatars (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  avatar_url TEXT NOT NULL,
-  description TEXT,
-  is_premium_only BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_by UUID REFERENCES users(id)

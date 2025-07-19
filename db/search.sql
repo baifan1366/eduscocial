@@ -1,3 +1,6 @@
+-- Drop existing config if exists
+DROP TEXT SEARCH CONFIGURATION IF EXISTS public.chinese_english;
+
 -- Create full-text search configuration
 -- Use Chinese and English configuration for mixed language search
 CREATE TEXT SEARCH CONFIGURATION public.chinese_english (COPY = pg_catalog.simple);
