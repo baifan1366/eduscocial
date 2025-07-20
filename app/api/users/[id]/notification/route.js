@@ -10,7 +10,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = (await params);
     
     // 验证用户只能访问自己的通知
     if (session.user.id !== id) {
@@ -84,7 +84,7 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = (await params);
     
     // 验证用户只能修改自己的通知
     if (session.user.id !== id) {
@@ -144,7 +144,7 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = (await params);
     const body = await request.json();
     
     // 仅管理员或系统可以为其他用户创建通知

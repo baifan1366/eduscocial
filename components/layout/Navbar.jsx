@@ -72,7 +72,7 @@ export default function Navbar() {
     return (
       <nav className="w-full py-2 px-2 bg-[#0A1929] shadow-md">
         <div className="container mx-auto flex items-center justify-between">
-          <Link href="/" className="text-white text-2xl font-bold flex items-center gap-2">
+          <Link href={`/home`} className="text-white text-2xl font-bold flex items-center gap-2">
             <Image
               src="/slogan-removebg-preview.png"
               alt="EduSocial Logo"
