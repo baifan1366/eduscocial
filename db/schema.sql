@@ -1,6 +1,30 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS vector;
 
+CREATE TABLE admin_users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone_number TEXT,
+  password TEXT NOT NULL,
+  role TEXT CHECK (role IN ('superadmin')) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES admin_users(id)
+);
+
+CREATE TABLE business_users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone_number TEXT,
+  password TEXT NOT NULL,
+  role TEXT CHECK (role IN ('business')) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES admin_users(id)
+);
+
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email TEXT UNIQUE NOT NULL,
@@ -12,11 +36,10 @@ CREATE TABLE users (
     is_active BOOLEAN DEFAULT TRUE,
     last_login_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
+    created_by UUID REFERENCES admin_users(id),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- User profiles table for extended profile information
 CREATE TABLE user_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -28,8 +51,8 @@ CREATE TABLE user_profiles (
     favorite_quotes TEXT,
     favorite_country TEXT,
     daily_active_time TEXT CHECK (daily_active_time IN ('morning', 'afternoon', 'evening', 'night', 'varies')),
-    study_abroad TEXT NOT NULL,
-    leisure_activities TEXT NOT NULL,
+    study_abroad TEXT NULL,
+    leisure_activities TEXT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
@@ -43,18 +66,7 @@ CREATE TABLE schools (
     domain TEXT,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE departments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    code TEXT,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
+    created_by UUID REFERENCES admin_users(id),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -82,9 +94,6 @@ CREATE TABLE posts (
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     is_anonymous BOOLEAN DEFAULT FALSE,
-    gender TEXT CHECK (gender IN ('male', 'female', 'other')),
-    school TEXT,
-    department TEXT,
     post_type TEXT DEFAULT 'general' CHECK (post_type IN ('general', 'question', 'sharing', 'poll')),
     is_pinned BOOLEAN DEFAULT FALSE,
     is_deleted BOOLEAN DEFAULT FALSE,
@@ -225,8 +234,7 @@ CREATE TABLE post_hashtags (
     hashtag_id UUID REFERENCES hashtags(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT unique_post_hashtag UNIQUE (post_id, hashtag_id)
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE anonymous_avatars (
@@ -279,6 +287,8 @@ CREATE TABLE user_preferences (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     settings JSONB,
+    notification_settings JSONB,
+    theme TEXT DEFAULT 'light',
     language TEXT DEFAULT 'zh-TW',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -310,7 +320,7 @@ CREATE TABLE subscriptions (
   status TEXT NOT NULL CHECK(status IN ('active','cancelled','expired')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES admin_users(id)
 );
 
 CREATE TABLE store_products (
@@ -323,7 +333,7 @@ CREATE TABLE store_products (
   metadata JSONB,               
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id),
+  created_by UUID REFERENCES admin_users(id),
   is_active BOOLEAN DEFAULT TRUE
 );
 
@@ -338,7 +348,7 @@ CREATE TABLE store_orders (
   status TEXT NOT NULL CHECK(status IN ('pending','paid','shipped','completed','cancelled')),
   ordered_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES admin_users(id)
 );
 
 CREATE TABLE anonymous_avatar_assignments (
@@ -353,28 +363,9 @@ CREATE TABLE anonymous_avatar_assignments (
   UNIQUE(user_id, target_type, target_id)
 );
 
-CREATE TABLE advertisers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  contact_email TEXT NOT NULL,
-  contact_phone TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
-);
-
-CREATE TABLE admin_users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID UNIQUE NOT NULL REFERENCES users(id),
-  role TEXT CHECK (role IN ('support','ads_manager','superadmin')) NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
-);
-
 CREATE TABLE promotion_requests (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  advertiser_id UUID NOT NULL REFERENCES advertisers(id) ON DELETE CASCADE,
+  advertiser_id UUID NOT NULL REFERENCES business_users(id) ON DELETE CASCADE,
   requested_by_email TEXT NOT NULL,
   message TEXT NOT NULL,
   attachments TEXT[],            
@@ -384,7 +375,7 @@ CREATE TABLE promotion_requests (
   responded_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES business_users(id)
 );
 
 CREATE TABLE ad_campaigns (
@@ -401,7 +392,7 @@ CREATE TABLE ad_campaigns (
   status TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled','running','paused','completed','cancelled')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES business_users(id)
 );
 
 CREATE TABLE ad_performance (
@@ -413,19 +404,19 @@ CREATE TABLE ad_performance (
   spend_cents BIGINT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id),
+  created_by UUID REFERENCES business_users(id),
   UNIQUE(campaign_id, date)
 );
 
 CREATE TABLE ads (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  advertiser_id UUID NOT NULL REFERENCES advertisers(id),
+  advertiser_id UUID NOT NULL REFERENCES business_users(id),
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   media_urls TEXT[],
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES business_users(id)
 );
 
 CREATE TABLE ad_placements (
@@ -438,7 +429,7 @@ CREATE TABLE ad_placements (
   status TEXT NOT NULL CHECK(status IN ('active', 'paused', 'expired')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES business_users(id)
 );
 
 CREATE TABLE promotion_rules (
@@ -448,7 +439,7 @@ CREATE TABLE promotion_rules (
   parameters JSONB NOT NULL,  
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES business_users(id)
 );
 
 CREATE TABLE promotion_targets (
@@ -458,7 +449,7 @@ CREATE TABLE promotion_targets (
   target_ids UUID[] NOT NULL,  
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES business_users(id)
 );
 
 CREATE TABLE badges (
@@ -468,7 +459,7 @@ CREATE TABLE badges (
   icon_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES admin_users(id)
 );
 
 CREATE TABLE user_badges (
@@ -511,7 +502,7 @@ CREATE TABLE ad_pixels (
   pixel_code TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES admin_users(id)
 );
 
 CREATE TABLE ad_pixel_events (
@@ -521,7 +512,7 @@ CREATE TABLE ad_pixel_events (
   event_data JSONB,
   occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES admin_users(id)
 );
 
 CREATE TABLE landing_pages (
@@ -533,7 +524,7 @@ CREATE TABLE landing_pages (
   url_slug TEXT UNIQUE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES admin_users(id)
 );
 
 CREATE TABLE audience_segments (
@@ -542,7 +533,7 @@ CREATE TABLE audience_segments (
   criteria JSONB NOT NULL, 
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES admin_users(id)
 );
 
 CREATE TABLE campaign_segments (
@@ -551,7 +542,7 @@ CREATE TABLE campaign_segments (
   segment_id UUID NOT NULL REFERENCES audience_segments(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES admin_users(id)
 );
 
 CREATE TABLE topics (
@@ -560,7 +551,7 @@ CREATE TABLE topics (
   description TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES admin_users(id)
 );
 
 CREATE TABLE user_topic_subscriptions (
@@ -573,30 +564,9 @@ CREATE TABLE user_topic_subscriptions (
   UNIQUE(user_id, topic_id)
 );
 
-CREATE TABLE premium_features (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  feature_key TEXT UNIQUE NOT NULL,  
-  name TEXT NOT NULL,
-  description TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
-);
-
-CREATE TABLE user_premium_features (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  feature_id UUID NOT NULL REFERENCES premium_features(id),
-  enabled BOOLEAN DEFAULT TRUE,
-  enabled_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id),
-  UNIQUE(user_id, feature_id)
-);
-
 CREATE TABLE influencer_campaigns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  advertiser_id UUID NOT NULL REFERENCES advertisers(id),
+  advertiser_id UUID NOT NULL REFERENCES business_users(id),
   influencer_user_id UUID NOT NULL REFERENCES users(id),
   title TEXT NOT NULL,
   content TEXT,
@@ -606,12 +576,12 @@ CREATE TABLE influencer_campaigns (
   status TEXT CHECK(status IN ('planned','running','completed','cancelled')) DEFAULT 'planned',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES business_users(id)
 );
 
 CREATE TABLE trial_campaigns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  advertiser_id UUID NOT NULL REFERENCES advertisers(id),
+  advertiser_id UUID NOT NULL REFERENCES business_users(id),
   title TEXT NOT NULL,
   description TEXT,
   start_at TIMESTAMPTZ NOT NULL,
@@ -619,7 +589,7 @@ CREATE TABLE trial_campaigns (
   criteria JSONB,            
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES business_users(id)
 );
 
 CREATE TABLE trial_participants (
@@ -629,13 +599,37 @@ CREATE TABLE trial_participants (
   applied_at TIMESTAMPTZ DEFAULT NOW(),
   status TEXT CHECK(status IN ('applied','selected','completed','dismissed')) DEFAULT 'applied',
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id),
+  created_by UUID REFERENCES business_users(id),
   UNIQUE(campaign_id, user_id)
 );
 
 CREATE TABLE action_log (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,            
+  target_table TEXT,             
+  target_id UUID,                 
+  old_data JSONB,                 
+  new_data JSONB,                
+  metadata JSONB,               
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE admin_action_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  admin_user_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,            
+  target_table TEXT,             
+  target_id UUID,                 
+  old_data JSONB,                 
+  new_data JSONB,                
+  metadata JSONB,               
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE business_action_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  business_user_id UUID REFERENCES business_users(id) ON DELETE SET NULL,
   action TEXT NOT NULL,            
   target_table TEXT,             
   target_id UUID,                 
@@ -692,6 +686,34 @@ CREATE TABLE user_mfa (
   UNIQUE(user_id, mfa_type)
 );
 
+CREATE TABLE admin_mfa (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  admin_user_id UUID NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+  mfa_type TEXT NOT NULL CHECK (mfa_type IN ('app', 'sms', 'email')),
+  secret TEXT,
+  backup_codes TEXT[],
+  is_enabled BOOLEAN DEFAULT FALSE,
+  last_used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES admin_users(id),
+  UNIQUE(admin_user_id, mfa_type)
+);
+
+CREATE TABLE business_mfa (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  business_user_id UUID NOT NULL REFERENCES business_users(id) ON DELETE CASCADE,
+  mfa_type TEXT NOT NULL CHECK (mfa_type IN ('app', 'sms', 'email')),
+  secret TEXT,
+  backup_codes TEXT[],
+  is_enabled BOOLEAN DEFAULT FALSE,
+  last_used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES business_users(id),
+  UNIQUE(business_user_id, mfa_type)
+);
+
 CREATE TABLE board_categories (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
@@ -703,7 +725,7 @@ CREATE TABLE board_categories (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES admin_users(id)
 );
 
 CREATE TABLE board_category_mappings (
@@ -745,7 +767,7 @@ CREATE TABLE content_moderation (
   rejection_reason TEXT,
   flagged_categories TEXT[],
   confidence_scores JSONB,
-  moderator_id UUID REFERENCES admin_users(id),
+  moderator_id UUID REFERENCES users(id),
   moderated_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -806,27 +828,18 @@ CREATE TABLE user_interests (
     UNIQUE(user_id, tag_id, topic_id)
 );
 
-CREATE TABLE cache_invalidation_queue (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    object_type TEXT NOT NULL CHECK (object_type IN ('post', 'comment', 'user', 'board', 'hashtag')),
-    object_id UUID NOT NULL,
-    operation TEXT NOT NULL CHECK (operation IN ('create', 'update', 'delete')),
-    processed BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 CREATE TABLE content_versions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     content_type TEXT NOT NULL CHECK (content_type IN ('post', 'comment')),
     content_id UUID NOT NULL,
     version_number INTEGER NOT NULL,
     content TEXT NOT NULL,
-    edited_by UUID REFERENCES users(id) ON DELETE SET NULL,
-    edited_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(content_type, content_id, version_number)
 );
 
--- User OAuth Provider Information
 CREATE TABLE user_providers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -856,23 +869,55 @@ CREATE TABLE files (
     created_by UUID REFERENCES users(id)
 );
 
--- Redis token structure documentation
-CREATE TABLE redis_token_structure (
-    id SERIAL PRIMARY KEY,
-    key_pattern TEXT NOT NULL,
-    description TEXT NOT NULL,
-    example TEXT,
-    ttl_seconds INTEGER,
-    notes TEXT
+CREATE TABLE user_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_token TEXT UNIQUE NOT NULL,
+    ip_address TEXT,
+    user_agent TEXT,
+    device_info JSONB,
+    location TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_seen TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Insert documentation for Redis token patterns
--- Update existing session entry or add a new one with more specific details
-INSERT INTO redis_token_structure (key_pattern, description, example, ttl_seconds, notes) VALUES
-('user:{userId}:session', 'User session hash with authentication and profile data', 'user:c3b66c34-6fb5-4c4d-b42e-49745097b0b7:session', 82800, 'Redis Hash containing email, loginTime, name, role fields. TTL 23h (82800 sec)');
--- Add examples for specific session fields
-INSERT INTO redis_token_structure (key_pattern, description, example, ttl_seconds, notes) VALUES
-('user:{userId}:session:fields', 'Common fields in session hash', 'email: student@edu.com, loginTime: timestamp, name: "User Name", role: USER', 82800, 'These fields should be consistently maintained across all session hashes');
--- Add entry for session expiration/refresh mechanism
-INSERT INTO redis_token_structure (key_pattern, description, example, ttl_seconds, notes) VALUES
-('user:{userId}:session:refresh', 'Mechanism to refresh session before expiration', 'Set by refresh-token API endpoint', 82800, 'When refreshed, the entire hash TTL is reset to 23h');
+CREATE TABLE admin_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    admin_user_id UUID NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+    session_token TEXT UNIQUE NOT NULL,
+    ip_address TEXT,
+    user_agent TEXT,
+    device_info JSONB,
+    location TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_seen TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE business_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_user_id UUID NOT NULL REFERENCES business_users(id) ON DELETE CASCADE,
+    session_token TEXT UNIQUE NOT NULL,
+    ip_address TEXT,
+    user_agent TEXT,
+    device_info JSONB,
+    location TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_seen TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE user_report_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content_type TEXT NOT NULL CHECK (content_type IN ('post', 'comment')),
+    content_id UUID NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT DEFAULT 'submitted' CHECK (status IN ('submitted', 'cancelled')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);

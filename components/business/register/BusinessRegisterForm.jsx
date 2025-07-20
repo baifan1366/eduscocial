@@ -161,12 +161,6 @@ export default function BusinessAuthForm() {
                   <label htmlFor="password" className="block text-sm font-medium">
                     {t('password')} <span className="text-red-500">*</span>
                   </label>
-                  <Link 
-                    href="/business/forgot-password" 
-                    className="text-[#FF7D00] text-sm hover:underline"
-                  >
-                    {t('forgotPassword')}
-                  </Link>
                 </div>
                 <div className="flex items-center border rounded-md bg-[#0A1929] border-[#132F4C] pl-3 pr-0 w-full focus-within:outline-none focus-within:ring-2 focus-within:ring-white">
                   <input
