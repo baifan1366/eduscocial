@@ -32,7 +32,7 @@ function LoginFormLoader() {
 export default function BusinessLoginPage() {
   return (
     <main>
-      <div className="max-w-md mx-auto py-10 min-w-[80%]">
+      <div className="max-w-md mx-auto py-0 min-w-[80%]">
         <Suspense fallback={<LoginFormLoader />}>
           <BusinessAuthForm />
         </Suspense>

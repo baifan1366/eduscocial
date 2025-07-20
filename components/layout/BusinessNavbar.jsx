@@ -4,17 +4,23 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useBusinessLogin } from '@/hooks/useAuth';
-import { Button } from '../ui/button';
 import { useTranslations } from 'next-intl';
+import { Plus } from 'lucide-react';
 
 export default function BusinessNavbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout, isAuthenticated, status, isLoading } = useBusinessLogin();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isRegister, setIsRegister] = useState(false);
   const t = useTranslations('Navbar');
+
+  // Check if current page is register page
+  useEffect(() => {
+    setIsRegister(pathname?.includes('/business/register'));
+  }, [pathname]);
 
   // Handle business logout
   const handleBusinessLogout = async () => {
@@ -38,6 +44,10 @@ export default function BusinessNavbar() {
     }
   };
 
+  // Determine if we're in a loading state or if we're ready to show authenticated UI
+  const actuallyLoading = isLoading && (!user || status === 'loading');
+  const readyToShowAuth = isAuthenticated || (user && user.id) || status === 'authenticated';
+
   return (
     <nav className="w-full py-2 px-2 bg-[#0A1929] shadow-md">
       <div className="container mx-auto flex items-center justify-between">
@@ -56,21 +66,34 @@ export default function BusinessNavbar() {
         </Link>
 
         <div className="flex items-center space-x-4">
-          {isAuthenticated && user ? (
+        {readyToShowAuth ? (
+            // Regular user authenticated
+            <div className="flex items-center gap-4">
+              {/* Post Button */}
+              <button className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#132F4C] transition-colors">
+                <Plus className="w-5 h-5 text-white" />
+              </button>
+            </div>
+          ) : (
+            // Not authenticated
             <>
-              <span className="text-white">
-                {t('hi')} {user.name || 'Business'}
-              </span>
-              <Button
-                variant="orange"
-                onClick={handleBusinessLogout}
-                disabled={isLoggingOut}
-                className="transition-colors disabled:opacity-50"
-              >
-                {isLoggingOut ? t('loggingOut') : t('logout')}
-              </Button>
+              {isRegister ? (
+                <Link
+                  href="/business/login"
+                  className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
+                >
+                  {t('login')}
+                </Link>
+              ) : (
+                <Link
+                  href="/business/register"
+                  className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors"
+                >
+                  {t('register')}
+                </Link>
+              )}
             </>
-          ) : null}
+          )}
         </div>
       </div>
     </nav>

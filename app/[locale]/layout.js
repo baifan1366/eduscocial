@@ -6,7 +6,7 @@ import { getMessages } from '../../messages/utils';
 import NavbarWrapper from '../../components/layout/NavbarWrapper';
 
 export default async function LocaleLayout({ children, params }) {
-  const { locale = 'en' } = params; 
+  const { locale = 'en' } = await params; 
   const messages = await getMessages(locale);
   
   return (

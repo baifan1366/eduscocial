@@ -461,6 +461,73 @@ export function useBusinessLogin() {
 }
 
 /**
+ * Custom hook for business registration
+ * @returns {Object} Registration mutation and status
+ */
+export function useBusinessRegister() {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [error, setError] = useState(null);
+
+  const mutation = useMutation({
+    mutationFn: async (userData) => {
+      // Reset previous errors
+      setError(null);
+
+      try {
+        // Call register API
+        const result = await api.auth.businessRegister(userData);
+        
+        // 注册成功不再存储会话到Redis
+        // 不再自动登录用户
+        
+        return result;
+      } catch (error) {
+        console.error('Business registration process error:', error);
+        setError(error.message || 'Business registration failed');
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      // 确保data是有效的对象
+      const userData = data && typeof data === 'object' ? data : {};
+      
+      // 注册成功后，不再进行会话查询
+      // queryClient.invalidateQueries({ queryKey: ['session'] });
+      
+      let locale = 'en';
+      try {
+        locale = pathname.split('/')[1] || 'en';
+      } catch (e) {
+        console.error('Error getting locale:', e);
+      }
+      
+      // 检查是否需要验证电子邮件
+      if (userData.requiresEmailVerification) {
+        // 提示用户检查电子邮件（将来实现）
+        router.push(`/${locale}/verify-email?email=${encodeURIComponent(userData.email || '')}`);
+      } else {
+        // 重定向到登录页面，而不是直接进入home页面
+        router.push(`/${locale}/business/login?registered=true`);
+      }
+    },
+    onError: (error) => {
+      console.error('Business registration error:', error);
+      setError(error.message || 'Business registration failed');
+    }
+  });
+
+  return {
+    register: mutation.mutate,
+    isLoading: mutation.isPending,
+    error,
+    setError,
+    isSuccess: mutation.isSuccess
+  };
+}
+
+/**
  * Custom hook for user logout with token blacklisting support
  * Enhanced to handle token blacklisting and provide better user feedback
  * @returns {Object} Logout mutation and status with enhanced error handling
