@@ -36,8 +36,14 @@ export function useLogin() {
   const pathname = usePathname();
   const [error, setError] = useState(null);
 
-  // 在hook初始化时检查用户是否已登录
+  // 在hook初始化时检查用户是否已登录 - 只在登录页面执行
   useEffect(() => {
+    // 只在登录相关页面执行自动重定向逻辑
+    const isLoginPage = pathname.includes('/login') || pathname.includes('/register');
+    if (!isLoginPage) {
+      return;
+    }
+
     async function checkExistingLogin() {
       try {
         // 检查是否已经存在用户id
@@ -755,39 +761,34 @@ export function useSession() {
             console.error('useSession: 保存会话数据失败:', e);
           }
         } else {
-          console.log('useSession: API返回无用户数据或用户未认证');
+          console.log('useSession: API返回无用户数据或用户未认证，状态:', sessionData);
           
-          // 检查cookie作为后备选项
-          const hasCookie = checkAuthCookie();
-          if (hasCookie) {
-            console.log('useSession: 检测到auth_token cookie但API返回未认证，返回临时认证状态');
-            
-            // 如果有cookie但API返回未认证，可能是API问题，返回临时认证状态
-            setStatus('authenticated');
-            return {
-              authenticated: true,
-              user: { id: 'temp-user-id', role: 'user', tempAuth: true },
-              tempAuth: true
-            };
+          // 不要立即清除localStorage，可能只是临时的API问题
+          // 只有在确认用户真的未认证时才清除
+          if (sessionData && sessionData.authenticated === false) {
+            try {
+              localStorage.removeItem('userId');
+              console.log('useSession: 已清除localStorage userId');
+            } catch (e) {
+              console.error('useSession: 清除userId失败:', e);
+            }
           }
         }
         
-        setStatus(sessionData?.user ? 'authenticated' : 'unauthenticated');
+        const isAuthenticated = !!sessionData?.user;
+        setStatus(isAuthenticated ? 'authenticated' : 'unauthenticated');
+        console.log('useSession: 最终认证状态:', isAuthenticated ? 'authenticated' : 'unauthenticated');
         
         return {
-          authenticated: !!sessionData?.user,
+          authenticated: isAuthenticated,
           user: sessionData?.user || null
         };
       } catch (error) {
         console.error('useSession: 会话获取错误:', error);
         setStatus('error');
         
-        // 清除可能无效的localStorage数据
-        try {
-          localStorage.removeItem('userId');
-        } catch (e) {
-          console.error('useSession: 清除userId失败:', e);
-        }
+        // 不要因为网络错误就清除用户数据
+        // 只记录错误，让用户可以重试
         
         return {
           authenticated: false,
@@ -887,6 +888,7 @@ export default function useAuth() {
     data, 
     user, 
     status, 
+    isLoading,
     isAuthenticated, 
     hasRole, 
     isAdmin, 
@@ -903,6 +905,7 @@ export default function useAuth() {
     data,
     user,
     status,
+    isLoading,
     isAuthenticated,
     hasRole,
     isAdmin,

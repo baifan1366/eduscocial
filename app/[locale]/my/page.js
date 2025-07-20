@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import useAuth from '@/hooks/useAuth';
 
 export default function MyPage() {
-  const { user } = useAuth();
+  const { user, status, isAuthenticated } = useAuth();
   const { profile } = useProfile();
   const router = useRouter();
   const [showCardDialog, setShowCardDialog] = useState(false);
@@ -18,6 +18,17 @@ export default function MyPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [userCards, setUserCards] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // 添加调试信息
+  useEffect(() => {
+    console.log('MyPage: 认证状态调试', {
+      status,
+      isAuthenticated,
+      userId: user?.id,
+      hasAuthCookie: document.cookie.includes('auth_token'),
+      localStorageUserId: localStorage.getItem('userId')
+    });
+  }, [status, isAuthenticated, user]);
 
   // Fetch user cards
   useEffect(() => {

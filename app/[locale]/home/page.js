@@ -2,7 +2,7 @@ import { getTranslations } from 'next-intl/server';
 import HomeContent from '@/components/home/HomeContent';
 
 export async function generateMetadata({ params }) {
-  const locale = await params.locale;
+  const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'HomePage' });
 
   return {

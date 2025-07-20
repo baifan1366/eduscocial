@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathnameContext } from '@/app/providers';
+import { usePathnameContext } from '@/components/layout/ClientProviders';
 import useAuth from '@/hooks/useAuth';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';

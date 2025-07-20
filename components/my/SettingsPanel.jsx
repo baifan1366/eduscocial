@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import useAuth from '@/hooks/useAuth';
-import { usePathnameContext } from '@/app/providers';
+import { usePathnameContext } from '@/components/layout/ClientProviders';
 
 // Import our custom settings components
 import GeneralSettings from '@/components/settings/GeneralSettings';

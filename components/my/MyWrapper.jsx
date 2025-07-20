@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import SettingsPanel from './SettingsPanel';
 import useAuth from '@/hooks/useAuth';
 import { getQueryParams } from '@/lib/utils';
-import { usePathnameContext } from '@/app/providers';
+import { usePathnameContext } from '@/components/layout/ClientProviders';
 
 export default function MyWrapper({ children }) {
   const searchParams = useSearchParams();
