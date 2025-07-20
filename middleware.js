@@ -1,6 +1,7 @@
 import createIntlMiddleware from 'next-intl/middleware';
 import { NextResponse } from 'next/server';
 import { verifyJWT, isTokenValid } from './lib/auth/jwt';
+import { isTokenBlacklisted } from './lib/auth/tokenBlacklist';
 
 // 创建国际化中间件
 const intlMiddleware = createIntlMiddleware({
@@ -17,20 +18,8 @@ const protectedRoutes = [
   '/my',
 ];
 
-// List of admin-only routes that require admin authentication
-const adminRoutes = [
-  '/admin/dashboard',
-  '/admin/users',
-  '/admin/settings',
-];
-
-// List of business-only routes that require business authentication
-const businessRoutes = [
-  '/business/dashboard',
-  '/business/profile',
-  '/business/settings',
-  '/business/analytics',
-];
+// Admin and business routes are determined dynamically based on path patterns
+// No need for static route lists since we check path prefixes
 
 // List of public routes that should be excluded from protection
 const publicRoutes = [
@@ -49,6 +38,33 @@ const publicRoutes = [
 // 用于记录重定向次数的cookie名称
 const REDIRECT_COUNT_COOKIE = 'redirect_count';
 
+// Function to detect user's preferred language from Accept-Language header
+function detectUserLanguage(request) {
+  const acceptLanguage = request.headers.get('accept-language');
+  if (!acceptLanguage) return 'en';
+  
+  // Parse Accept-Language header and find the best match
+  const languages = acceptLanguage
+    .split(',')
+    .map(lang => {
+      const [code, q = '1'] = lang.trim().split(';q=');
+      return { code: code.toLowerCase(), quality: parseFloat(q) };
+    })
+    .sort((a, b) => b.quality - a.quality);
+  
+  // Check for exact matches first
+  for (const lang of languages) {
+    if (lang.code === 'en' || lang.code === 'zh' || lang.code === 'my') {
+      return lang.code;
+    }
+    // Check for language variants
+    if (lang.code.startsWith('zh')) return 'zh';
+    if (lang.code.startsWith('my')) return 'my';
+  }
+  
+  return 'en'; // Default fallback
+}
+
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
   const locale = request.nextUrl.locale || 'en';
@@ -58,6 +74,13 @@ export async function middleware(request) {
       pathname.includes('/_next/') ||
       pathname.match(/\.(png|jpg|jpeg|webp|svg|ico|css|js|glb)$/)) {
     return NextResponse.next();
+  }
+  
+  // Handle root path redirection based on browser language
+  if (pathname === '/') {
+    const detectedLanguage = detectUserLanguage(request);
+    const redirectUrl = new URL(`/${detectedLanguage}`, request.url);
+    return NextResponse.redirect(redirectUrl);
   }
   
   // 检查是否存在重定向计数cookie
@@ -108,18 +131,49 @@ export async function middleware(request) {
 
   // 如果这是一个需要保护的路由，检查身份验证
   if (isProtectedRoute || isAdminRoute || isBusinessRoute) {
+    // Performance monitoring: Start timing blacklist operations
+    const blacklistCheckStart = Date.now();
+    
     // 获取JWT token
     const authToken = request.cookies.get('auth_token')?.value;
     
     let tokenData = null;
+    let blacklistCheckFailed = false;
+    
     if (authToken) {
       const decoded = await verifyJWT(authToken);
       if (isTokenValid(decoded)) {
-        tokenData = decoded;
+        // Check if token is blacklisted before proceeding
+        try {
+          const isBlacklisted = await isTokenBlacklisted(authToken);
+          
+          // Performance monitoring: Log blacklist check duration
+          const blacklistCheckDuration = Date.now() - blacklistCheckStart;
+          if (blacklistCheckDuration > 100) { // Log if check takes more than 100ms
+            console.warn(`Blacklist check took ${blacklistCheckDuration}ms for path: ${pathname}`);
+          }
+          
+          if (isBlacklisted) {
+            console.log(`Blacklisted token rejected for path: ${pathname}`);
+            // Token is blacklisted, treat as invalid
+            tokenData = null;
+          } else {
+            tokenData = decoded;
+          }
+        } catch (error) {
+          // Graceful degradation: If blacklist check fails, log error but allow request
+          console.error('Blacklist check failed, allowing request to proceed:', error);
+          blacklistCheckFailed = true;
+          tokenData = decoded;
+          
+          // Performance monitoring: Log blacklist failure
+          const blacklistCheckDuration = Date.now() - blacklistCheckStart;
+          console.warn(`Blacklist check failed after ${blacklistCheckDuration}ms for path: ${pathname}`);
+        }
       }
     }
     
-    // 如果没有token，重定向到登录页面
+    // 如果没有token或token被blacklisted，重定向到登录页面
     if (!tokenData) {
       // 避免相同URL的重复重定向
       const referer = request.headers.get('referer');
@@ -160,6 +214,22 @@ export async function middleware(request) {
     // 如果有token，通过国际化中间件并重置计数器
     const response = intlMiddleware(request);
     response.cookies.delete(REDIRECT_COUNT_COOKIE);
+    
+    // Add performance monitoring headers
+    const totalAuthDuration = Date.now() - blacklistCheckStart;
+    response.headers.set('X-Auth-Duration', `${totalAuthDuration}ms`);
+    
+    if (blacklistCheckFailed) {
+      response.headers.set('X-Blacklist-Check', 'failed');
+      // Log performance degradation for monitoring
+      console.warn(`Authentication completed with blacklist check failure in ${totalAuthDuration}ms for ${pathname}`);
+    } else {
+      response.headers.set('X-Blacklist-Check', 'success');
+      // Log successful authentication with blacklist check
+      if (totalAuthDuration > 200) { // Log if total auth takes more than 200ms
+        console.warn(`Authentication completed in ${totalAuthDuration}ms for ${pathname}`);
+      }
+    }
     
     // 检查管理员权限
     if (isAdminRoute && tokenData.role !== 'ADMIN') {

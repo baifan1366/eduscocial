@@ -1,26 +1,54 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { extractTokenFromRequest } from '@/lib/auth/jwt';
+import { blacklistToken } from '@/lib/auth/tokenBlacklist';
+import { removeAuthCookie } from '@/lib/auth/cookies';
 
+/**
+ * User logout API route
+ * POST /api/auth/logout
+ */
 export async function POST(request) {
   try {
-    // 执行登出操作，清除当前会话
+    // Extract token from request headers or cookies
+    const token = extractTokenFromRequest(request);
+    
+    // If token exists, blacklist it
+    if (token) {
+      try {
+        await blacklistToken(token);
+        console.log('Token successfully blacklisted during logout');
+      } catch (blacklistError) {
+        console.error('Error blacklisting token during logout:', blacklistError);
+        // Continue with logout even if blacklisting fails
+      }
+    }
+    
+    // Execute Supabase logout operation
     const { error } = await supabase.auth.signOut();
     
-    // 如果有错误，返回错误信息
+    // If there's an error with Supabase logout, return error
     if (error) {
-      console.error('登出错误:', error);
+      console.error('Supabase logout error:', error);
       return NextResponse.json(
-        { error: error.message || '登出失败' },
+        { error: error.message || 'Logout failed' },
         { status: 400 }
       );
     }
     
-    // 返回成功响应
-    return NextResponse.json({ message: '已成功登出' });
+    // Create response and remove auth cookie
+    const response = NextResponse.json({ 
+      message: 'Successfully logged out',
+      tokenBlacklisted: !!token 
+    });
+    
+    removeAuthCookie(response);
+    
+    return response;
   } catch (error) {
-    console.error('登出路由错误:', error);
+    console.error('Logout route error:', error);
     return NextResponse.json(
-      { error: '服务器错误，请稍后再试' },
+      { error: 'Internal server error, please try again later' },
       { status: 500 }
     );
   }

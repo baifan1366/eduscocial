@@ -461,49 +461,68 @@ export function useBusinessLogin() {
 }
 
 /**
- * Custom hook for user logout
- * @returns {Object} Logout mutation and status
+ * Custom hook for user logout with token blacklisting support
+ * Enhanced to handle token blacklisting and provide better user feedback
+ * @returns {Object} Logout mutation and status with enhanced error handling
  */
 export function useLogout() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   const { data: session } = useSession();
 
   const mutation = useMutation({
     mutationFn: async () => {
-      // Reset previous errors
+      // Reset previous errors and messages
       setError(null);
+      setSuccessMessage(null);
 
       try {
+        // Get current token for blacklisting verification
+        let currentToken = null;
+        try {
+          // Try to get token from cookie first
+          const cookies = document.cookie.split(';');
+          for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'auth_token' && value) {
+              currentToken = value;
+              break;
+            }
+          }
+        } catch (e) {
+          console.error('Logout: Error extracting token from cookies:', e);
+        }
+
         // 从localStorage中清除用户ID
         try {
           const userId = localStorage.getItem('userId');
           if (userId) {
-            console.log('Logout: 清除本地用户ID:', userId);
+            console.log('Logout: Clearing local user ID:', userId);
             localStorage.removeItem('userId');
           }
         } catch (e) {
-          console.error('Logout: 清除localStorage用户ID失败:', e);
+          console.error('Logout: Failed to clear localStorage user ID:', e);
         }
         
         // 清除auth_token cookie
         try {
           document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
-          console.log('Logout: 已清除auth_token cookie');
+          console.log('Logout: Cleared auth_token cookie');
         } catch (e) {
-          console.error('Logout: 清除cookie失败:', e);
+          console.error('Logout: Failed to clear cookie:', e);
         }
         
         // 从Redis中移除会话
         if (session?.user?.id) {
           await removeUserSession(session.user.id);
-          console.log('Logout: 已从Redis中移除会话');
+          console.log('Logout: Removed session from Redis');
         }
         
-        // 根据用户角色调用不同的登出API
-        let result = { success: true };
+        // 根据用户角色调用不同的登出API (这些API会处理token blacklisting)
+        let result = { success: true, tokenBlacklisted: false };
         try {
           if (session?.user?.role === 'business') {
             result = await api.auth.businessLogout();
@@ -512,29 +531,45 @@ export function useLogout() {
           } else {
             result = await api.auth.logout();
           }
-          console.log('Logout: API返回结果:', result);
+          console.log('Logout: API response:', result);
+          
+          // Set success message based on token blacklisting status
+          if (result.tokenBlacklisted) {
+            setSuccessMessage('Successfully logged out. Your session token has been invalidated.');
+          } else {
+            setSuccessMessage('Successfully logged out.');
+          }
         } catch (apiError) {
-          console.error('Logout: API调用失败:', apiError);
-          // 即使API调用失败，仍然返回成功结果，因为我们已经清除了本地存储
-          result = { success: true, apiError: true };
+          console.error('Logout: API call failed:', apiError);
+          
+          // Check if it's a blacklist-related error
+          if (apiError.message && apiError.message.includes('TOKEN_BLACKLISTED')) {
+            // Token was already blacklisted, which is fine
+            result = { success: true, tokenBlacklisted: true, alreadyBlacklisted: true };
+            setSuccessMessage('Successfully logged out. Session was already invalidated.');
+          } else {
+            // Other API errors - still proceed with local cleanup
+            result = { success: true, apiError: true, tokenBlacklisted: false };
+            console.warn('Logout: API failed but local cleanup completed');
+          }
         }
         
         return result;
       } catch (error) {
-        console.error('Logout: 过程错误:', error);
+        console.error('Logout: Process error:', error);
         setError(error.message || 'Logout failed');
         
         // 无论如何，尝试清除本地存储
         try {
           localStorage.removeItem('userId');
         } catch (e) {
-          console.error('Logout: 清除localStorage用户ID失败(错误处理中):', e);
+          console.error('Logout: Failed to clear localStorage user ID (error handling):', e);
         }
         
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       // Clear session in React Query cache
       queryClient.setQueryData(['session'], { authenticated: false, user: null });
       queryClient.invalidateQueries({ queryKey: ['session'] });
@@ -544,8 +579,15 @@ export function useLogout() {
       try {
         locale = pathname.split('/')[1] || 'en';
       } catch (e) {
-        console.error('Logout: 获取语言环境失败:', e);
+        console.error('Logout: Failed to get locale:', e);
       }
+      
+      // Log successful logout with blacklist status
+      console.log('Logout successful:', {
+        tokenBlacklisted: result?.tokenBlacklisted || false,
+        apiError: result?.apiError || false,
+        alreadyBlacklisted: result?.alreadyBlacklisted || false
+      });
       
       // Redirect based on role
       if (session?.user?.role === 'business') {
@@ -557,7 +599,7 @@ export function useLogout() {
       }
     },
     onError: (error) => {
-      console.error('Logout: 错误:', error);
+      console.error('Logout: Error:', error);
       setError(error.message || 'Logout failed');
       
       // 即使出错，也要重定向到登录页面
@@ -573,7 +615,163 @@ export function useLogout() {
   return {
     logout: mutation.mutate,
     isLoading: mutation.isPending,
-    error
+    error,
+    successMessage,
+    setError,
+    setSuccessMessage
+  };
+}
+
+/**
+ * Custom hook for global logout (logout from all devices)
+ * Enhanced to handle all-device token blacklisting with proper user feedback
+ * @returns {Object} Global logout mutation and status with enhanced error handling
+ */
+export function useGlobalLogout() {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const { data: session } = useSession();
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      // Reset previous errors and messages
+      setError(null);
+      setSuccessMessage(null);
+
+      try {
+        if (!session?.user?.id) {
+          throw new Error('No active session found for global logout');
+        }
+
+        console.log(`Global logout initiated for user ${session.user.id}`);
+
+        // Call global logout API endpoint
+        const response = await fetch('/api/auth/global-logout', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            // Include current token in Authorization header if available
+            ...(document.cookie.includes('auth_token=') && {
+              'Authorization': `Bearer ${document.cookie.split('auth_token=')[1]?.split(';')[0]}`
+            })
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Global logout failed');
+        }
+
+        const result = await response.json();
+        console.log('Global logout API response:', result);
+
+        // Clear all local storage and cookies
+        try {
+          localStorage.removeItem('userId');
+          document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+          console.log('Global logout: Cleared local storage and cookies');
+        } catch (e) {
+          console.error('Global logout: Failed to clear local storage:', e);
+        }
+
+        // Set success message with details
+        const tokensBlacklisted = result.details?.tokensBlacklisted || 0;
+        if (tokensBlacklisted > 0) {
+          setSuccessMessage(`Successfully logged out from all devices. ${tokensBlacklisted} session token(s) have been invalidated.`);
+        } else {
+          setSuccessMessage('Successfully logged out from all devices.');
+        }
+
+        return result;
+      } catch (error) {
+        console.error('Global logout: Process error:', error);
+        
+        // Handle specific error types
+        if (error.message.includes('UNAUTHORIZED')) {
+          setError('Session expired. Please log in again.');
+        } else if (error.message.includes('TOKEN_BLACKLISTED')) {
+          setError('Session already invalidated. Redirecting to login...');
+        } else {
+          setError(error.message || 'Global logout failed');
+        }
+        
+        // Clear local storage even on error for security
+        try {
+          localStorage.removeItem('userId');
+          document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+        } catch (e) {
+          console.error('Global logout: Failed to clear local storage (error handling):', e);
+        }
+        
+        throw error;
+      }
+    },
+    onSuccess: (result) => {
+      // Clear session in React Query cache
+      queryClient.setQueryData(['session'], { authenticated: false, user: null });
+      queryClient.invalidateQueries({ queryKey: ['session'] });
+      
+      // Clear all cached queries for security
+      queryClient.clear();
+      
+      // Get current locale
+      let locale = 'en';
+      try {
+        locale = pathname.split('/')[1] || 'en';
+      } catch (e) {
+        console.error('Global logout: Failed to get locale:', e);
+      }
+      
+      // Log successful global logout
+      console.log('Global logout successful:', {
+        userId: result.details?.userId,
+        tokensBlacklisted: result.details?.tokensBlacklisted || 0,
+        timestamp: result.details?.timestamp
+      });
+      
+      // Redirect to appropriate login page based on user role
+      if (session?.user?.role === 'business') {
+        router.push(`/${locale}/business/login?globalLogout=true`);
+      } else if (['support', 'ads_manager', 'superadmin'].includes(session?.user?.role)) {
+        router.push(`/${locale}/admin/login?globalLogout=true`);
+      } else {
+        router.push(`/${locale}/login?globalLogout=true`);
+      }
+    },
+    onError: (error) => {
+      console.error('Global logout: Error:', error);
+      
+      // Clear session cache even on error
+      queryClient.setQueryData(['session'], { authenticated: false, user: null });
+      queryClient.invalidateQueries({ queryKey: ['session'] });
+      
+      // Get current locale
+      let locale = 'en';
+      try {
+        locale = pathname.split('/')[1] || 'en';
+      } catch (e) {}
+      
+      // Redirect to login page even on error for security
+      if (session?.user?.role === 'business') {
+        router.push(`/${locale}/business/login?error=globalLogoutFailed`);
+      } else if (['support', 'ads_manager', 'superadmin'].includes(session?.user?.role)) {
+        router.push(`/${locale}/admin/login?error=globalLogoutFailed`);
+      } else {
+        router.push(`/${locale}/login?error=globalLogoutFailed`);
+      }
+    }
+  });
+
+  return {
+    globalLogout: mutation.mutate,
+    isLoading: mutation.isPending,
+    error,
+    successMessage,
+    setError,
+    setSuccessMessage
   };
 }
 
@@ -861,12 +1059,14 @@ export function useSession() {
 
 /**
  * Combined authentication hook
+ * Enhanced with blacklist support and global logout functionality
  * @returns {Object} All auth functions and user state
  */
 export default function useAuth() {
   const { login } = useLogin();
   const { register } = useRegister();
-  const { logout } = useLogout();
+  const { logout, error: logoutError, successMessage: logoutSuccess } = useLogout();
+  const { globalLogout, error: globalLogoutError, successMessage: globalLogoutSuccess } = useGlobalLogout();
   const { verifyEmail } = useVerifyEmail();
   const { resendEmail } = useResendVerificationEmail();
   const { 
@@ -882,11 +1082,15 @@ export default function useAuth() {
   } = useSession();
 
   return {
+    // Authentication functions
     login,
     register,
     logout,
+    globalLogout,
     verifyEmail,
     resendEmail,
+    
+    // Session data
     data,
     user,
     status,
@@ -895,6 +1099,12 @@ export default function useAuth() {
     hasRole,
     isAdmin,
     isBusiness,
-    isSuperAdmin
+    isSuperAdmin,
+    
+    // Enhanced error and success handling
+    logoutError,
+    logoutSuccess,
+    globalLogoutError,
+    globalLogoutSuccess
   };
 } 

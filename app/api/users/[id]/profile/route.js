@@ -84,7 +84,7 @@ export async function PUT(request, { params }) {
   try {
     // Get the session to verify the user is authenticated
     const session = await getServerSession();
-    const { id: userId } = params;
+    const { id: userId } = (await params);
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

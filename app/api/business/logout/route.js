@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAuthCookie, removeAuthCookie } from '../../../../lib/auth/cookies';
-import { verifyJWT } from '../../../../lib/auth/jwt';
+import { verifyJWT, extractTokenFromRequest } from '../../../../lib/auth/jwt';
 import { deleteSession } from '../../../../lib/auth/session';
+import { blacklistToken } from '../../../../lib/auth/tokenBlacklist';
 
 /**
  * Business logout API route
@@ -9,12 +10,21 @@ import { deleteSession } from '../../../../lib/auth/session';
  */
 export async function POST(request) {
   try {
-    // Get the auth token
-    const token = getAuthCookie();
+    // Extract token from request headers or cookies
+    let token = extractTokenFromRequest(request);
+    
+    // Fallback to getAuthCookie for backward compatibility
+    if (!token) {
+      token = getAuthCookie();
+    }
     
     if (token) {
       try {
-        // Verify token to get user ID
+        // Blacklist the token immediately
+        await blacklistToken(token);
+        console.log('Business token successfully blacklisted during logout');
+        
+        // Verify token to get user ID for session cleanup
         const decoded = await verifyJWT(token);
         
         if (decoded && decoded.id) {
@@ -22,18 +32,25 @@ export async function POST(request) {
           await deleteSession(decoded.id);
         }
       } catch (error) {
-        console.error('Error verifying token during logout:', error);
-        // Continue with logout even if token verification fails
+        console.error('Error processing token during business logout:', error);
+        // Continue with logout even if token processing fails
       }
     }
     
     // Create response and remove cookie
-    const response = NextResponse.json({ message: 'Logout successful' }, { status: 200 });
+    const response = NextResponse.json({ 
+      message: 'Business logout successful',
+      tokenBlacklisted: !!token 
+    }, { status: 200 });
+    
     removeAuthCookie(response);
     
     return response;
   } catch (error) {
     console.error('Business logout error:', error);
-    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      message: 'Business logout failed' 
+    }, { status: 500 });
   }
 } 
