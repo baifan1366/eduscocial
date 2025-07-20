@@ -5,34 +5,34 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useAdminLogin } from '@/hooks/useAuth';
+import { useBusinessLogin } from '@/hooks/useAuth';
 import { Button } from '../ui/button';
 import { useTranslations } from 'next-intl';
 
-export default function AdminNavbar() {
+export default function BusinessNavbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, isAuthenticated, status, isLoading } = useAdminLogin();
+  const { user, logout, isAuthenticated, status, isLoading } = useBusinessLogin();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const t = useTranslations('Navbar');
 
-  // Handle admin logout
-  const handleAdminLogout = async () => {
+  // Handle business logout
+  const handleBusinessLogout = async () => {
     setIsLoggingOut(true);
     try {
       const result = await logout();
       if (!result.success) {
-        console.error('Admin logout failed:', result.error);
+        console.error('Business logout failed:', result.error);
         // Force redirect if logout fails
         const locale = pathname.split('/')[1] || 'en';
-        router.push(`/${locale}/admin/login`);
+        router.push(`/${locale}/business/login`);
       }
       // Successful logout is handled in adminLogout with redirection
     } catch (error) {
-      console.error('Admin logout error:', error);
+      console.error('Business logout error:', error);
       // Force redirect on error
       const locale = pathname.split('/')[1] || 'en';
-      router.push(`/${locale}/admin/login`);
+      router.push(`/${locale}/business/login`);
     } finally {
       setIsLoggingOut(false);
     }
@@ -44,7 +44,7 @@ export default function AdminNavbar() {
         <Link href="/" className="text-white text-2xl font-bold flex items-center gap-2">
           <Image
             src="/slogan-removebg-preview.png"
-            alt="EduSocial Admin"
+            alt="EduSocial Business"
             width={40}
             height={40}
             style={{
@@ -52,18 +52,18 @@ export default function AdminNavbar() {
               height: '40px',
             }}
           />
-          <span className="text-white text-2xl font-bold">EduSocial Admin</span>
+          <span className="text-white text-2xl font-bold">EduSocial Business</span>
         </Link>
 
         <div className="flex items-center space-x-4">
           {isAuthenticated && user ? (
             <>
               <span className="text-white">
-                {t('hi')} {user.name || 'Admin'}
+                {t('hi')} {user.name || 'Business'}
               </span>
               <Button
                 variant="orange"
-                onClick={handleAdminLogout}
+                onClick={handleBusinessLogout}
                 disabled={isLoggingOut}
                 className="transition-colors disabled:opacity-50"
               >

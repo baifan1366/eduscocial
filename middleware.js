@@ -38,7 +38,11 @@ const publicRoutes = [
   '/register',
   '/forgot-password',
   '/admin/login',
+  '/admin/register',
+  '/admin/forgot-password',
   '/business/login',
+  '/business/register',
+  '/business/forgot-password',
   '/error',
 ];
 

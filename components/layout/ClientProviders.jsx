@@ -8,6 +8,8 @@ import { SettingsProvider } from '@/hooks/useSettings';
 import { ProfileProvider } from '@/contexts/profile-context';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+import { AdminAuthProvider } from '@/components/admin/login/AdminAuthProvider';
+import { BusinessAuthProvider } from '@/components/business/auth/BusinessAuthProvider';
 
 // Create a context for pathname to avoid repeated usePathname() calls
 const PathnameContext = createContext(null);
@@ -40,7 +42,12 @@ export function useSafePathname() {
 
 export default function ClientProviders({ children }) {
   const [isClient, setIsClient] = useState(false);
-  
+  const pathname = usePathname();
+  const isAdminPage = pathname.includes('/admin');
+  const isBusinessPage = pathname.includes('/business');
+
+  const AuthProviderComponent = isAdminPage ? AdminAuthProvider : isBusinessPage ? BusinessAuthProvider : AuthProvider;
+
   // Create QueryClient with optimized defaults
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
@@ -78,7 +85,7 @@ export default function ClientProviders({ children }) {
   const content = (
     <QueryClientProvider client={queryClient}>
         <PathnameProvider>
-          <AuthProvider>
+          <AuthProviderComponent>
             <SettingsProvider>
               <ProfileProvider>
                 {children}
@@ -86,7 +93,7 @@ export default function ClientProviders({ children }) {
                 <ReactQueryDevtools initialIsOpen={false} />
               </ProfileProvider>
             </SettingsProvider>
-          </AuthProvider>
+          </AuthProviderComponent>
         </PathnameProvider>
     </QueryClientProvider>
   );

@@ -1,8 +1,7 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext } from 'react';
 import { useSession } from '@/hooks/useAuth';
-import { usePathname, useRouter } from 'next/navigation';
 
 // Create context
 export const AuthContext = createContext(null);
@@ -10,8 +9,6 @@ export const AuthContext = createContext(null);
 // Auth provider component
 export function AuthProvider({ children }) {
   const { user, status, isAuthenticated, hasRole } = useSession();
-  const router = useRouter();
-  const pathname = usePathname();
   
   // Value provided to context consumers
   const value = {

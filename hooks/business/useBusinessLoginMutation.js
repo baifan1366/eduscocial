@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { api } from '../../lib/api';
 
 /**
@@ -10,6 +10,7 @@ import { api } from '../../lib/api';
 export function useBusinessLogin() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const pathname = usePathname();
   const [error, setError] = useState(null);
 
   const mutation = useMutation({
@@ -29,8 +30,16 @@ export function useBusinessLogin() {
       // Invalidate and refetch user session
       queryClient.invalidateQueries({ queryKey: ['session'] });
       
-      // Redirect to business dashboard
-      router.push('/business/landing');
+      // 获取当前语言环境
+      let locale = 'en';
+      try {
+        locale = pathname.split('/')[1] || 'en';
+      } catch (e) {
+        console.error('Error getting locale:', e);
+      }
+      
+      // Redirect to business dashboard with locale
+      router.push(`/${locale}/business/landing`);
     },
     onError: (error) => {
       console.error('Business login error:', error);

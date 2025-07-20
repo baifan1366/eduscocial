@@ -11,21 +11,6 @@ import { api } from '../lib/api';
 import { getUserSession, storeUserSession, removeUserSession } from '../lib/redis/redisUtils';
 
 /**
- * 安全地解析JSON字符串
- * @param {string} jsonString - 要解析的JSON字符串
- * @param {any} defaultValue - 解析失败时返回的默认值
- * @returns {any} 解析后的对象或默认值
- */
-const safeJsonParse = (jsonString, defaultValue = null) => {
-  try {
-    return typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
-  } catch (error) {
-    console.error('JSON解析错误:', error);
-    return defaultValue;
-  }
-};
-
-/**
  * Custom hook for user login
  * @returns {Object} Login mutation and status
  */

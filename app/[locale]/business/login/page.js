@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import BusinessAuthForm from '../../../../components/business/login/BusinessAuthForm';
 
 export const metadata = {
-  title: 'Business Login | EduSocial',
+  title: 'Login | Business | EduSocial',
   description: 'Business login to EduSocial',
   openGraph: {
     title: 'Business Login to EduSocial',
@@ -32,7 +32,7 @@ function LoginFormLoader() {
 export default function BusinessLoginPage() {
   return (
     <main>
-      <div className="max-w-md mx-auto py-0 min-w-[80%]">
+      <div className="max-w-md mx-auto py-10 min-w-[80%]">
         <Suspense fallback={<LoginFormLoader />}>
           <BusinessAuthForm />
         </Suspense>

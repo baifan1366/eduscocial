@@ -2,14 +2,20 @@
 
 import { usePathname } from 'next/navigation';
 import Navbar from './Navbar';
+import AdminNavbar from './AdminNavbar';
+import BusinessNavbar from './BusinessNavbar';
 
 export default function NavbarWrapper() {
   const pathname = usePathname();
   const isAdminPath = pathname?.includes('/admin');
-  
+  const isBusinessPath = pathname?.includes('/business');
+
   if (isAdminPath) {
-    // Don't render any navbar here as it's handled in the admin layout
-    return null;
+    return <AdminNavbar />;
+  }
+
+  if(isBusinessPath){
+    return <BusinessNavbar />;
   }
   
   // For non-admin paths, render the regular navbar
