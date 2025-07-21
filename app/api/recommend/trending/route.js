@@ -29,7 +29,7 @@ export async function GET(request) {
         content,
         created_at,
         author_id,
-        users!posts_author_id_fkey(username, display_name, avatar_url),
+        users!posts_author_id_fkey(username, avatar_url),
         board_id,
         boards(name, slug),
         view_count,

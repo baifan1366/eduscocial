@@ -1,35 +1,54 @@
-import { logoutUser } from "../../../../lib/auth";
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../[...nextauth]/route";
+import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+import { extractTokenFromRequest } from '@/lib/auth/jwt';
+import { blacklistToken } from '@/lib/auth/tokenBlacklist';
+import { removeAuthCookie } from '@/lib/auth/cookies';
 
+/**
+ * User logout API route
+ * POST /api/auth/logout
+ */
 export async function POST(request) {
   try {
-    // Get session from NextAuth
-    const session = await getServerSession(authOptions);
+    // Extract token from request headers or cookies
+    const token = extractTokenFromRequest(request);
     
-    if (!session || !session.user) {
-      return NextResponse.json({
-        success: true,
-        message: "No active session"
-      });
+    // If token exists, blacklist it
+    if (token) {
+      try {
+        await blacklistToken(token);
+        console.log('Token successfully blacklisted during logout');
+      } catch (blacklistError) {
+        console.error('Error blacklisting token during logout:', blacklistError);
+        // Continue with logout even if blacklisting fails
+      }
     }
     
-    // Get user ID from session
-    const userId = session.user.id;
+    // Execute Supabase logout operation
+    const { error } = await supabase.auth.signOut();
     
-    // Call logout function to remove session from Redis
-    await logoutUser(userId);
+    // If there's an error with Supabase logout, return error
+    if (error) {
+      console.error('Supabase logout error:', error);
+      return NextResponse.json(
+        { error: error.message || 'Logout failed' },
+        { status: 400 }
+      );
+    }
     
-    return NextResponse.json({
-      success: true,
-      message: "Logged out successfully"
+    // Create response and remove auth cookie
+    const response = NextResponse.json({ 
+      message: 'Successfully logged out',
+      tokenBlacklisted: !!token 
     });
     
+    removeAuthCookie(response);
+    
+    return response;
   } catch (error) {
-    console.error('Logout error:', error.message);
+    console.error('Logout route error:', error);
     return NextResponse.json(
-      { error: "Logout failed", message: error.message },
+      { error: 'Internal server error, please try again later' },
       { status: 500 }
     );
   }

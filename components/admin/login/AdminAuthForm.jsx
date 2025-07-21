@@ -1,73 +1,52 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { useAdminLogin } from '../../../hooks/useAuth';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { Button } from '../../ui/button';
 import { Card, CardHeader, CardContent, CardFooter } from '../../ui/card';
 import { Eye, EyeOff, Shield, Lock, User, AlertCircle } from 'lucide-react';
-import { useSession } from 'next-auth/react';
-import { toast } from 'sonner';
-
-// 直接引入对应的函数而不是hook
-import { AuthContext } from '@/hooks/useAdminAuth';
-import { useContext } from 'react';
 
 export default function AdminAuthForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState(null);
+  const [inputError, setInputError] = useState('');
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '';
+  const { login, isLoading, error } = useAdminLogin();  
   const t = useTranslations('auth');
   const [showPassword, setShowPassword] = useState(false);
-  
-  // 使用useContext获取上下文
-  const auth = useContext(AuthContext);
-  
-  // 如果上下文为空，提供降级功能
-  const login = auth?.login || (async () => {
-    console.error('AuthContext not available');
-    return { success: false, error: 'Authentication context not available' };
-  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
+    setInputError('');
+    setLoginError(null);
     
     try {
       if (!email || !password) {
-        setError(t('emailAndPasswordRequired'));
-        setIsLoading(false);
+        setInputError(t('emailAndPasswordRequired'));
         return;
       }
       
-      // 使用上下文中的login方法
+      // 调用管理员登录API
       const result = await login(email, password);
       
       if (result.success) {
-        toast.success(t('loginSuccess'));
-        
-        // 优先使用回调URL，如果存在
-        if (callbackUrl) {
-          router.push(callbackUrl);
-        } else {
-          // 从pathname获取语言前缀
-          const locale = pathname.split('/')[1] || 'en';
-          router.push(`/${locale}/admin/dashboard`);
+        // 额外确保本地存储中有用户信息
+        if (typeof window !== 'undefined' && result.user) {
+          try {
+            localStorage.setItem('adminUser', JSON.stringify({
+              ...result.user,
+              name: result.user.name || email.split('@')[0] || 'Admin User'
+            }));
+          } catch (e) {
+            console.error('Failed to store admin user:', e);
+          }
         }
-        
-        // 添加一个短暂延迟，确保认证状态有时间更新
-        setTimeout(() => {
-          //reset input
-          setEmail('');
-          setPassword('');
-        }, 100); // 短暂延迟以允许状态更新
       } else {
         setError(result.error || t('loginFailed'));
       }
@@ -99,7 +78,7 @@ export default function AdminAuthForm() {
             </div>
           </div>
         </div>
-        
+
         {/* 右侧表单区域 */}
         <Card className="w-full md:w-3/5 border-0 rounded-none bg-[#051220]">
           <CardHeader className="pt-0 pb-4">
@@ -120,12 +99,12 @@ export default function AdminAuthForm() {
             <form onSubmit={handleSubmit} className="space-y-5">              
               <div className="space-y-2">
                 <label htmlFor="email" className="block text-sm font-medium text-gray-300">
-                  {t('adminEmail')}
+                  {t('adminEmail')} <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center border rounded-md bg-[#0A1929] border-[#132F4C] pl-3 pr-0 w-full focus-within:outline-none focus-within:ring-2 focus-within:ring-white">
                   <input
                     id="email"
-                    type="email" 
+                    type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -139,7 +118,7 @@ export default function AdminAuthForm() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <label htmlFor="password" className="block text-sm font-medium text-gray-300">
-                    {t('password')}
+                    {t('password')} <span className="text-red-500">*</span>
                   </label>
                     <Link 
                       href="/admin/forgot-password" 
@@ -161,28 +140,28 @@ export default function AdminAuthForm() {
                   <Button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-white px-0 hover:text-[#FF7D00]"
+                    className="text-white px-0 hover:text-[#FF7D00] bg-transparent hover:bg-transparent"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </Button>
                 </div>
               </div>
-          
-          <Button 
-            type="submit" 
+              
+              <Button
+                type="submit"
                 variant="orange"
                 className="w-full py-3 px-4 rounded-md font-medium bg-[#FF7D00] text-white hover:bg-[#E57200] transition-colors disabled:opacity-50 mt-6"
                 disabled={isLoading}
-          >
+              >
                 {isLoading 
                   ? t('signingInAsAdmin') 
                   : t('signInAsAdmin')}
-          </Button>
-        </form>
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>
     </div>
   );
-}
+} 

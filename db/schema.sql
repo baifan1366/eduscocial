@@ -5,19 +5,35 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email TEXT UNIQUE NOT NULL,
     username TEXT UNIQUE NOT NULL,
-    display_name TEXT,
     avatar_url TEXT,
-    bio TEXT,
+    password_hash TEXT NOT NULL,
     gender TEXT CHECK (gender IN ('male', 'female', 'other')),
-    birth_year INTEGER,
-    school TEXT,
-    department TEXT,
     is_verified BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,
     last_login_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- User profiles table for extended profile information
+CREATE TABLE user_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    bio TEXT,
+    birthday DATE,
+    relationship_status TEXT CHECK (relationship_status IN ('single', 'in_relationship', 'married', 'complicated', 'prefer_not_to_say')),
+    interests TEXT NOT NULL,
+    university TEXT,
+    favorite_quotes TEXT,
+    favorite_country TEXT,
+    daily_active_time TEXT CHECK (daily_active_time IN ('morning', 'afternoon', 'evening', 'night', 'varies')),
+    study_abroad TEXT NOT NULL,
+    leisure_activities TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES users(id),
+    UNIQUE(user_id)
 );
 
 CREATE TABLE schools (
@@ -213,6 +229,16 @@ CREATE TABLE post_hashtags (
     CONSTRAINT unique_post_hashtag UNIQUE (post_id, hashtag_id)
 );
 
+CREATE TABLE anonymous_avatars (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  avatar_url TEXT NOT NULL,
+  description TEXT,
+  is_premium_only BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -282,16 +308,6 @@ CREATE TABLE subscriptions (
   end_at TIMESTAMPTZ NOT NULL,
   auto_renew BOOLEAN DEFAULT TRUE,
   status TEXT NOT NULL CHECK(status IN ('active','cancelled','expired')),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
-);
-
-CREATE TABLE anonymous_avatars (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  avatar_url TEXT NOT NULL,
-  description TEXT,
-  is_premium_only BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_by UUID REFERENCES users(id)

@@ -1,12 +1,12 @@
-import AuthForm from '../../../components/auth/AuthForm';
-import { Suspense } from 'react';
+import AuthForm from "@/components/auth/AuthForm";
+import { Suspense } from "react";
 
 export const metadata = {
-  title: 'Login | EduSocial',
-  description: 'Login to EduSocial',
+  title: "Login | EduSocial",
+  description: "Login to EduSocial",
   openGraph: {
-    title: 'Login to EduSocial',
-    images: ['/slogan-removebg-preview.png'],
+    title: "Login to EduSocial",
+    images: ["/slogan-removebg-preview.png"],
   },
 };
 

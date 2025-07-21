@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { cookies } from 'next/headers';
+import { verifyJWT, isTokenValid } from '@/lib/auth/jwt';
 import { 
   getHotPosts, 
   getUserInterests,
@@ -53,14 +53,33 @@ function calculatePostScore(post, userInterests) {
   return score;
 }
 
+// 从cookies获取用户ID的辅助函数
+async function getUserIdFromCookies() {
+  const authToken = (await cookies()).get('auth_token')?.value;
+  
+  if (!authToken) {
+    return null;
+  }
+  
+  try {
+    const decoded = await verifyJWT(authToken);
+    if (isTokenValid(decoded)) {
+      return decoded.id;
+    }
+  } catch (error) {
+    console.error('Error verifying JWT token:', error);
+  }
+  
+  return null;
+}
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit') || '20');
     
-    // 获取用户会话
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.id;
+    // 使用自定义认证系统获取用户ID
+    const userId = await getUserIdFromCookies();
     
     // 如果用户未登录，返回热门帖子
     if (!userId) {
@@ -119,7 +138,7 @@ export async function GET(request) {
         content,
         created_at,
         author_id,
-        users!posts_author_id_fkey(username, display_name, avatar_url),
+        users!posts_author_id_fkey(username, avatar_url),
         board_id,
         boards(name, slug),
         view_count,

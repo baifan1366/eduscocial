@@ -1,5 +1,4 @@
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { getServerSession } from '@/lib/auth/serverAuth';
 import { supabase } from '@/lib/supabase';
 
 // 设置响应对象的辅助函数
@@ -38,7 +37,7 @@ async function sendSSEMessage(response, event, data) {
 export async function GET(request) {
   try {
     // 验证用户身份
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user?.id) {
       return new Response('Unauthorized', { status: 401 });
     }

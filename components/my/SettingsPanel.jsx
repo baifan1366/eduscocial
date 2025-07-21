@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useSession } from 'next-auth/react';
-import { usePathnameContext } from '@/app/providers';
+import useAuth from '@/hooks/useAuth';
+import { usePathnameContext } from '@/components/layout/ClientProviders';
+import useMySettings from '@/hooks/useMySettings';
 
 // Import our custom settings components
 import GeneralSettings from '@/components/settings/GeneralSettings';
@@ -18,7 +19,7 @@ export default function SettingsPanel({ activeTab = 'general' }) {
   const searchParams = useSearchParams();
   const pathname = usePathnameContext();
   const t = useTranslations('Settings');
-  const { data: session, status } = useSession();
+  const { user, status, isAuthenticated } = useAuth();
   
   // Get the locale from the pathname
   const locale = pathname?.split('/')[1] || 'en';
@@ -42,7 +43,7 @@ export default function SettingsPanel({ activeTab = 'general' }) {
   }
   
   // Check if user is authenticated
-  if (status !== 'authenticated' || !session?.user) {
+  if (!isAuthenticated || !user) {
     return (
       <Card className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
         <div className="text-center py-8">

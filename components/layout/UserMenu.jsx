@@ -2,33 +2,41 @@
 
 import { Popover, Transition } from '@headlessui/react';
 import { useRouter } from 'next/navigation';
-import { Fragment } from 'react';
-import { ChevronDown, LogOut, User } from 'lucide-react';
+import { Fragment, useEffect } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
-import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
-import { usePathnameContext } from '@/app/providers';
+import { usePathnameContext } from '@/components/layout/ClientProviders';
+import useAuth from '@/hooks/useAuth';
 
 export default function UserMenu({ onLogout }) {
   const router = useRouter();
   const pathname = usePathnameContext();
-  const { data: session, status } = useSession();
+  const { user, isAuthenticated, status } = useAuth();
 
   // Get the locale from the pathname
   const locale = useLocale();
 
-  // Use next-auth session to determine authentication status
-  const isAuthenticated = status === 'authenticated';
-
   const t = useTranslations('UserMenu');
+  
+  // Debug authentication state
+  useEffect(() => {
+    console.log('UserMenu auth state:', { 
+      isAuthenticated, 
+      status,
+      userId: user?.id || 'none',
+      hasUser: !!user
+    });
+  }, [isAuthenticated, status, user]);
 
   // Handle navigation to settings
   const handleNavigate = (href) => {
-    // If already authenticated, navigate directly without callback
-    if (isAuthenticated) {
+    console.log('UserMenu navigation:', { href, isAuthenticated, hasUser: !!user });
+    // If we have a user object or isAuthenticated is true, navigate directly
+    if (user || isAuthenticated) {
       router.push(href);
     } else {
-      // Only if not authenticated, redirect to login with callback
+      // Only redirect to login if definitely not authenticated
       router.push(`/${locale}/login?callbackUrl=${href}`);
     }
   };
@@ -38,7 +46,6 @@ export default function UserMenu({ onLogout }) {
     if (onLogout) {
       await onLogout();
     }
-    await signOut({ redirect: true, callbackUrl: `/${locale}/login` });
   };
 
   // If session is loading, show loading state

@@ -43,7 +43,7 @@ const nextConfig = {
 
 export default withNextIntl({
   ...nextConfig,
-  // This ensures that NextAuth.js callbacks work correctly
+  // Custom redirects configuration
   async redirects() {
     return [
       {

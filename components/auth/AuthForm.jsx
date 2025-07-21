@@ -2,98 +2,92 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Button } from '../ui/button';
 import { Card, CardHeader, CardContent, CardFooter } from '../ui/card';
-import Image from 'next/image';
-import useAuth from '../../hooks/useAuth';
 import { Eye, EyeOff } from 'lucide-react';
-import { useLocale } from 'next-intl';
+import { toast } from 'sonner';
+import { useLogin, useRegister } from '@/hooks/useAuth';
+import Image from 'next/image';
 
 export default function AuthForm({ isRegister = false }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { login, register } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '';
   const t = useTranslations('auth');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const locale = useLocale();
+  
+  // Use the appropriate authentication hook based on whether this is register or login
+  const { login, isLoading: isLoginLoading, error: loginError, setError: setLoginError } = useLogin();
+  const { register, isLoading: isRegisterLoading, error: registerError, setError: setRegisterError } = useRegister();
+  
+  const isLoading = isRegister ? isRegisterLoading : isLoginLoading;
+
+  // Clear any errors when switching between login and register
+  useState(() => {
+    setError('');
+    if (isRegister) {
+      setLoginError(null);
+    } else {
+      setRegisterError(null);
+    }
+  }, [isRegister]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
     
     try {
+      if (!email || !password) {
+        setError(t('emailAndPasswordRequired'));
+        return;
+      }
+      
       if (isRegister) {
-        // Validate password match
-        if (password !== confirmPassword) {
-          setError(t('passwordsDontMatch'));
-          setIsLoading(false);
+        // Check if username is provided for registration
+        if (!username) {
+          setError(t('usernameRequired'));
           return;
         }
         
-        const result = await register({ name, email, password });
-        
-        if (result.success) {
-          router.push(`/${locale}/login`);
-        } else {
-          setError(result.error || t('registrationFailed'));
+        // Check if passwords match
+        if (password !== confirmPassword) {
+          setError(t('passwordsDontMatch'));
+          return;
         }
+        
+        // Register user
+        await register({ email, password, username });
+        
       } else {
-        const result = await login(email, password);
-        
-        if (result.success) {
-          // 确保会话已更新，强制刷新路由
-          router.refresh();
-          
-          // 清除callbackUrl中可能的循环重定向
-          let targetUrl = callbackUrl;
-          if (targetUrl && targetUrl.includes('/login')) {
-            targetUrl = `/${locale}/my`;
-          } else if (!targetUrl) {
-            targetUrl = `/${locale}/my`;
-          }
-          
-          // 直接导航到目标页面
-          setTimeout(() => {
-            router.push(targetUrl); 
-          }, 100); // 短暂延迟确保会话已更新
-        } else {
-          setError(result.error || t('loginFailed'));
-        }
+        // Login user
+        await login({ email, password });
       }
+      
+      // On success, toast notification will be shown by the hook
+      toast.success(isRegister ? t('registerSuccess') : t('loginSuccess'));
+      
+      // Navigate to callback URL or home page
+      // 注意：由于在useAuth.js中已经处理了重定向逻辑，这里不需要再执行重定向
+      // 重定向会在useAuth hooks的onSuccess回调中处理
+      
     } catch (error) {
-      setError(t('unexpectedError'));
       console.error(isRegister ? 'Registration error:' : 'Login error:', error);
-    } finally {
-      setIsLoading(false);
+      setError(error.message || (isRegister ? t('registerFailed') : t('loginFailed')));
     }
   };
 
-  const handleOAuthSignIn = async (provider) => {
-    try {
-      setIsLoading(true);
-      
-      // 使用Next.js路由导航到OAuth端点
-      const callbackUrl = searchParams.get('callbackUrl') || `/${locale}/my`;
-      router.push(`/api/auth/${provider}?callbackUrl=${encodeURIComponent(callbackUrl)}`);
-      
-    } catch (error) {
-      console.error(`${provider} sign in error:`, error);
-      setError(t('oauthError', { provider }));
-      setIsLoading(false);
+  // Set error from hooks
+  useState(() => {
+    if (isRegister && registerError) {
+      setError(registerError);
+    } else if (!isRegister && loginError) {
+      setError(loginError);
     }
-  };
+  }, [registerError, loginError]);
 
   return (
     <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-20 px-4 md:px-0 min-h-[80vh]">
@@ -132,30 +126,9 @@ export default function AuthForm({ isRegister = false }) {
           )}
           
           <form onSubmit={handleSubmit} className="space-y-6">
-            {isRegister ? (
-              <div className="space-y-2">
-                <label htmlFor="name" className="block text-sm font-medium">
-                  {t('fullName')}
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 border rounded-md bg-[#0A1929] border-[#132F4C] text-white"
-                  disabled={isLoading}
-                  placeholder={t('enterFullName')}
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-              </div>
-            )}
-            
             <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-medium">
-                {isRegister ? t('primaryEmail') : t('studentEmail')}
+                {isRegister ? t('primaryEmail') : t('studentEmail')} <span className="text-red-500">*</span>
               </label>
               <input
                 id="email"
@@ -168,11 +141,32 @@ export default function AuthForm({ isRegister = false }) {
                 placeholder={t('enterEmail')}
               />
             </div>
+
+            {isRegister ? (
+              <div className="space-y-2">
+                <label htmlFor="name" className="block text-sm font-medium">
+                  {t('username')} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border rounded-md bg-[#0A1929] border-[#132F4C] text-white"
+                  disabled={isLoading}
+                  placeholder={t('enterUsername')}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+              </div>
+            )}
             
             <div className="space-y-2">
               <div className="flex justify-between">
                 <label htmlFor="password" className="block text-sm font-medium">
-                  {t('password')}
+                  {t('password')} <span className="text-red-500">*</span>
                 </label>
                 {!isRegister && (
                   <Link 
@@ -196,7 +190,7 @@ export default function AuthForm({ isRegister = false }) {
                 <Button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="text-white px-0 hover:text-[#FF7D00]"
+                  className="text-white px-0 hover:text-[#FF7D00] bg-transparent hover:bg-transparent"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -207,7 +201,7 @@ export default function AuthForm({ isRegister = false }) {
             {isRegister ? (
               <div className="space-y-2">
                 <label htmlFor="confirmPassword" className="block text-sm font-medium">
-                  {t('confirmPassword')}
+                  {t('confirmPassword')} <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center border rounded-md bg-[#0A1929] border-[#132F4C] pl-3 pr-0 w-full focus-within:outline-none focus-within:ring-2 focus-within:ring-white">
                   <input
@@ -222,7 +216,7 @@ export default function AuthForm({ isRegister = false }) {
                   <Button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="text-white px-0 hover:text-[#FF7D00]"
+                    className="text-white px-0 hover:text-[#FF7D00] bg-transparent hover:bg-transparent"
                     tabIndex={-1}
                   >
                     {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -258,7 +252,6 @@ export default function AuthForm({ isRegister = false }) {
                 <Button
                   variant="orange"
                   className="px-4 rounded-md font-medium disabled:opacity-50 bg-transparent hover:bg-transparent"
-                  onClick={() => handleOAuthSignIn('facebook')}
                   disabled={isLoading}
                 >
                   <Image src="/facebook.png" alt={t('loginWithFacebook')} width={20} height={20} />
@@ -266,10 +259,9 @@ export default function AuthForm({ isRegister = false }) {
                 <Button
                   variant="orange"
                   className="px-4 rounded-md font-medium disabled:opacity-50 bg-transparent hover:bg-transparent"
-                  onClick={() => handleOAuthSignIn('github')}
                   disabled={isLoading}
                 >
-                  <Image src="/github.svg" alt={t('loginWithGithub')} width={20} height={20} />
+                  <Image src="/email.png" alt={t('emailSignIn')} width={20} height={20} />
                 </Button>
               </div>
             ) : (
@@ -282,8 +274,8 @@ export default function AuthForm({ isRegister = false }) {
         <CardFooter className="text-center">
           <>
             {isRegister ? (
-              <Link href="/login" className="text-[#FF7D00] text-sm hover:underline">
-                {t('alreadyHaveAccount')}
+              <Link href="/login" className="text-sm">
+                <span className="text-gray-500">{t('alreadyHaveAccount')}</span>{' '}<span className="text-[#FF7D00] hover:underline">{t('signIn')}</span>
               </Link>
             ) : (
               <>

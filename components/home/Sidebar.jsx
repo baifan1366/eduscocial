@@ -1,48 +1,48 @@
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import CustomizeFeedButton from './CustomizeFeedButton';
+'use client';
+
+import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 export default function Sidebar({ isAuthenticated }) {
+  const t = useTranslations('HomePage');
+  
   return (
-    <div className="md:col-span-1">
-      <Card className="bg-slate-900 border-0 shadow-sm mb-6 overflow-hidden">
-        <div className="border-b border-slate-800 px-4 py-3">
-          <h2 className="font-semibold text-white">Discover</h2>
-        </div>
-        
-        <div className="p-2">
-          <Button variant="ghost" className="w-full justify-start text-white hover:bg-slate-800 mb-1">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            Trending
-          </Button>
-          <Button variant="ghost" className="w-full justify-start text-white hover:bg-slate-800 mb-1">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            New
-          </Button>
-          <Button variant="ghost" className="w-full justify-start text-white hover:bg-slate-800 mb-1">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
-            Saved
-          </Button>
-        </div>
-      </Card>
-      
-      {/* User section - Show only if logged in */}
-      {isAuthenticated && (
-        <Card className="bg-slate-900 border-0 shadow-sm overflow-hidden">
-          <div className="border-b border-slate-800 px-4 py-3">
-            <h2 className="font-semibold text-white">Your Feed</h2>
+    <div className="space-y-4">
+      {isAuthenticated ? (
+        <>
+          <div className="bg-[#132F4C] rounded-lg p-4">
+            <h3 className="font-bold text-lg mb-2 text-white">My Topics</h3>
+            <ul className="space-y-1">
+              <li><Link href="/my/topics" className="text-[#FF7D00] hover:underline">View all topics</Link></li>
+            </ul>
           </div>
-          <div className="p-3">
-            <CustomizeFeedButton />
+          <div className="bg-[#132F4C] rounded-lg p-4">
+            <h3 className="font-bold text-lg mb-2 text-white">My Cards</h3>
+            <Link href="/my/cards" className="text-[#FF7D00] hover:underline">Create new card</Link>
           </div>
-        </Card>
+        </>
+      ) : (
+        <div className="bg-[#132F4C] rounded-lg p-4">
+          <h3 className="font-bold text-lg mb-2 text-white">Join EduSocial</h3>
+          <p className="mb-4 text-gray-300">Sign in to see personalized content and connect with your school community</p>
+          <div className="space-x-2">
+            <Link href="/login" className="bg-[#FF7D00] text-white px-4 py-2 rounded-md hover:bg-[#FF7D00]/90 transition-colors">
+              Login
+            </Link>
+            <Link href="/register" className="border border-[#FF7D00] text-[#FF7D00] px-4 py-2 rounded-md hover:bg-[#FF7D00]/10 transition-colors">
+              Register
+            </Link>
+          </div>
+        </div>
       )}
+      <div className="bg-[#132F4C] rounded-lg p-4">
+        <h3 className="font-bold text-lg mb-2 text-white">Trending Topics</h3>
+        <ul className="space-y-1 text-gray-300">
+          <li><Link href="/topic/academic" className="hover:text-[#FF7D00]">Academic</Link></li>
+          <li><Link href="/topic/campus-life" className="hover:text-[#FF7D00]">Campus Life</Link></li>
+          <li><Link href="/topic/career" className="hover:text-[#FF7D00]">Career</Link></li>
+        </ul>
+      </div>
     </div>
   );
 } 

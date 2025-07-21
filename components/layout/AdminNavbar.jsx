@@ -4,15 +4,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import useAdminAuth from '@/hooks/useAdminAuth';
+import { useState } from 'react';
+import { useAdminLogin } from '@/hooks/useAuth';
 import { Button } from '../ui/button';
 import { useTranslations } from 'next-intl';
 
 export default function AdminNavbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user: adminUser, logout: adminLogout, isAuthenticated: isAdminAuthenticated } = useAdminAuth();
+  const { user, logout, isAuthenticated, status, isLoading } = useAdminLogin();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const t = useTranslations('Navbar');
 
@@ -20,7 +20,7 @@ export default function AdminNavbar() {
   const handleAdminLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const result = await adminLogout();
+      const result = await logout();
       if (!result.success) {
         console.error('Admin logout failed:', result.error);
         // Force redirect if logout fails
@@ -56,10 +56,10 @@ export default function AdminNavbar() {
         </Link>
 
         <div className="flex items-center space-x-4">
-          {isAdminAuthenticated && adminUser ? (
+          {isAuthenticated && user ? (
             <>
               <span className="text-white">
-                {t('hi')} {adminUser.name || 'Admin'}
+                {t('hi')} {user.name || 'Admin'}
               </span>
               <Button
                 variant="orange"

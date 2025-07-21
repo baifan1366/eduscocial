@@ -16,20 +16,15 @@ CREATE INDEX idx_votes_comment_id ON votes(comment_id);
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX idx_notifications_is_read ON notifications(is_read);
 CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
-CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read) WHERE read = FALSE;
+CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = FALSE;
 CREATE INDEX idx_notifications_type ON notifications(type);
 
 CREATE INDEX idx_hashtags_name ON hashtags(name);
 CREATE INDEX idx_hashtags_usage_count ON hashtags(usage_count DESC);
-
+-- Index for faster lookups
+CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_school ON users(school);
-CREATE INDEX idx_users_department ON users(department);
-
-CREATE INDEX idx_schools_name ON schools(name);
-CREATE INDEX idx_departments_school_id ON departments(school_id);
-CREATE INDEX idx_departments_name ON departments(name);
 
 CREATE INDEX idx_daily_matches_user_a ON daily_matches(user_a);
 CREATE INDEX idx_daily_matches_user_b ON daily_matches(user_b);
@@ -59,10 +54,6 @@ CREATE INDEX idx_content_moderation_status ON content_moderation(status);
 CREATE INDEX idx_post_hashtags_hashtag_id ON post_hashtags(hashtag_id);
 CREATE INDEX idx_favorites_user_id_created_at ON favorites(user_id, created_at);
 CREATE INDEX idx_user_preferences_user_id ON user_preferences(user_id);
-
-
-CREATE INDEX idx_files_user_id ON files(user_id);
-CREATE INDEX idx_files_file_type ON files(file_type);
 
 
 CREATE INDEX idx_files_user_id ON files(user_id);

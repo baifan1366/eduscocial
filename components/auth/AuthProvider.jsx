@@ -1,14 +1,41 @@
-"use client";
+'use client';
 
-import { SessionProvider } from 'next-auth/react';
-import { AuthProvider as CustomAuthProvider } from '../../hooks/useAuth';
+import { createContext, useContext } from 'react';
+import { useSession } from '@/hooks/useAuth';
 
-export default function AuthProvider({ children, session }) {
+// Create context
+export const AuthContext = createContext(null);
+
+// Auth provider component
+export function AuthProvider({ children }) {
+  const { user, status, isAuthenticated, hasRole } = useSession();
+  
+  // Value provided to context consumers
+  const value = {
+    user,
+    status,
+    isAuthenticated,
+    hasRole,
+    isLoading: status === 'loading',
+  };
+  
   return (
-    <SessionProvider session={session}>
-      <CustomAuthProvider>
-        {children}
-      </CustomAuthProvider>
-    </SessionProvider>
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
   );
-} 
+}
+
+// Custom hook to use the auth context
+export function useAuth() {
+  const context = useContext(AuthContext);
+  
+  if (context === null) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  
+  return context;
+}
+
+// Default export for convenience
+export default AuthProvider; 

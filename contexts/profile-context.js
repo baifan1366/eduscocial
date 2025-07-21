@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useReducer, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import useAuth from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 // Profile context
@@ -32,11 +32,19 @@ const profileReducer = (state, action) => {
 const initialState = {
   profile: {
     displayName: '',
+    email: '',
+    gender: '',
     bio: '',
     birthday: null,
+    relationshipStatus: 'prefer_not_to_say',
     interests: '',
     university: '',
     department: '',
+    favoriteQuotes: '',
+    favoriteCountry: '',
+    dailyActiveTime: 'varies',
+    studyAbroad: 'no',
+    leisureActivities: '',
     avatarUrl: '',
     country: ''
   },
@@ -47,11 +55,11 @@ const initialState = {
 // Profile provider component
 export function ProfileProvider({ children }) {
   const [state, dispatch] = useReducer(profileReducer, initialState);
-  const { data: session, status } = useSession();
+  const { user, status } = useAuth();
 
   // Fetch profile data
   const fetchProfile = async () => {
-    if (status !== 'authenticated' || !session?.user?.id) {
+    if (status !== 'authenticated' || !user?.id) {
       dispatch({ type: 'SET_LOADING', payload: false });
       return;
     }
@@ -59,7 +67,7 @@ export function ProfileProvider({ children }) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
-      const response = await fetch(`/api/users/${session.user.id}/profile`);
+      const response = await fetch(`/api/users/${user.id}/profile`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -79,7 +87,7 @@ export function ProfileProvider({ children }) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
-      const response = await fetch(`/api/users/${session.user.id}/profile`, {
+      const response = await fetch(`/api/users/${user.id}/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -117,7 +125,7 @@ export function ProfileProvider({ children }) {
     if (status !== 'loading') {
       fetchProfile();
     }
-  }, [status, session?.user?.id]);
+  }, [status, user?.id]);
 
   // Reset state when user logs out
   useEffect(() => {

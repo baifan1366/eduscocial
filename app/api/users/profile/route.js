@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from '@/lib/auth/serverAuth';
 import { supabase } from '@/lib/supabase';
-import { authOptions } from '@/lib/auth';
 import { profileSchema, profileUpdateSchema } from '@/lib/validations/profile';
 
 // GET handler to retrieve user profile
 export async function GET(request) {
   try {
     // Get the session to verify the user is authenticated
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -16,18 +15,28 @@ export async function GET(request) {
 
     // Query the users table for profile information
     const { data, error } = await supabase
-      .from('users')
+      .from('user_profiles')
       .select(`
         id,
-        display_name,
+        user_id,
         bio,
-        school,
-        department,
-        birth_year,
-        avatar_url,
-        country
+        university,
+        birthday,
+        interests,
+        relationship_status,
+        favorite_quotes,
+        favorite_country,
+        daily_active_time,
+        study_abroad,
+        leisure_activities,
+        users!user_profiles_user_id_fkey (
+          username,
+          email,
+          avatar_url,
+          gender
+        )
       `)
-      .eq('id', session.user.id)
+      .eq('user_id', session.user.id)
       .single();
 
     if (error) {
@@ -56,14 +65,18 @@ export async function GET(request) {
     // Return profile data with camelCase conversion using actual database fields
     return NextResponse.json({
       profile: {
-        displayName: data.display_name || '',
         bio: data.bio || '',
-        birthday: data.birth_year ? data.birth_year.toString() : null, // Convert birth_year to string
+        birthday: data.birthday ? data.birthday.toString() : null, // Convert birth_year to string
         interests: interests, // From user_interests table
-        university: data.school || '',
-        department: data.department || '',
-        avatarUrl: data.avatar_url || '',
-        country: data.country || ''
+        university: data.university || '',
+        relationshipStatus: data.relationship_status || '',
+        favoriteQuotes: data.favorite_quotes || '',
+        favoriteCountry: data.favorite_country || '',
+        dailyActiveTime: data.daily_active_time || '',
+        studyAbroad: data.study_abroad || '',
+        leisureActivities: data.leisure_activities || '',
+        avatarUrl: data.users?.user_profiles_user_id_fkey?.avatar_url || '',
+        gender: data.users?.user_profiles_user_id_fkey?.gender || ''
       }
     });
   } catch (error) {
@@ -76,7 +89,7 @@ export async function GET(request) {
 export async function PUT(request) {
   try {
     // Get the session to verify the user is authenticated
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -99,11 +112,11 @@ export async function PUT(request) {
 
     // Convert camelCase to snake_case for database and map to users table fields
     const dbData = {
-      display_name: profileData.displayName,
+      username: profileData.displayName,
       bio: profileData.bio,
-      school: profileData.university, // Map university to school field
+      university: profileData.university, // Map university to school field
       department: profileData.department,
-      birth_year: profileData.birthday ? parseInt(profileData.birthday) : null, // Convert birthday string to birth_year integer
+      birthday: profileData.birthday ? parseInt(profileData.birthday) : null, // Convert birthday string to birth_year integer
       avatar_url: profileData.avatarUrl,
       country: profileData.country,
       updated_at: new Date().toISOString()

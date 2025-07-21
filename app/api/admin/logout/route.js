@@ -1,41 +1,56 @@
-import { NextResponse } from "next/server";
-import { removeAdminSession } from "../../../../lib/redis/adminLogin";
-import { cookies } from "next/headers";
+import { NextResponse } from 'next/server';
+import { getAuthCookie, removeAuthCookie } from '../../../../lib/auth/cookies';
+import { verifyJWT, extractTokenFromRequest } from '../../../../lib/auth/jwt';
+import { deleteSession } from '../../../../lib/auth/session';
+import { blacklistToken } from '../../../../lib/auth/tokenBlacklist';
 
+/**
+ * Admin logout API route
+ * POST /api/admin/logout
+ */
 export async function POST(request) {
   try {
-    // 获取cookie存储
-    const cookieStore = await cookies();
-    const userId = cookieStore.get('adminUserId')?.value;
+    // Extract token from request headers or cookies
+    let token = extractTokenFromRequest(request);
     
-    // 1. 删除Redis中的管理员会话
-    if (userId) {
-      await removeAdminSession(userId);
+    // Fallback to getAuthCookie for backward compatibility
+    if (!token) {
+      token = getAuthCookie();
     }
     
-    // 2. 清除cookie
-    await cookieStore.delete('adminUserId');
+    if (token) {
+      try {
+        // Blacklist the token immediately
+        await blacklistToken(token);
+        console.log('Admin token successfully blacklisted during logout');
+        
+        // Verify token to get user ID for session cleanup
+        const decoded = await verifyJWT(token);
+        
+        if (decoded && decoded.id) {
+          // Delete session from Redis
+          await deleteSession(decoded.id);
+        }
+      } catch (error) {
+        console.error('Error processing token during admin logout:', error);
+        // Continue with logout even if token processing fails
+      }
+    }
     
-    // 清除NextAuth会话cookie
-    const sessionCookieName = process.env.NODE_ENV === 'production' 
-      ? '__Secure-next-auth.session-token' 
-      : 'next-auth.session-token';
-    await cookieStore.delete(sessionCookieName);
+    // Create response and remove cookie
+    const response = NextResponse.json({ 
+      message: 'Admin logout successful',
+      tokenBlacklisted: !!token 
+    }, { status: 200 });
     
-    // 清除其他相关的cookie
-    await cookieStore.delete('next-auth.csrf-token');
-    await cookieStore.delete('next-auth.callback-url');
+    removeAuthCookie(response);
     
-    // 3. 返回成功响应
-    return NextResponse.json({
-      success: true,
-      message: "Admin has successfully logged out"
-    });
+    return response;
   } catch (error) {
-    console.error('Admin logout error:', error.message);
-    return NextResponse.json(
-      { error: error.message || "Logout failed" },
-      { status: 500 }
-    );
+    console.error('Admin logout error:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      message: 'Admin logout failed' 
+    }, { status: 500 });
   }
 } 

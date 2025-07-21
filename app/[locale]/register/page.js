@@ -1,4 +1,4 @@
-import AuthForm from '../../../components/auth/AuthForm';
+import AuthForm from '@/components/auth/AuthForm';
 import { Suspense } from 'react';
 
 export const metadata = {
