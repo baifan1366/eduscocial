@@ -443,7 +443,7 @@ export function useBusinessLogin() {
       }
       
       // 重定向到商家面板
-      router.push(`/${locale}/business/dashboard`);
+      router.push(`/${locale}/business/landing`);
     },
     onError: (error) => {
       console.error('Business login error:', error);
@@ -1095,7 +1095,7 @@ export function useSession() {
   // Helper function to check if user is an admin
   const isAdmin = () => {
     if (!isAuthenticated || !data?.user?.role) return false;
-    return ['support', 'ads_manager', 'superadmin'].includes(data.user.role);
+    return ['admin'].includes(data.user.role);
   };
 
   // Helper function to check if user is a business user

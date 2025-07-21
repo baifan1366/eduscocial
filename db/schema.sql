@@ -6,6 +6,7 @@ CREATE TABLE admin_users (
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   phone_number TEXT,
+  avatar_url TEXT,
   password TEXT NOT NULL,
   role TEXT CHECK (role IN ('superadmin')) NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -18,11 +19,47 @@ CREATE TABLE business_users (
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   phone_number TEXT,
+  avatar_url TEXT,
   password TEXT NOT NULL,
   role TEXT CHECK (role IN ('business')) NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_by UUID REFERENCES admin_users(id)
+);
+
+CREATE TABLE business_profiles ( --company profile
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id UUID NOT NULL REFERENCES business_users(id) ON DELETE CASCADE,
+    company_name TEXT NULL,
+    company_description TEXT,
+    company_location TEXT,
+    company_country TEXT,
+    company_city TEXT,
+    company_address TEXT,
+    company_zip_code TEXT,
+    company_phone_number TEXT,   
+    daily_active_time TEXT CHECK (daily_active_time IN ('morning', 'afternoon', 'evening', 'night', 'varies')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES business_users(id),
+    UNIQUE(business_id)
+);
+
+CREATE TABLE business_services (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  business_id UUID NOT NULL REFERENCES business_users(id) ON DELETE CASCADE,
+  company_email TEXT,    
+  company_facebook TEXT,
+  company_instagram TEXT,
+  company_twitter TEXT,
+  company_linkedin TEXT,
+  company_youtube TEXT, 
+  company_website TEXT,
+  company_logo_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES business_users(id),
+  UNIQUE(business_id)
 );
 
 CREATE TABLE users (
@@ -872,7 +909,6 @@ CREATE TABLE files (
 CREATE TABLE user_sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    session_token TEXT UNIQUE NOT NULL,
     ip_address TEXT,
     user_agent TEXT,
     device_info JSONB,
@@ -886,7 +922,6 @@ CREATE TABLE user_sessions (
 CREATE TABLE admin_sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     admin_user_id UUID NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
-    session_token TEXT UNIQUE NOT NULL,
     ip_address TEXT,
     user_agent TEXT,
     device_info JSONB,
@@ -900,7 +935,6 @@ CREATE TABLE admin_sessions (
 CREATE TABLE business_sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     business_user_id UUID NOT NULL REFERENCES business_users(id) ON DELETE CASCADE,
-    session_token TEXT UNIQUE NOT NULL,
     ip_address TEXT,
     user_agent TEXT,
     device_info JSONB,

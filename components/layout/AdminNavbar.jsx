@@ -15,6 +15,8 @@ export default function AdminNavbar() {
   const { user, logout, isAuthenticated, status, isLoading } = useAdminLogin();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const t = useTranslations('Navbar');
+  //check isLoginPage 
+  const isLoginPage = pathname === '/admin/login';
 
   // Handle admin logout
   const handleAdminLogout = async () => {
@@ -56,7 +58,7 @@ export default function AdminNavbar() {
         </Link>
 
         <div className="flex items-center space-x-4">
-          {isAuthenticated && user ? (
+          {!isLoginPage && user ? (
             <>
               <span className="text-white">
                 {t('hi')} {user.name || 'Admin'}

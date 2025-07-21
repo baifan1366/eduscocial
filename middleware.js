@@ -232,7 +232,7 @@ export async function middleware(request) {
     }
     
     // 检查管理员权限
-    if (isAdminRoute && tokenData.role !== 'ADMIN') {
+    if (isAdminRoute && tokenData.role !== 'admin') {
       return NextResponse.redirect(
         new URL(`/${locale}/unauthorized`, request.url)
       );

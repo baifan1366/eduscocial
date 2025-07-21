@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardContent, CardFooter } from '../../ui/card';
 import { Eye, EyeOff, Lock, AlertCircle, Briefcase, Building2, BarChart3 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function BusinessAuthForm() {
   const [email, setEmail] = useState('');

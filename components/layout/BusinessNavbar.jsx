@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { useBusinessLogin } from '@/hooks/useAuth';
 import { useTranslations } from 'next-intl';
 import { Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function BusinessNavbar() {
   const pathname = usePathname();
@@ -16,10 +17,12 @@ export default function BusinessNavbar() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
   const t = useTranslations('Navbar');
+  const [isLogin, setIsLogin] = useState(false);
 
   // Check if current page is register page
   useEffect(() => {
     setIsRegister(pathname?.includes('/business/register'));
+    setIsLogin(pathname?.includes('/business/login'));
   }, [pathname]);
 
   // Handle business logout
@@ -44,10 +47,6 @@ export default function BusinessNavbar() {
     }
   };
 
-  // Determine if we're in a loading state or if we're ready to show authenticated UI
-  const actuallyLoading = isLoading && (!user || status === 'loading');
-  const readyToShowAuth = isAuthenticated || (user && user.id) || status === 'authenticated';
-
   return (
     <nav className="w-full py-2 px-2 bg-[#0A1929] shadow-md">
       <div className="container mx-auto flex items-center justify-between">
@@ -66,14 +65,18 @@ export default function BusinessNavbar() {
         </Link>
 
         <div className="flex items-center space-x-4">
-        {readyToShowAuth ? (
+        {!isLogin && !isRegister ? (
             // Regular user authenticated
             <div className="flex items-center gap-4">
               {/* Post Button */}
-              <button className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#132F4C] transition-colors">
+              <Button className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#132F4C] transition-colors">
                 <Plus className="w-5 h-5 text-white" />
-              </button>
+              </Button>
+              <Button onClick={handleBusinessLogout} variant="orange">
+                {t('logout')}
+              </Button>
             </div>
+            
           ) : (
             // Not authenticated
             <>

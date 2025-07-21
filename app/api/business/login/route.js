@@ -3,7 +3,7 @@ import { createServerSupabaseClient } from '../../../../lib/supabase';
 import { generateJWT } from '../../../../lib/auth/jwt';
 import { storeSession } from '../../../../lib/auth/session';
 import { setAuthCookie } from '../../../../lib/auth/cookies';
-import { hashPassword } from '../../../../lib/auth/password';
+import { comparePassword } from '../../../../lib/auth/password';
 
 /**
  * Business login API route
@@ -18,32 +18,38 @@ export async function POST(request) {
     }
 
     const supabase = createServerSupabaseClient();
-    
-    // Check if user exists
+
+    // check is the password and email match
     const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('id, email, username, password_hash')
-      .eq('email', email)
-      .single();
+    .from('business_users')
+    .select('id, email, name, password')
+    .eq('email', email)
+    .single();
 
     if (userError || !user) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Check if this is a business account
-    const { data: advertiser, error: advertiserError } = await supabase
-      .from('advertisers')
-      .select('id')
-      .eq('contact_email', email)
-      .single();
+    //create business session
+    const { data: businessSession, error: businessSessionError } = await supabase
+      .from('business_sessions')
+      .insert({
+        business_user_id: user.id,
+        ip_address: request.ip,
+        user_agent: request.headers.get('user-agent'),
+        device_info: request.headers.get('sec-ch-ua-platform'),
+        location: request.headers.get('cf-ipcountry'),
+        is_active: true,
+        last_seen: new Date().toISOString()
+      });
 
-    if (advertiserError || !advertiser) {
-      return NextResponse.json({ message: 'Not a valid business account' }, { status: 403 });
+    if (businessSessionError) {
+      console.error('Failed to create business session:', businessSessionError);
     }
 
-    // Verify password
-    const hashedInputPassword = await hashPassword(password);
-    if (user.password_hash !== hashedInputPassword) {
+    // Verify password 
+    const isPasswordValid = await comparePassword(password, user.password);
+    if (!isPasswordValid) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
 
@@ -51,25 +57,23 @@ export async function POST(request) {
     const token = await generateJWT({
       id: user.id,
       email: user.email,
-      username: user.username,
+      name: user.name,
       role: 'business',
-      advertiserId: advertiser.id
     });
 
     // Store session in Redis
     await storeSession(user.id, {
       id: user.id,
       email: user.email,
-      username: user.username,
+      name: user.name,
       role: 'business',
-      advertiserId: advertiser.id
     });
 
     // Update user's last login timestamp
     await supabase
-      .from('users')
-      .update({ last_login_at: new Date().toISOString() })
-      .eq('id', user.id);
+      .from('business_sessions')
+      .update({ last_seen: new Date().toISOString() })
+      .eq('business_user_id', user.id);
 
     // Set auth cookie
     const response = NextResponse.json({
@@ -77,7 +81,7 @@ export async function POST(request) {
       user: {
         id: user.id,
         email: user.email,
-        username: user.username,
+        name: user.name,
         role: 'business'
       }
     }, { status: 200 });

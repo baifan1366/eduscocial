@@ -26,36 +26,12 @@ export default function BusinessAuthForm() {
     setInputError('');
     setLoginError(null);
     
-    try {
-      if (!email || !password) {
-        setInputError(t('emailAndPasswordRequired'));
-        return;
-      }
-      
-      // 调用业务员登录API
-      const result = await login(email, password);
-      
-      if (result.success) {
-        // 额外确保本地存储中有用户信息
-        if (typeof window !== 'undefined' && result.user) {
-          try {
-            localStorage.setItem('businessUser', JSON.stringify({
-              ...result.user,
-              name: result.user.name || email.split('@')[0] || 'Business User'
-            }));
-          } catch (e) {
-            console.error('Failed to store business user:', e);
-          }
-        }
-      } else {
-        setLoginError(result.error || t('loginFailed'));
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      setError(error.message || t('unexpectedError'));
-    } finally {
-      setIsLoading(false);
+    if (!email || !password) {
+      setInputError(t('emailAndPasswordRequired'));
+      return;
     }
+    
+    login({ email, password });
   };
 
   return (
@@ -117,7 +93,7 @@ export default function BusinessAuthForm() {
             <form onSubmit={handleSubmit} className="space-y-5">              
               <div className="space-y-2">
                 <label htmlFor="email" className="block text-sm font-medium text-gray-300">
-                  {t('businessEmail')}
+                  {t('businessEmail')} <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center border rounded-md bg-[#0A1929] border-[#132F4C] pl-3 pr-0 w-full focus-within:outline-none focus-within:ring-2 focus-within:ring-white">
                   <input
@@ -136,7 +112,7 @@ export default function BusinessAuthForm() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <label htmlFor="password" className="block text-sm font-medium text-gray-300">
-                    {t('password')}
+                    {t('password')} <span className="text-red-500">*</span>
                   </label>
                     <Link 
                       href="/business/forgot-password" 

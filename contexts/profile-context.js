@@ -3,6 +3,7 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
 import useAuth from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { usePathname } from 'next/navigation';
 
 // Profile context
 const ProfileContext = createContext();
@@ -56,6 +57,9 @@ const initialState = {
 export function ProfileProvider({ children }) {
   const [state, dispatch] = useReducer(profileReducer, initialState);
   const { user, status } = useAuth();
+  const pathname = usePathname();
+  const isAdminRoute = pathname.includes('/admin');
+  const isBusinessRoute = pathname.includes('/business');
 
   // Fetch profile data
   const fetchProfile = async () => {
@@ -66,15 +70,28 @@ export function ProfileProvider({ children }) {
 
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      
-      const response = await fetch(`/api/users/${user.id}/profile`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (isAdminRoute) {
+        const adminResponse = await fetch(`/api/admin/${user.id}/profile`);
+        if (!adminResponse.ok) {
+          throw new Error(`HTTP error! status: ${adminResponse.status}`);
+        }
+        const adminData = await adminResponse.json();
+        dispatch({ type: 'SET_PROFILE', payload: adminData.profile });
+      } else if (isBusinessRoute) {
+        const businessResponse = await fetch(`/api/business/${user.id}/profile`);
+        if (!businessResponse.ok) {
+          throw new Error(`HTTP error! status: ${businessResponse.status}`);
+        }
+        const businessData = await businessResponse.json();
+        dispatch({ type: 'SET_PROFILE', payload: businessData.profile });
+      } else {
+        const response = await fetch(`/api/users/${user.id}/profile`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const userData = await response.json();
+        dispatch({ type: 'SET_PROFILE', payload: userData.profile });
       }
-      
-      const data = await response.json();
-      dispatch({ type: 'SET_PROFILE', payload: data.profile });
     } catch (error) {
       console.error('Error fetching profile:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message });
@@ -86,25 +103,53 @@ export function ProfileProvider({ children }) {
   const updateProfile = async (profileData) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      
-      const response = await fetch(`/api/users/${user.id}/profile`, {
-        method: 'PUT',
-        headers: {
+      if (isAdminRoute) {
+        const adminResponse = await fetch(`/api/admin/${user.id}/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(profileData),
+        });
+
+        if (!adminResponse.ok) {
+          throw new Error(`HTTP error! status: ${adminResponse.status}`);
+        }
+
+        const adminData = await adminResponse.json();
+        dispatch({ type: 'SET_PROFILE', payload: adminData.profile });
+      } else if (isBusinessRoute) {
+        const businessResponse = await fetch(`/api/business/${user.id}/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(profileData),
+        });
+
+        if (!businessResponse.ok) {
+          throw new Error(`HTTP error! status: ${businessResponse.status}`);
+        }
+
+        const businessData = await businessResponse.json();
+        dispatch({ type: 'SET_PROFILE', payload: businessData.profile });
+      } else {
+        const response = await fetch(`/api/users/${user.id}/profile`, {
+          method: 'PUT',
+          headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(profileData),
-      });
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update profile');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const userData = await response.json();
+        dispatch({ type: 'SET_PROFILE', payload: userData.profile });
       }
 
-      const result = await response.json();
-      
-      // Update local state
-      dispatch({ type: 'SET_PROFILE', payload: profileData });
-      
       toast.success('Profile updated successfully!');
       return { success: true };
     } catch (error) {
