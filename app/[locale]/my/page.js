@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-import MyPageClient from '@/components/my/MyPageClient';
-
-export default function MyPage() {
-  return <MyPageClient />;
-=======
 'use client';
 
 import { useProfile } from '@/contexts/profile-context';
@@ -309,5 +303,4 @@ export default function MyPage() {
       )}
     </>
   );
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 } 

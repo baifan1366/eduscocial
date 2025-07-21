@@ -52,11 +52,7 @@ export async function POST(request) {
       id: user.id,
       email: user.email,
       username: user.username,
-<<<<<<< HEAD
-      role: adminUser.role
-=======
       role: 'admin'
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     });
 
     // Store session in Redis
@@ -64,11 +60,7 @@ export async function POST(request) {
       id: user.id,
       email: user.email,
       username: user.username,
-<<<<<<< HEAD
-      role: adminUser.role
-=======
       role: 'admin'
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     });
 
     // Update user's last login timestamp
@@ -84,11 +76,7 @@ export async function POST(request) {
         id: user.id,
         email: user.email,
         username: user.username,
-<<<<<<< HEAD
-        role: adminUser.role
-=======
         role: 'admin'
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
       }
     }, { status: 200 });
 

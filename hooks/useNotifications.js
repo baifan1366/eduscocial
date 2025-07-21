@@ -1,29 +1,12 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import useAuth from '@/hooks/useAuth';
-<<<<<<< HEAD
-=======
 import { api } from '@/lib/api';
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-/**
- * Enhanced notifications hook using React Query
- * Follows JWT authentication pattern with Redis token validation
- * Provides real-time updates via SSE
- */
 export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
-<<<<<<< HEAD
-  const { user, isAuthenticated } = useAuth();
-  const queryClient = useQueryClient();
-  
-  // React Query cache keys
-  const notificationsKey = ['notifications', user?.id];
-
-  // API function to fetch notifications with JWT authentication
-  const fetchNotifications = async ({ page = 1, limit = 20, unreadOnly = false, type = null }) => {
-    if (!user?.id || !isAuthenticated) {
-=======
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
@@ -33,200 +16,98 @@ export function useNotifications() {
   // 获取通知的查询函数
   const fetchNotificationsFromApi = async ({ page = 1, limit = 20, unreadOnly = false, type = null }) => {
     if (!user?.id) {
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
       return { notifications: [], unreadCount: 0, totalCount: 0, page, limit };
     }
 
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString(),
+    const params = {
+      page,
+      limit,
       ...(unreadOnly && { unread: 'true' }),
       ...(type && { type })
-    });
+    };
 
-<<<<<<< HEAD
-    const response = await fetch(`/api/users/${user.id}/notification?${params}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Include cookies for JWT authentication
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Authentication required');
-      }
-      if (response.status === 403) {
-        throw new Error('Access denied');
-      }
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch notifications');
-    }
-
-    return response.json();
-=======
     return api.users.getNotifications(user.id, params);
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
   };
 
-  // React Query for fetching notifications
-  const { 
-    data, 
-    isLoading, 
-    error, 
-    refetch,
-    isError 
-  } = useQuery({
+  // 使用React Query获取通知
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: [...notificationsKey, 'list'],
-<<<<<<< HEAD
-    queryFn: () => fetchNotifications({}),
-    enabled: !!user?.id && isAuthenticated,
-    staleTime: 1000 * 60, // 1 minute
-    retry: (failureCount, error) => {
-      // Don't retry on authentication errors
-      if (error.message.includes('Authentication') || error.message.includes('Access denied')) {
-        return false;
-      }
-      return failureCount < 3;
-    },
-=======
     queryFn: () => fetchNotificationsFromApi({}),
     enabled: !!user?.id,
     staleTime: 1000 * 60, // 1分钟后数据过期
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
   });
 
-  // Update unread count when data changes
+  // 通知数据和计数
+  const notifications = data?.notifications || [];
+  
   useEffect(() => {
     if (data?.unreadCount !== undefined) {
       setUnreadCount(data.unreadCount);
     }
   }, [data?.unreadCount]);
 
-  // Mutation to mark notifications as read
+  // 标记通知为已读的变更函数
   const markAsReadMutation = useMutation({
     mutationFn: async ({ notificationIds = [], markAllRead = false }) => {
-<<<<<<< HEAD
-      if (!user?.id || !isAuthenticated) {
-        throw new Error('Authentication required');
-      }
-      
-      const response = await fetch(`/api/users/${user.id}/notification`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          notification_ids: notificationIds,
-          mark_all_read: markAllRead
-        }),
-=======
       if (!user?.id) return;
       
       return api.users.markNotificationsRead(user.id, {
         notification_ids: notificationIds,
         mark_all_read: markAllRead
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to mark notifications as read');
-      }
-
-      return response.json();
     },
-    onSuccess: (result, variables) => {
+    onSuccess: (data, variables) => {
+      // 更新本地状态和缓存
       const { notificationIds, markAllRead } = variables;
       
-      // Optimistically update the cache
       queryClient.setQueryData([...notificationsKey, 'list'], (oldData) => {
         if (!oldData) return oldData;
         
         let updatedNotifications;
-        let newUnreadCount;
-        
         if (markAllRead) {
           updatedNotifications = oldData.notifications.map(n => ({ ...n, is_read: true }));
-          newUnreadCount = 0;
+          setUnreadCount(0);
         } else {
           updatedNotifications = oldData.notifications.map(n => 
             notificationIds.includes(n.id) ? { ...n, is_read: true } : n
           );
-          newUnreadCount = Math.max(0, oldData.unreadCount - notificationIds.length);
+          setUnreadCount(prev => Math.max(0, prev - notificationIds.length));
         }
-        
-        setUnreadCount(newUnreadCount);
         
         return {
           ...oldData,
           notifications: updatedNotifications,
-          unreadCount: newUnreadCount
+          unreadCount: markAllRead ? 0 : Math.max(0, oldData.unreadCount - notificationIds.length)
         };
       });
-    },
-    onError: (error) => {
-      console.error('Failed to mark notifications as read:', error);
-      // Optionally show user-friendly error message
     }
   });
 
-  // Mutation to create notifications (admin/system use)
+  // 创建通知的变更函数
   const createNotificationMutation = useMutation({
     mutationFn: async (notificationData) => {
-<<<<<<< HEAD
-      if (!user?.id || !isAuthenticated) {
-        throw new Error('Authentication required');
-      }
-      
-      const response = await fetch(`/api/users/${user.id}/notification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(notificationData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create notification');
-      }
-
-      return response.json();
-=======
       if (!user?.id) return;
       
       return api.users.createNotification(user.id, notificationData);
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     },
     onSuccess: () => {
-      // Invalidate and refetch notifications
+      // 创建通知成功后刷新数据
       queryClient.invalidateQueries({ queryKey: notificationsKey });
-    },
-    onError: (error) => {
-      console.error('Failed to create notification:', error);
     }
   });
 
-  // Function to fetch more notifications (pagination)
+  // 获取更多通知（加载更多/分页）
   const fetchMoreNotifications = useCallback(async (page = 1, limit = 20, unreadOnly = false, type = null) => {
-<<<<<<< HEAD
-    if (!user?.id || !isAuthenticated) return;
-=======
     if (!user?.id) return;
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     
     try {
-      const newData = await fetchNotifications({ page, limit, unreadOnly, type });
+      const newData = await fetchNotificationsFromApi({ page, limit, unreadOnly, type });
       
+      // 如果是第一页，完全替换数据
       if (page === 1) {
-        // Replace data for first page
         queryClient.setQueryData([...notificationsKey, 'list'], newData);
       } else {
-        // Append data for subsequent pages
+        // 否则，添加到现有数据
         queryClient.setQueryData([...notificationsKey, 'list'], (oldData) => {
           if (!oldData) return newData;
           return {
@@ -238,46 +119,36 @@ export function useNotifications() {
       
       return newData;
     } catch (error) {
-      console.error('Failed to fetch more notifications:', error);
+      console.error('error:', error);
       throw error;
     }
-<<<<<<< HEAD
-  }, [user?.id, isAuthenticated, queryClient, notificationsKey]);
-=======
   }, [user?.id, queryClient, notificationsKey]);
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 
-  // Real-time SSE connection for live updates
+  // 设置实时SSE订阅
   useEffect(() => {
-<<<<<<< HEAD
-    if (!user?.id || !isAuthenticated || typeof window === 'undefined') return;
-
-    // Create SSE connection with JWT authentication
-    const eventSource = new EventSource(`/api/notify/sse?userId=${user.id}`, {
-      withCredentials: true // Include cookies for authentication
-    });
-=======
     if (!user?.id || typeof window === 'undefined') return;
 
     // 创建SSE连接
     const eventSource = api.notifyApi.createSSEConnection();
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     
-    // Connection established
-    eventSource.addEventListener('open', () => {
-      console.log('SSE notification connection established');
+    if (!eventSource) return;
+
+    // 监听连接事件
+    eventSource.addEventListener('connected', (event) => {
+      console.log('SSE notification connection established', event);
     });
 
-    // New notification received
+    // 监听新通知事件
     eventSource.addEventListener('new_notification', (event) => {
       try {
         const newNotification = JSON.parse(event.data);
         console.log('Received new notification:', newNotification);
         
-        // Update React Query cache
+        // 更新React Query缓存
         queryClient.setQueryData([...notificationsKey, 'list'], (oldData) => {
           if (!oldData) return oldData;
           
+          // 添加新通知到列表开头
           return {
             ...oldData,
             notifications: [newNotification, ...oldData.notifications],
@@ -285,31 +156,33 @@ export function useNotifications() {
           };
         });
         
-        // Update local unread count
+        // 更新未读计数
         setUnreadCount(prev => prev + 1);
       } catch (error) {
-        console.error('Error processing new notification:', error);
+        console.error('error:', error);
       }
     });
 
-    // Notification updated
+    // 监听通知更新事件
     eventSource.addEventListener('notification_updated', (event) => {
       try {
         const updatedNotification = JSON.parse(event.data);
         console.log('Notification updated:', updatedNotification);
         
+        // 更新React Query缓存中的通知
         queryClient.setQueryData([...notificationsKey, 'list'], (oldData) => {
           if (!oldData) return oldData;
           
+          // 更新通知列表
           const updatedNotifications = oldData.notifications.map(n => 
             n.id === updatedNotification.id ? updatedNotification : n
           );
           
-          // Update unread count if read status changed
+          // 如果阅读状态发生变化，更新未读计数
           let updatedUnreadCount = oldData.unreadCount;
           const oldNotification = oldData.notifications.find(n => n.id === updatedNotification.id);
           
-          if (oldNotification && !oldNotification.is_read && updatedNotification.is_read) {
+          if (oldNotification && oldNotification.is_read === false && updatedNotification.is_read === true) {
             updatedUnreadCount = Math.max(0, updatedUnreadCount - 1);
             setUnreadCount(prev => Math.max(0, prev - 1));
           }
@@ -321,27 +194,23 @@ export function useNotifications() {
           };
         });
       } catch (error) {
-        console.error('Error processing notification update:', error);
+        console.error('error:', error);
       }
     });
 
-    // Handle connection errors
+    // 监听错误
     eventSource.addEventListener('error', (error) => {
-      console.error('SSE connection error:', error);
-      // Could implement reconnection logic here
+      console.error('SSE notification connection error:', error);
+      // 可以在这里添加重连逻辑
     });
 
-    // Cleanup on unmount
+    // 清理函数
     return () => {
       eventSource.close();
     };
-<<<<<<< HEAD
-  }, [user?.id, isAuthenticated, queryClient, notificationsKey]);
-=======
   }, [user?.id, queryClient, notificationsKey]);
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 
-  // Wrapper functions for mutations
+  // 包装API函数供组件使用
   const markAsRead = useCallback((notificationIds = [], markAllRead = false) => {
     return markAsReadMutation.mutate({ notificationIds, markAllRead });
   }, [markAsReadMutation]);
@@ -351,23 +220,13 @@ export function useNotifications() {
   }, [createNotificationMutation]);
 
   return {
-    // Data
-    notifications: data?.notifications || [],
+    notifications,
     unreadCount,
-    totalCount: data?.totalCount || 0,
-    
-    // Loading states
     loading: isLoading,
-    error: isError ? error : null,
-    
-    // Actions
+    error,
     fetchNotifications: fetchMoreNotifications,
     markAsRead,
     createNotification,
-    refetch,
-    
-    // Mutation states
-    markingAsRead: markAsReadMutation.isPending,
-    creatingNotification: createNotificationMutation.isPending,
+    refetch
   };
 }

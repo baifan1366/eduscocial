@@ -1051,11 +1051,7 @@ export function useSession() {
     refetchInterval: false, // 禁用自动重新获取
     refetchOnMount: true,
     refetchOnReconnect: true,
-<<<<<<< HEAD
-    gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
-=======
     cacheTime: 1000 * 60 * 10, // 10 minutes
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     // 设置超时以避免无限加载状态
     retry: (failureCount, error) => {
       // 如果是401错误（未授权），不重试

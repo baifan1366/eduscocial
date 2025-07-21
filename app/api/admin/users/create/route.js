@@ -115,11 +115,7 @@ export async function POST(request) {
       admin: {
         id: adminUser.id,
         user_id: newUser.id,
-<<<<<<< HEAD
-        role: adminUser.role
-=======
         role: 'admin'
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
       } 
     }, { status: 201 });
     
