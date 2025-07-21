@@ -1,11 +1,7 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext } from 'react';
-<<<<<<< HEAD
-import useAuth from './useAuth';
-=======
 import useAuth from '@/hooks/useAuth';
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 import { usePathname } from 'next/navigation';
 
 // Default settings
@@ -66,14 +62,10 @@ const SettingsContext = createContext({
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
-  const { user, status, isAuthenticated } = useAuth();
-=======
   const { user, status } = useAuth();
   const isAuthenticated = !!user;
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
   const pathname = usePathname();
-
+  
   // Get the locale from the pathname
   const locale = pathname?.split('/')[1] || 'en';
 
@@ -88,8 +80,8 @@ export function SettingsProvider({ children }) {
 
       try {
         // Use API route with locale prefix
-        const response = await fetch(`/api/my/settings`);
-
+        const response = await fetch(`/api/users/settings`);
+        
         if (!response.ok) {
           // If unauthorized or any other error, use default settings
           console.warn(`Settings API returned ${response.status}: ${response.statusText}`);
@@ -97,7 +89,7 @@ export function SettingsProvider({ children }) {
           setLoading(false);
           return;
         }
-
+        
         const data = await response.json();
         setSettings(data.settings || defaultSettings);
       } catch (error) {
@@ -122,9 +114,9 @@ export function SettingsProvider({ children }) {
 
     try {
       setLoading(true);
-
+      
       // Use API route with locale prefix
-      const response = await fetch(`/api/my/settings`, {
+      const response = await fetch(`/api/users/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -146,7 +138,7 @@ export function SettingsProvider({ children }) {
 
       // Parse the successful response
       const result = await response.json();
-
+      
       // Update local settings only if the server confirms success
       if (result.success) {
         setSettings(newSettings);
@@ -171,11 +163,11 @@ export function SettingsProvider({ children }) {
     try {
       // Create a deep copy of current settings
       const newSettings = JSON.parse(JSON.stringify(settings));
-
+      
       // Split the path and update the nested property
       const keys = path.split('.');
       let current = newSettings;
-
+      
       // Navigate to the nested object containing the property to update
       for (let i = 0; i < keys.length - 1; i++) {
         if (!current[keys[i]]) {
@@ -183,17 +175,17 @@ export function SettingsProvider({ children }) {
         }
         current = current[keys[i]];
       }
-
+      
       // Update the property
       current[keys[keys.length - 1]] = value;
-
+      
       // Save to server
       const result = await updateSettings(newSettings);
-
+      
       if (!result.success) {
         throw new Error(result.error || 'Failed to update setting');
       }
-
+      
       return { success: true };
     } catch (error) {
       console.error(`Error updating setting ${path}:`, error);
@@ -205,7 +197,7 @@ export function SettingsProvider({ children }) {
   useEffect(() => {
     if (!loading && settings?.preferences?.theme) {
       const theme = settings.preferences.theme;
-
+      
       if (theme === 'system') {
         // Use system preference
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -213,7 +205,7 @@ export function SettingsProvider({ children }) {
         } else {
           document.documentElement.classList.remove('dark');
         }
-
+        
         // Listen for system theme changes
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
         const handleChange = (e) => {
@@ -223,7 +215,7 @@ export function SettingsProvider({ children }) {
             document.documentElement.classList.remove('dark');
           }
         };
-
+        
         mediaQuery.addEventListener('change', handleChange);
         return () => mediaQuery.removeEventListener('change', handleChange);
       } else if (theme === 'dark') {
@@ -246,12 +238,12 @@ export function SettingsProvider({ children }) {
 
 export default function useSettings() {
   const context = useContext(SettingsContext);
-
+  
   if (process.env.NODE_ENV !== 'production' && !context) {
     console.warn(
       'useSettings() was called outside of SettingsProvider. Make sure your component is wrapped in SettingsProvider.'
     );
   }
-
+  
   return context;
 } 
