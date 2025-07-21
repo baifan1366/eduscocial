@@ -52,7 +52,7 @@ export async function POST(request) {
       id: user.id,
       email: user.email,
       username: user.username,
-      role: adminUser.role
+      role: 'admin'
     });
 
     // Store session in Redis
@@ -60,7 +60,7 @@ export async function POST(request) {
       id: user.id,
       email: user.email,
       username: user.username,
-      role: adminUser.role
+      role: 'admin'
     });
 
     // Update user's last login timestamp
@@ -76,7 +76,7 @@ export async function POST(request) {
         id: user.id,
         email: user.email,
         username: user.username,
-        role: adminUser.role
+        role: 'admin'
       }
     }, { status: 200 });
 

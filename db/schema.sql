@@ -365,7 +365,7 @@ CREATE TABLE anonymous_avatar_assignments (
 
 CREATE TABLE promotion_requests (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  advertiser_id UUID NOT NULL REFERENCES business_users(id) ON DELETE CASCADE,
+  business_user_id UUID NOT NULL REFERENCES business_users(id) ON DELETE CASCADE,
   requested_by_email TEXT NOT NULL,
   message TEXT NOT NULL,
   attachments TEXT[],            
@@ -410,7 +410,7 @@ CREATE TABLE ad_performance (
 
 CREATE TABLE ads (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  advertiser_id UUID NOT NULL REFERENCES business_users(id),
+  business_user_id UUID NOT NULL REFERENCES business_users(id),
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   media_urls TEXT[],
@@ -434,7 +434,7 @@ CREATE TABLE ad_placements (
 
 CREATE TABLE promotion_rules (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID NOT NULL REFERENCES ad_campaigns(id) ON DELETE CASCADE,
+  ad_campaign_id UUID NOT NULL REFERENCES ad_campaigns(id) ON DELETE CASCADE,
   rule_type TEXT NOT NULL CHECK(rule_type IN ('quantity_threshold','time_based','mix_and_match')),
   parameters JSONB NOT NULL,  
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -444,7 +444,7 @@ CREATE TABLE promotion_rules (
 
 CREATE TABLE promotion_targets (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  rule_id UUID NOT NULL REFERENCES promotion_rules(id) ON DELETE CASCADE,
+  promotion_rule_id UUID NOT NULL REFERENCES promotion_rules(id) ON DELETE CASCADE,
   target_type TEXT NOT NULL CHECK(target_type IN ('board','user_segment','product_category')),
   target_ids UUID[] NOT NULL,  
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -498,7 +498,7 @@ CREATE TABLE event_attendees (
 
 CREATE TABLE ad_pixels (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID NOT NULL REFERENCES ad_campaigns(id) ON DELETE CASCADE,
+  ad_campaign_id UUID NOT NULL REFERENCES ad_campaigns(id) ON DELETE CASCADE,
   pixel_code TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -507,7 +507,7 @@ CREATE TABLE ad_pixels (
 
 CREATE TABLE ad_pixel_events (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  pixel_id UUID NOT NULL REFERENCES ad_pixels(id) ON DELETE CASCADE,
+  ad_pixel_id UUID NOT NULL REFERENCES ad_pixels(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL, 
   event_data JSONB,
   occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -517,7 +517,7 @@ CREATE TABLE ad_pixel_events (
 
 CREATE TABLE landing_pages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID NOT NULL REFERENCES ad_campaigns(id),
+  ad_campaign_id UUID NOT NULL REFERENCES ad_campaigns(id),
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   call_to_action TEXT,
@@ -538,8 +538,8 @@ CREATE TABLE audience_segments (
 
 CREATE TABLE campaign_segments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID NOT NULL REFERENCES ad_campaigns(id),
-  segment_id UUID NOT NULL REFERENCES audience_segments(id),
+  ad_campaign_id UUID NOT NULL REFERENCES ad_campaigns(id),
+  audience_segment_id UUID NOT NULL REFERENCES audience_segments(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_by UUID REFERENCES admin_users(id)
@@ -566,8 +566,8 @@ CREATE TABLE user_topic_subscriptions (
 
 CREATE TABLE influencer_campaigns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  advertiser_id UUID NOT NULL REFERENCES business_users(id),
-  influencer_user_id UUID NOT NULL REFERENCES users(id),
+  business_user_id UUID NOT NULL REFERENCES business_users(id),
+  user_id UUID NOT NULL REFERENCES users(id),
   title TEXT NOT NULL,
   content TEXT,
   media_urls TEXT[],
@@ -581,7 +581,7 @@ CREATE TABLE influencer_campaigns (
 
 CREATE TABLE trial_campaigns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  advertiser_id UUID NOT NULL REFERENCES business_users(id),
+  business_user_id UUID NOT NULL REFERENCES business_users(id),
   title TEXT NOT NULL,
   description TEXT,
   start_at TIMESTAMPTZ NOT NULL,
@@ -594,13 +594,13 @@ CREATE TABLE trial_campaigns (
 
 CREATE TABLE trial_participants (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  campaign_id UUID NOT NULL REFERENCES trial_campaigns(id),
+  trial_campaign_id UUID NOT NULL REFERENCES trial_campaigns(id),
   user_id UUID NOT NULL REFERENCES users(id),
   applied_at TIMESTAMPTZ DEFAULT NOW(),
   status TEXT CHECK(status IN ('applied','selected','completed','dismissed')) DEFAULT 'applied',
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_by UUID REFERENCES business_users(id),
-  UNIQUE(campaign_id, user_id)
+  UNIQUE(trial_campaign_id, user_id)
 );
 
 CREATE TABLE action_log (
@@ -913,7 +913,7 @@ CREATE TABLE business_sessions (
 
 CREATE TABLE user_report_history (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     content_type TEXT NOT NULL CHECK (content_type IN ('post', 'comment')),
     content_id UUID NOT NULL,
     reason TEXT NOT NULL,
