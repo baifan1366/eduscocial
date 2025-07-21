@@ -54,7 +54,11 @@ export async function POST(request) {
       email: user.email,
       username: user.username,
       name: user.name || user.username,
+<<<<<<< HEAD
       role: user.role || 'user'
+=======
+      role: 'user'
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     };
     
     const token = await generateJWT(tokenPayload);
@@ -67,7 +71,11 @@ export async function POST(request) {
         userId: user.id, // 添加一个明确的userId字段，确保前端可以识别
         email: user.email,
         username: user.username,
+<<<<<<< HEAD
         role: user.role || 'user',
+=======
+        role: 'user',
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
         name: user.name || user.username
       },
       session: {

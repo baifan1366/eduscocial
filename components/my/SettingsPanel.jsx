@@ -6,7 +6,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import useAuth from '@/hooks/useAuth';
 import { usePathnameContext } from '@/components/layout/ClientProviders';
+<<<<<<< HEAD
 import useMySettings from '@/hooks/useMySettings';
+=======
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 
 // Import our custom settings components
 import GeneralSettings from '@/components/settings/GeneralSettings';
@@ -19,7 +22,11 @@ export default function SettingsPanel({ activeTab = 'general' }) {
   const searchParams = useSearchParams();
   const pathname = usePathnameContext();
   const t = useTranslations('Settings');
+<<<<<<< HEAD
   const { user, status, isAuthenticated } = useAuth();
+=======
+  const { user, status } = useAuth();
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
   
   // Get the locale from the pathname
   const locale = pathname?.split('/')[1] || 'en';
@@ -43,7 +50,11 @@ export default function SettingsPanel({ activeTab = 'general' }) {
   }
   
   // Check if user is authenticated
+<<<<<<< HEAD
   if (!isAuthenticated || !user) {
+=======
+  if (status !== 'authenticated' || !user) {
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     return (
       <Card className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
         <div className="text-center py-8">

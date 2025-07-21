@@ -1,1 +1,0 @@
-DROP FUNCTION IF EXISTS my_trigger_function();

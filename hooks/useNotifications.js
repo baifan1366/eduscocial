@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import useAuth from '@/hooks/useAuth';
+<<<<<<< HEAD
+=======
+import { api } from '@/lib/api';
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 /**
@@ -9,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
  */
 export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
+<<<<<<< HEAD
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   
@@ -18,6 +23,17 @@ export function useNotifications() {
   // API function to fetch notifications with JWT authentication
   const fetchNotifications = async ({ page = 1, limit = 20, unreadOnly = false, type = null }) => {
     if (!user?.id || !isAuthenticated) {
+=======
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  
+  // 为React Query定义缓存键
+  const notificationsKey = ['notifications', user?.id];
+
+  // 获取通知的查询函数
+  const fetchNotificationsFromApi = async ({ page = 1, limit = 20, unreadOnly = false, type = null }) => {
+    if (!user?.id) {
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
       return { notifications: [], unreadCount: 0, totalCount: 0, page, limit };
     }
 
@@ -28,6 +44,7 @@ export function useNotifications() {
       ...(type && { type })
     });
 
+<<<<<<< HEAD
     const response = await fetch(`/api/users/${user.id}/notification?${params}`, {
       method: 'GET',
       headers: {
@@ -48,6 +65,9 @@ export function useNotifications() {
     }
 
     return response.json();
+=======
+    return api.users.getNotifications(user.id, params);
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
   };
 
   // React Query for fetching notifications
@@ -59,6 +79,7 @@ export function useNotifications() {
     isError 
   } = useQuery({
     queryKey: [...notificationsKey, 'list'],
+<<<<<<< HEAD
     queryFn: () => fetchNotifications({}),
     enabled: !!user?.id && isAuthenticated,
     staleTime: 1000 * 60, // 1 minute
@@ -69,6 +90,11 @@ export function useNotifications() {
       }
       return failureCount < 3;
     },
+=======
+    queryFn: () => fetchNotificationsFromApi({}),
+    enabled: !!user?.id,
+    staleTime: 1000 * 60, // 1分钟后数据过期
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
   });
 
   // Update unread count when data changes
@@ -81,6 +107,7 @@ export function useNotifications() {
   // Mutation to mark notifications as read
   const markAsReadMutation = useMutation({
     mutationFn: async ({ notificationIds = [], markAllRead = false }) => {
+<<<<<<< HEAD
       if (!user?.id || !isAuthenticated) {
         throw new Error('Authentication required');
       }
@@ -95,6 +122,13 @@ export function useNotifications() {
           notification_ids: notificationIds,
           mark_all_read: markAllRead
         }),
+=======
+      if (!user?.id) return;
+      
+      return api.users.markNotificationsRead(user.id, {
+        notification_ids: notificationIds,
+        mark_all_read: markAllRead
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
       });
 
       if (!response.ok) {
@@ -142,6 +176,7 @@ export function useNotifications() {
   // Mutation to create notifications (admin/system use)
   const createNotificationMutation = useMutation({
     mutationFn: async (notificationData) => {
+<<<<<<< HEAD
       if (!user?.id || !isAuthenticated) {
         throw new Error('Authentication required');
       }
@@ -161,6 +196,11 @@ export function useNotifications() {
       }
 
       return response.json();
+=======
+      if (!user?.id) return;
+      
+      return api.users.createNotification(user.id, notificationData);
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     },
     onSuccess: () => {
       // Invalidate and refetch notifications
@@ -173,7 +213,11 @@ export function useNotifications() {
 
   // Function to fetch more notifications (pagination)
   const fetchMoreNotifications = useCallback(async (page = 1, limit = 20, unreadOnly = false, type = null) => {
+<<<<<<< HEAD
     if (!user?.id || !isAuthenticated) return;
+=======
+    if (!user?.id) return;
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     
     try {
       const newData = await fetchNotifications({ page, limit, unreadOnly, type });
@@ -197,16 +241,27 @@ export function useNotifications() {
       console.error('Failed to fetch more notifications:', error);
       throw error;
     }
+<<<<<<< HEAD
   }, [user?.id, isAuthenticated, queryClient, notificationsKey]);
+=======
+  }, [user?.id, queryClient, notificationsKey]);
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 
   // Real-time SSE connection for live updates
   useEffect(() => {
+<<<<<<< HEAD
     if (!user?.id || !isAuthenticated || typeof window === 'undefined') return;
 
     // Create SSE connection with JWT authentication
     const eventSource = new EventSource(`/api/notify/sse?userId=${user.id}`, {
       withCredentials: true // Include cookies for authentication
     });
+=======
+    if (!user?.id || typeof window === 'undefined') return;
+
+    // 创建SSE连接
+    const eventSource = api.notifyApi.createSSEConnection();
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     
     // Connection established
     eventSource.addEventListener('open', () => {
@@ -280,7 +335,11 @@ export function useNotifications() {
     return () => {
       eventSource.close();
     };
+<<<<<<< HEAD
   }, [user?.id, isAuthenticated, queryClient, notificationsKey]);
+=======
+  }, [user?.id, queryClient, notificationsKey]);
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 
   // Wrapper functions for mutations
   const markAsRead = useCallback((notificationIds = [], markAllRead = false) => {

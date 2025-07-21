@@ -1,7 +1,11 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext } from 'react';
+<<<<<<< HEAD
 import useAuth from './useAuth';
+=======
+import useAuth from '@/hooks/useAuth';
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 import { usePathname } from 'next/navigation';
 
 // Default settings
@@ -62,7 +66,12 @@ const SettingsContext = createContext({
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(true);
+<<<<<<< HEAD
   const { user, status, isAuthenticated } = useAuth();
+=======
+  const { user, status } = useAuth();
+  const isAuthenticated = !!user;
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
   const pathname = usePathname();
 
   // Get the locale from the pathname

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 -- dummyData.sql
 -- Sample data for the EduSocial database
 
@@ -192,3 +193,30 @@ INSERT INTO chat_messages (id, chat_room_id, sender_id, message_type, content) V
 ('yyyyyyyy-2222-2222-2222-yyyyyyyyyyyy', 'oooooooo-2222-2222-2222-oooooooooooo', '33333333-3333-3333-3333-333333333333', 'text', 'Thanks for creating this group! When is our first study session?'),
 ('zzzzzzzz-2222-2222-2222-zzzzzzzzzzzz', 'pppppppp-2222-2222-2222-pppppppppppp', '22222222-2222-2222-2222-222222222222', 'text', 'Hi all! Let''s share our favorite memories from studying abroad.'),
 ('aaaaaaaa-3333-3333-3333-aaaaaaaaaaaa', 'qqqqqqqq-2222-2222-2222-qqqqqqqqqqqq', '11111111-1111-1111-1111-111111111111', 'text', 'Hey Jane, how are your classes going this semester?'); 
+=======
+-- USERS
+INSERT INTO users (id, email, username, password_hash, gender, is_verified) VALUES
+(uuid_generate_v4(), 'alice@example.com', 'alice', 'hashed_password1', 'female', TRUE),
+(uuid_generate_v4(), 'bob@example.com', 'bob', 'hashed_password2', 'male', TRUE),
+(uuid_generate_v4(), 'charlie@example.com', 'charlie', 'hashed_password3', 'other', FALSE);
+
+-- USER PROFILES
+INSERT INTO user_profiles (id, user_id, bio, interests) SELECT
+uuid_generate_v4(), id, 'Hi I am Alice!', ARRAY['reading', 'travel'] FROM users WHERE username = 'alice';
+
+INSERT INTO user_profiles (id, user_id, bio, interests) SELECT
+uuid_generate_v4(), id, 'Bob here!', ARRAY['sports', 'gaming'] FROM users WHERE username = 'bob';
+
+-- BOARDS
+INSERT INTO boards (id, name, slug) VALUES
+(uuid_generate_v4(), 'General', 'general'),
+(uuid_generate_v4(), 'Announcements', 'announcements');
+
+-- FOLLOWERS
+INSERT INTO followers (id, follower_id, following_id) SELECT
+uuid_generate_v4(), a.id, b.id FROM users a, users b WHERE a.username = 'bob' AND b.username = 'alice';
+
+-- NOTIFICATIONS
+INSERT INTO notifications (id, user_id, title, type, is_read) SELECT
+uuid_generate_v4(), u.id, 'You have a new comment.', 'comment', FALSE FROM users u WHERE username = 'alice';
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
