@@ -33,19 +33,6 @@ export default function Navbar() {
   const actuallyLoading = isLoading && (!user || status === 'loading');
   const readyToShowAuth = isAuthenticated || (user && user.id) || status === 'authenticated';
 
-  // Add debug logging
-  useEffect(() => {
-    console.log('Navbar auth status:', { 
-      status, 
-      isLoading,
-      actuallyLoading,
-      isAuthenticated, 
-      readyToShowAuth,
-      userId: user?.id || 'none',
-      localStorageUserId: typeof window !== 'undefined' ? localStorage.getItem('userId') : 'not available'
-    });
-  }, [status, isLoading, isAuthenticated, actuallyLoading, readyToShowAuth, user]);
-
   // Handle user logout with improved error handling
   const handleUserLogout = async () => {
     setIsLoggingOut(true);

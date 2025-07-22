@@ -29,21 +29,33 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
 
-    //create admin_sessions
+    //create admin_sessions exist or not, if not create it
     const { data: adminSession, error: adminSessionError } = await supabase
       .from('admin_sessions')
-      .insert({
-        admin_user_id: adminUser.id,
-        ip_address: request.ip,
-        user_agent: request.headers.get('user-agent'),
-        device_info: request.headers.get('sec-ch-ua-platform'),
-        location: request.headers.get('cf-ipcountry'),
-        is_active: true,
-        last_seen: new Date().toISOString()
-      });
+      .select('id')
+      .eq('admin_user_id', adminUser.id)
+      .single();
 
     if (adminSessionError) {
       console.error('Failed to create admin session:', adminSessionError);
+    }
+
+    if (!adminSession) {
+      await supabase
+        .from('admin_sessions')
+        .insert({
+          admin_user_id: adminUser.id,
+          ip_address: request.ip,
+          user_agent: request.headers.get('user-agent'),
+          device_info: request.headers.get('sec-ch-ua-platform'),
+          location: request.headers.get('cf-ipcountry'),
+          is_active: true,
+          last_seen: new Date().toISOString()
+        });
+
+      if (adminSessionError) {
+        console.error('Failed to create admin session:', adminSessionError);
+      }
     }
 
     // Verify password using comparePassword instead of rehashing

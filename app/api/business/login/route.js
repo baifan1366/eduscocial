@@ -30,21 +30,33 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
 
-    //create business session
+     //create business_sessions exist or not, if not create it
     const { data: businessSession, error: businessSessionError } = await supabase
       .from('business_sessions')
-      .insert({
-        business_user_id: user.id,
-        ip_address: request.ip,
-        user_agent: request.headers.get('user-agent'),
-        device_info: request.headers.get('sec-ch-ua-platform'),
-        location: request.headers.get('cf-ipcountry'),
-        is_active: true,
-        last_seen: new Date().toISOString()
-      });
+      .select('id')
+      .eq('business_user_id', user.id)
+      .single();
 
     if (businessSessionError) {
       console.error('Failed to create business session:', businessSessionError);
+    }
+
+    if (!businessSession) {
+      await supabase
+        .from('business_sessions')
+        .insert({
+          business_user_id: user.id,
+          ip_address: request.ip,
+          user_agent: request.headers.get('user-agent'),
+          device_info: request.headers.get('sec-ch-ua-platform'),
+          location: request.headers.get('cf-ipcountry'),
+          is_active: true,
+          last_seen: new Date().toISOString()
+      });
+
+      if (businessSessionError) {
+        console.error('Failed to create business session:', businessSessionError);
+      }
     }
 
     // Verify password 

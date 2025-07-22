@@ -115,11 +115,13 @@ CREATE TABLE boards (
     color TEXT,
     icon TEXT,
     visibility TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('approved', 'pending', 'rejected')),
     anonymous BOOLEAN DEFAULT TRUE,
     is_active BOOLEAN DEFAULT TRUE,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
+    created_by UUID NOT NULL,
+    created_by_type TEXT CHECK (created_by_type IN ('user', 'admin')) NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     language TEXT DEFAULT 'zh-TW'
 );

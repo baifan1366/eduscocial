@@ -234,14 +234,14 @@ export async function middleware(request) {
     // 检查管理员权限
     if (isAdminRoute && tokenData.role !== 'admin') {
       return NextResponse.redirect(
-        new URL(`/${locale}/unauthorized`, request.url)
+        new URL(`/${locale}/admin/login`, request.url)
       );
     }
     
     // 检查商家权限
     if (isBusinessRoute && tokenData.role !== 'business') {
       return NextResponse.redirect(
-        new URL(`/${locale}/unauthorized`, request.url)
+        new URL(`/${locale}/business/login`, request.url)
       );
     }
     

@@ -31,9 +31,9 @@ export default function useGetBoards(options = {}) {
     ...filters
   };
 
-  return useQuery(
-    ['boards', orderBy, orderDirection, limit, offset, filters],
-    async () => {
+  return useQuery({
+    queryKey: ['boards', orderBy, orderDirection, limit, offset, filters],
+    queryFn: async () => {
       try {
         return await boardsApi.getAll(queryParams);
       } catch (error) {
@@ -41,10 +41,8 @@ export default function useGetBoards(options = {}) {
         throw error;
       }
     },
-    {
-      enabled,
-      keepPreviousData: true,
-      staleTime: 5 * 60 * 1000, // 5 分钟
-    }
-  );
+    enabled,
+    placeholderData: 'keepPrevious',
+    staleTime: 5 * 60 * 1000 // 5 分钟
+  });
 } 
