@@ -6,35 +6,37 @@ import { settingsApi } from '@/lib/api';
  * @returns {Object} 变更操作对象
  */
 export default function useUploadSchoolInfo() {
-  return useMutation(async ({ country, school, department, file }) => {
-    try {
-      // 验证必要参数
-      if (!country || !school || !department || !file) {
-        throw new Error('Please fill in all required fields and upload proof documents');
-      }
-
-      // 读取文件为 base64 格式
-      const fileData = await readFileAsBase64(file);
-      
-      // 准备请求数据
-      const requestData = {
-        country,
-        school,
-        department,
-        file: {
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          data: fileData
+  return useMutation({
+    mutationFn: async ({ country, school, department, file }) => {
+      try {
+        // 验证必要参数
+        if (!country || !school || !department || !file) {
+          throw new Error('Please fill in all required fields and upload proof documents');
         }
-      };
 
-      // 使用 API 客户端发送请求
-      const response = await settingsApi.settings.uploadSchoolInfo(requestData);
-      return response;
-    } catch (error) {
-      console.error('error:', error);
-      throw error;
+        // 读取文件为 base64 格式
+        const fileData = await readFileAsBase64(file);
+        
+        // 准备请求数据
+        const requestData = {
+          country,
+          school,
+          department,
+          file: {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            data: fileData
+          }
+        };
+
+        // 使用 API 客户端发送请求
+        const response = await settingsApi.settings.uploadSchoolInfo(requestData);
+        return response;
+      } catch (error) {
+        console.error('error:', error);
+        throw error;
+      }
     }
   });
 }

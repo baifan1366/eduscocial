@@ -42,7 +42,7 @@ export default function useGetBoards(options = {}) {
       }
     },
     enabled,
-    placeholderData: 'keepPrevious',
-    staleTime: 5 * 60 * 1000 // 5 分钟
+    placeholderData: (previousData) => previousData, // replaces keepPreviousData
+    staleTime: 5 * 60 * 1000, // 5 分钟
   });
 } 
