@@ -136,7 +136,7 @@
   "Navbar": {
     "login": "Login",
     "register": "Register",
-    "hi": "Hi",
+    "hi": "Hi,",
     "logout": "Logout",
     "loggingOut": "Logging out..."
   },

@@ -5,34 +5,28 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useAdminLogin } from '@/hooks/useAuth';
+import { useLogout, useSession } from '@/hooks/useAuth';
 import { Button } from '../ui/button';
 import { useTranslations } from 'next-intl';
 
 export default function AdminNavbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, isAuthenticated, status, isLoading } = useAdminLogin();
+  const { user, status, isLoading } = useSession();
+  const { logout } = useLogout();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const t = useTranslations('Navbar');
-  //check isLoginPage 
-  const isLoginPage = pathname === '/admin/login';
+  const isLoginPage = pathname.includes('/admin/login');
 
   // Handle admin logout
   const handleAdminLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const result = await logout();
-      if (!result.success) {
-        console.error('Admin logout failed:', result.error);
-        // Force redirect if logout fails
-        const locale = pathname.split('/')[1] || 'en';
-        router.push(`/${locale}/admin/login`);
-      }
-      // Successful logout is handled in adminLogout with redirection
+      await logout();
+      // 登出成功后直接从 useLogout 中处理重定向
     } catch (error) {
       console.error('Admin logout error:', error);
-      // Force redirect on error
+      // 出错时强制重定向
       const locale = pathname.split('/')[1] || 'en';
       router.push(`/${locale}/admin/login`);
     } finally {

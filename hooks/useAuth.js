@@ -265,6 +265,42 @@ export function useAdminLogin() {
   const router = useRouter();
   const pathname = usePathname();
   const [error, setError] = useState(null);
+  // 添加用户状态
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [status, setStatus] = useState('unauthenticated');
+  
+  // 在初始化时尝试获取用户会话
+  useEffect(() => {
+    async function fetchSession() {
+      try {
+        // 检查是否已经存在用户id
+        let userId = null;
+        try {
+          userId = localStorage.getItem('userId');
+        } catch (e) {
+          console.error('Error retrieving userId from localStorage:', e);
+        }
+
+        // 如果有userId，尝试从Redis获取会话
+        if (userId) {
+          const sessionData = await getUserSession(userId);
+          
+          // 如果Redis中有有效会话且用户是管理员
+          if (sessionData && sessionData.valid && 
+              ['support', 'ads_manager', 'superadmin'].includes(sessionData.role)) {
+            setUser({ id: userId, ...sessionData });
+            setIsAuthenticated(true);
+            setStatus('authenticated');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching admin session:', error);
+      }
+    }
+    
+    fetchSession();
+  }, []);
 
   const mutation = useMutation({
     mutationFn: async (credentials) => {
@@ -329,6 +365,13 @@ export function useAdminLogin() {
       // 确保data是有效的对象
       const userData = data && typeof data === 'object' ? data : {};
       
+      // 设置用户状态
+      if (userData.user) {
+        setUser(userData.user);
+        setIsAuthenticated(true);
+        setStatus('authenticated');
+      }
+      
       // Invalidate and refetch user session
       queryClient.invalidateQueries({ queryKey: ['session'] });
       
@@ -354,7 +397,57 @@ export function useAdminLogin() {
     isLoading: mutation.isPending,
     error,
     setError,
-    isSuccess: mutation.isSuccess
+    isSuccess: mutation.isSuccess,
+    // 添加用户相关状态
+    user,
+    isAuthenticated,
+    status,
+    logout: async () => {
+      try {
+        // 从localStorage中清除用户ID
+        try {
+          localStorage.removeItem('userId');
+        } catch (e) {
+          console.error('Error clearing userId from localStorage:', e);
+        }
+        
+        // 清除auth_token cookie
+        try {
+          document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+        } catch (e) {
+          console.error('Error clearing auth_token cookie:', e);
+        }
+        
+        // 从Redis中移除会话
+        if (user?.id) {
+          await removeUserSession(user.id);
+        }
+        
+        // 调用管理员登出API
+        const result = await api.auth.adminLogout();
+        
+        // 清除状态
+        setUser(null);
+        setIsAuthenticated(false);
+        setStatus('unauthenticated');
+        
+        // 获取当前语言环境
+        let locale = 'en';
+        try {
+          locale = pathname.split('/')[1] || 'en';
+        } catch (e) {
+          console.error('Error getting locale:', e);
+        }
+        
+        // 重定向到管理员登录页面
+        router.push(`/${locale}/admin/login`);
+        
+        return result;
+      } catch (error) {
+        console.error('Admin logout error:', error);
+        return { success: false, error: error.message };
+      }
+    }
   };
 }
 
@@ -593,7 +686,7 @@ export function useLogout() {
         try {
           if (session?.user?.role === 'business') {
             result = await api.auth.businessLogout();
-          } else if (['support', 'ads_manager', 'superadmin'].includes(session?.user?.role)) {
+          } else if (session?.user?.role === 'admin') {
             result = await api.auth.adminLogout();
           } else {
             result = await api.auth.logout();
@@ -659,7 +752,7 @@ export function useLogout() {
       // Redirect based on role
       if (session?.user?.role === 'business') {
         router.push(`/${locale}/business/login`);
-      } else if (['support', 'ads_manager', 'superadmin'].includes(session?.user?.role)) {
+      } else if (session?.user?.role === 'admin') {
         router.push(`/${locale}/admin/login`);
       } else {
         router.push(`/${locale}/login`);
