@@ -19,6 +19,7 @@ export default function MenuBar() {
     const locale = useLocale();
     const isDashboard = pathname === `/${locale}/admin/dashboard`; 
     const isBoards = pathname === `/${locale}/admin/boards`;
+    const isCategory = pathname === `/${locale}/admin/category`;
     const shouldShowMenuBar = !pathname.includes("/admin/login") && !pathname.includes("/admin/forgot-password");
     const t = useTranslations('AdminDashboard');
     const router = useRouter();
@@ -57,17 +58,30 @@ export default function MenuBar() {
                     {t('Boards')}
                 </MenubarTrigger>
                 <MenubarContent>
-                <MenubarItem 
-                    onClick={() => router.push(`/${locale}/admin/boards`)}
+                    <MenubarItem 
+                        onClick={() => router.push(`/${locale}/admin/boards`)}
+                    >
+                        {t('openBoardsPage')}
+                    </MenubarItem>
+                </MenubarContent>
+            </MenubarMenu>
+
+            <MenubarMenu>
+                <MenubarTrigger
+                    className={`border-t-0 border-x-0 rounded-none transition-colors
+                        ${isCategory ? "border-b-2 border-[#FF7D00] text-[#FF7D00]" : ""}
+                        data-[state=open]:bg-[#FF7D00] data-[state=open]:text-white data-[state=open]:shadow-xs data-[state=open]:border-[#FF7D00]
+                        focus:border-[#FF7D00] focus:bg-[#FF7D00] focus:text-white focus:shadow-xs
+                        hover:bg-[#FF7D00] hover:border-[#FF7D00] hover:text-white hover:shadow-xs`}
                 >
-                    {t('openBoardsPage')}
-                </MenubarItem>
-                <MenubarItem>
-                    {t('createNewBoard')} <MenubarShortcut>⌘T</MenubarShortcut>
-                </MenubarItem>                
-                <MenubarSeparator />
-                <MenubarItem>{t('Share')}</MenubarItem>
-                <MenubarItem>{t('Print')}</MenubarItem>
+                    {t('Category')}
+                </MenubarTrigger>
+                <MenubarContent>
+                    <MenubarItem 
+                        onClick={() => router.push(`/${locale}/admin/category`)}
+                    >
+                        {t('openCategoryPage')}
+                    </MenubarItem>
                 </MenubarContent>
             </MenubarMenu>
         </Menubar>

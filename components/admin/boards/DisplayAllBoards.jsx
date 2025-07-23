@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import useGetBoards from '@/hooks/useGetBoards'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Search, VenetianMask, ListFilter, BookOpenCheck, CheckCircle, Globe, X, ScanEye, MoveUp, MoveDown, Plus, UserRound, Pen } from 'lucide-react'
+import { Search, VenetianMask, ListFilter, BookOpenCheck, CheckCircle, Globe, X, ScanEye, MoveUp, MoveDown, Plus, UserRound, Pen, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -15,6 +15,10 @@ import { Badge } from '@/components/ui/badge'
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import EditBoardDialog from './EditBoardDialog' 
 import useUpdateBoardActiveStatus from '@/hooks/admin/board/useUpdateBoardActiveStatus'
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import useUpdateBoardStatus from '@/hooks/admin/board/useUpdateBoardStatus'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 export default function DisplayAllBoards() {
     const { data, refetch } = useGetBoards()
@@ -26,6 +30,10 @@ export default function DisplayAllBoards() {
     const [createdAtSort, setCreatedAtSort] = useState('asc')
     const [currentSortField, setCurrentSortField] = useState('no') // Track which field is being sorted
     const { mutate: updateBoardActiveStatus } = useUpdateBoardActiveStatus()
+    const { mutate: updateBoardStatus } = useUpdateBoardStatus()
+    const [currentPage, setCurrentPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
 
     const [filter, setFilter] = useState({
         language: 'all',
@@ -100,12 +108,19 @@ export default function DisplayAllBoards() {
         }
     }
     
-    const toggleStatus = (value) => {
+    const toggleStatus = (boardId, value) => {
+        // 更新后端状态
+        updateBoardStatus({
+            boardId: boardId,
+            data: { status: value }
+        });
+
         setSelectedStatus({
             ...selectedStatus,
             [value]: !selectedStatus[value]
         })
-        
+
+        // 更新过滤状态（仅在从筛选器面板点击时使用）
         const newState = {...selectedStatus, [value]: !selectedStatus[value]};
         const allSelected = Object.values(newState).every(v => v);
         const noneSelected = Object.values(newState).every(v => !v);
@@ -277,6 +292,28 @@ export default function DisplayAllBoards() {
         })
     }, [boardsData, search, filter, currentSortField, nameSort, slugSort, createdAtSort, 
         selectedLanguages, selectedVisibility, selectedStatus, selectedAnonymous, selectedActive])
+
+    // 计算分页数据 - 移除状态更新操作
+    const paginatedBoards = useMemo(() => {
+        // 计算当前页的起始和结束索引
+        const startIndex = (currentPage - 1) * pageSize
+        const endIndex = startIndex + pageSize
+        
+        // 返回当前页的数据
+        return sortedBoards.slice(startIndex, endIndex)
+    }, [sortedBoards, currentPage, pageSize])
+
+    // 使用useEffect处理分页状态更新
+    useEffect(() => {
+        // 计算总页数
+        const total = Math.ceil(sortedBoards.length / pageSize) || 1
+        setTotalPages(total)
+        
+        // 如果当前页码超出总页数，重置为第一页
+        if (currentPage > total) {
+            setCurrentPage(1)
+        }
+    }, [sortedBoards.length, pageSize, currentPage])
 
     // show created at in format YYYY-MM-DD
     const formatCreatedAt = (createdAt) => {
@@ -597,7 +634,7 @@ export default function DisplayAllBoards() {
                         <TableHead>
                             {t('visibility')}
                         </TableHead>
-                        <TableHead>
+                        <TableHead className="w-1/12">
                             {t('status')}
                         </TableHead>
                         <TableHead>
@@ -619,9 +656,9 @@ export default function DisplayAllBoards() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {sortedBoards.map((board, index) => (
+                    {paginatedBoards.map((board, index) => (
                         <TableRow key={board.id}>
-                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>{(currentPage - 1) * pageSize + index + 1}</TableCell>
                             <TableCell>
                                 <div className="flex items-center w-full">
                                     {board.anonymous ? (
@@ -660,15 +697,26 @@ export default function DisplayAllBoards() {
                                 </Badge>
                             </TableCell>
                             <TableCell>
-                                <Badge variant={board.status === 'pending' ? 'pending' : board.status === 'approved' ? 'approved' : 'rejected'}>
-                                    {board.status === 'pending' ? t('pending') : board.status === 'approved' ? t('approved') : t('rejected')}
-                                </Badge>
+                                <DropdownMenu>  
+                                    <DropdownMenuTrigger asChild>
+                                        <div className="flex items-center cursor-pointer justify-between">
+                                            <Badge variant={board.status === 'pending' ? 'pending' : board.status === 'approved' ? 'approved' : 'rejected'}>
+                                                {board.status === 'pending' ? t('pending') : board.status === 'approved' ? t('approved') : t('rejected')}
+                                            </Badge>
+                                            <ChevronDown className='w-4 h-4 hover:text-[#FF7D00] ml-2' />
+                                        </div>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        <DropdownMenuItem onClick={() => toggleStatus(board.id, 'pending')}>{t('pending')}</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => toggleStatus(board.id, 'approved')}>{t('approved')}</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => toggleStatus(board.id, 'rejected')}>{t('rejected')}</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </TableCell>
                             <TableCell>
                                 <Switch 
                                     checked={board.is_active} 
-                                    onCheckedChange={() => toggleActive(board.id, !board.is_active)}
-                                    
+                                    onCheckedChange={() => toggleActive(board.id, !board.is_active)}                                    
                                 />
                             </TableCell>
                             <TableCell>
@@ -685,6 +733,105 @@ export default function DisplayAllBoards() {
                     ))}
                 </TableBody>
             </Table>
+            <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center space-x-2">
+                    <p className="text-sm text-muted-foreground">
+                        {t('rowsPerPage')}
+                    </p>
+                    <Select
+                        value={pageSize.toString()}
+                        onValueChange={(value) => setPageSize(Number(value))}
+                    >
+                        <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={pageSize} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {[5, 10, 20, 50].map((size) => (
+                                <SelectItem key={size} value={size.toString()}>
+                                    {size}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                
+                <div className="flex items-center justify-center space-x-6 lg:space-x-8">
+                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                        {t('page')} {currentPage} {t('of')} {totalPages}
+                    </div>
+                    <Pagination>
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious 
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                                    aria-disabled={currentPage === 1}
+                                    className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                                />
+                            </PaginationItem>
+                            
+                            {/* 显示页码，最多显示5个 */}
+                            {Array.from({length: Math.min(5, totalPages)}, (_, i) => {
+                                // 如果总页数小于5，直接显示所有页码
+                                if (totalPages <= 5) {
+                                    const page = i + 1;
+                                    return (
+                                        <PaginationItem key={page}>
+                                            <PaginationLink 
+                                                isActive={currentPage === page}
+                                                onClick={() => setCurrentPage(page)}
+                                            >
+                                                {page}
+                                            </PaginationLink>
+                                        </PaginationItem>
+                                    );
+                                }
+                                
+                                // 如果总页数大于5，创建动态页码区间
+                                let startPage = Math.max(currentPage - 2, 1);
+                                if (currentPage > totalPages - 2) {
+                                    startPage = Math.max(totalPages - 4, 1);
+                                }
+                                const page = startPage + i;
+                                
+                                if (page <= totalPages) {
+                                    return (
+                                        <PaginationItem key={page}>
+                                            <PaginationLink 
+                                                isActive={currentPage === page}
+                                                onClick={() => setCurrentPage(page)}
+                                            >
+                                                {page}
+                                            </PaginationLink>
+                                        </PaginationItem>
+                                    );
+                                }
+                                return null;
+                            })}
+                            
+                            {totalPages > 5 && currentPage < totalPages - 2 && (
+                                <>
+                                    <PaginationItem>
+                                        <PaginationEllipsis />
+                                    </PaginationItem>
+                                    <PaginationItem>
+                                        <PaginationLink onClick={() => setCurrentPage(totalPages)}>
+                                            {totalPages}
+                                        </PaginationLink>
+                                    </PaginationItem>
+                                </>
+                            )}
+                            
+                            <PaginationItem>
+                                <PaginationNext 
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                                    aria-disabled={currentPage === totalPages}
+                                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                                />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
+            </div>
         </div>
     )
 }

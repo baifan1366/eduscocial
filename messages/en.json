@@ -270,11 +270,19 @@
     "editBoardTitle": "Edit Board",
     "updating": "Updating...",
     "updateButton": "Update",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "rowsPerPage": "Rows per page",
+    "page": "Page",
+    "of": "of",
+    "next": "Next",
+    "previous": "Previous",
+    "first": "First",
+    "last": "Last"
   },
   "AdminDashboard": {
     "Dashboard": "Dashboard",
     "Boards": "Boards",
+    "Category": "Category",
     "createNewBoard": "Create New Board",
     "New Tab": "New Tab",
     "New Window": "New Window",
@@ -283,7 +291,8 @@
     "openBoardsPage": "Open Boards Page",
     "openDashboardPage": "Open Dashboard Page",
     "boardNameMaxLength": "Name must be less than 50 characters",
-    "boardNameInvalidType": "Name must be a string"
+    "boardNameInvalidType": "Name must be a string",
+    "openCategoryPage": "Open Category Page"
   },
   "UserMenu": {
     "termsOfService": "Terms of Service",
@@ -432,5 +441,37 @@
     "rejected": "Rejected",
     "viewLess": "View Less",
     "viewMore": "View More"
+  },
+  "Category": {
+    "createCategory": "Create Category",
+    "createCategoryTitle": "Create Category",
+    "createCategoryDescription": "Create a new category",
+    "name": "Name",
+    "nameRequired": "Name is required",
+    "nameInvalidType": "Name must be a string",
+    "nameMaxLength": "Name must be less than 20 characters",
+    "description": "Description",
+    "descriptionRequired": "Description is required",
+    "descriptionInvalidType": "Description must be a string",
+    "descriptionMaxLength": "Description must be less than 100 characters",
+    "color": "Color",
+    "colorRequired": "Color is required",
+    "colorInvalidType": "Color must be a string",
+    "colorMaxLength": "Color must be less than 20 characters",
+    "categoryIcon": "Category Icon",
+    "categoryIconRequired": "Category icon is required",
+    "categoryIconInvalidType": "Category icon must be a string",
+    "categoryIconMaxLength": "Category icon must be less than 20 characters",
+    "cancel": "Cancel",
+    "create": "Create",
+    "creating": "Creating...",
+    "categoryCreated": "Category created successfully",
+    "createButton": "Create",
+    "categoryName": "Category Name",
+    "categoryDescription": "Category Description",
+    "categoryColor": "Category Color",
+    "categoryCreationFailed": "Failed to create category",
+    "namePlaceholder": "Enter category name",
+    "enterDescription": "Enter description"
   }
 }

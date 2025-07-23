@@ -21,7 +21,7 @@ import { SketchPicker } from 'react-color'
 import PreviewBoard from './PreviewBoard'
 import { toast } from 'sonner'
 import { debounce } from 'lodash'
-import { Loader2 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function EditBoardDialog({ boardId, children }) {
     const t = useTranslations('Board')
@@ -187,8 +187,7 @@ export default function EditBoardDialog({ boardId, children }) {
                     
                     {isLoadingBoard ? (
                         <div className="flex items-center justify-center py-10">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            <span className="ml-2">{t('loading')}</span>
+                            <Skeleton className="h-8 w-8 animate-spin text-primary" />
                         </div>
                     ) : (
                         <>

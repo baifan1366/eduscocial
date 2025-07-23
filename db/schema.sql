@@ -77,10 +77,6 @@ CREATE TABLE users (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-<<<<<<< HEAD
--- User profiles table for extended profile information
-=======
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 CREATE TABLE user_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -92,13 +88,8 @@ CREATE TABLE user_profiles (
     favorite_quotes TEXT,
     favorite_country TEXT,
     daily_active_time TEXT CHECK (daily_active_time IN ('morning', 'afternoon', 'evening', 'night', 'varies')),
-<<<<<<< HEAD
-    study_abroad TEXT NOT NULL,
-    leisure_activities TEXT NOT NULL,
-=======
     study_abroad TEXT NULL,
     leisure_activities TEXT NULL,
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
@@ -378,11 +369,7 @@ CREATE TABLE subscriptions (
   status TEXT NOT NULL CHECK(status IN ('active','cancelled','expired')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-<<<<<<< HEAD
-  created_by UUID REFERENCES users(id)
-=======
   created_by UUID REFERENCES admin_users(id)
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 );
 
 CREATE TABLE store_products (
