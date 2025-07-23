@@ -921,3 +921,36 @@ CREATE TABLE user_report_history (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE user_embeddings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  embedding vector(384), -- 根据你的 embedding 模型调整维度
+  model_version TEXT NOT NULL,
+  generated_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+  UNIQUE(user_id)
+);
+
+CREATE TABLE post_visibility_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  action TEXT NOT NULL CHECK (action IN ('visible', 'hidden', 'boosted', 'demoted')),
+  reason TEXT,
+  weight_change FLOAT,
+  triggered_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE moderation_audit_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  content_type TEXT NOT NULL CHECK (content_type IN ('post', 'comment', 'media')),
+  content_id UUID NOT NULL,
+  moderation_type TEXT NOT NULL CHECK (moderation_type IN ('text', 'video', 'image', 'audio')),
+  model_name TEXT,
+  result_status TEXT CHECK (result_status IN ('flagged', 'safe', 'manual_review')),
+  flagged_categories TEXT[],
+  confidence_scores JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);

@@ -1,414 +1,164 @@
-import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase';
-import redis from '@/lib/redis/redis';
-import { getSession } from '@/lib/auth';
-import { calculateCombinedScore } from '@/lib/recommend/scoring';
+import { createClient } from '@supabase/supabase-js';
+import { getUserEmbedding, getPersonalizedRecommendations } from '@/lib/userEmbedding';
+import { getUserSession } from '@/lib/redis/redisUtils';
+import { getUserFromToken } from '@/lib/auth/serverAuth';
 
-const CACHE_TTL = 60 * 30; // 30 minutes
-const MAX_RECOMMENDATIONS = 20;
+// Initialize Supabase client
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ?
+  createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
 
 /**
- * GET handler for post recommendations
- * Returns personalized post recommendations for the authenticated user
- * 
- * Query parameters:
- * - limit: Number of recommendations to return (default: 20)
- * - refresh: Force refresh recommendations cache (default: false)
+ * GET handler for personalized post recommendations
+ * This endpoint uses user embeddings to find posts that match a user's interests
  */
 export async function GET(request) {
   try {
-    const session = await getSession();
+    // Get user authentication
+    const user = await getUserFromToken(request);
     
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    if (!user || !user.id) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
-    const userId = session.user.id;
+    const userId = user.id;
     const url = new URL(request.url);
-    const limit = parseInt(url.searchParams.get('limit') || MAX_RECOMMENDATIONS);
-    const refresh = url.searchParams.get('refresh') === 'true';
+    const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+    const page = parseInt(url.searchParams.get('page') || '1', 10);
+    const threshold = parseFloat(url.searchParams.get('threshold') || '0.3');
     
-    // Check if recommendations are cached in Redis
-    const cacheKey = `user:${userId}:feed`;
+    // Check if we already have seen posts to exclude
+    const excludeParam = url.searchParams.get('exclude') || '';
+    const excludePostIds = excludeParam ? excludeParam.split(',') : [];
     
-    if (!refresh) {
-      const cachedRecommendations = await redis.get(cacheKey);
-      if (cachedRecommendations) {
-        return NextResponse.json({ 
-          posts: cachedRecommendations.slice(0, limit),
-          cached: true
-        });
+    // Get user session for tracking purposes
+    const session = await getUserSession(userId);
+    
+    // Add recently viewed posts to exclude list
+    if (session && session.recently_viewed_posts) {
+      try {
+        const recentlyViewed = JSON.parse(session.recently_viewed_posts);
+        if (Array.isArray(recentlyViewed)) {
+          excludePostIds.push(...recentlyViewed);
+        }
+      } catch (e) {
+        console.error('Error parsing recently viewed posts:', e);
       }
     }
-
-    // Get personalized recommendations
-    const posts = await getRecommendedPosts(userId, limit);
     
-    // Cache recommendations
-    await redis.set(cacheKey, posts, { ex: CACHE_TTL });
-    
-    return NextResponse.json({ posts, cached: false });
-  } catch (error) {
-    console.error('Error getting recommendations:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch recommendations' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * Retrieves recommended posts for a user based on their interests and post embeddings
- * 
- * @param {string} userId - The user's ID
- * @param {number} limit - Maximum number of posts to return
- * @returns {Promise<Array>} - Array of recommended posts
- */
-async function getRecommendedPosts(userId, limit) {
-  const supabase = createServerSupabaseClient();
-  
-  // 1. Get user interests with weights
-  const { data: userInterests, error: interestsError } = await supabase
-    .from('user_interests')
-    .select(`
-      id,
-      weight,
-      tag_id,
-      topic_id,
-      hashtags(name),
-      topics(name)
-    `)
-    .eq('user_id', userId);
-  
-  if (interestsError) {
-    console.error('Error fetching user interests:', interestsError);
-    throw new Error('Failed to fetch user interests');
-  }
-  
-  if (!userInterests || userInterests.length === 0) {
-    // Fall back to popular posts if no interests are found
-    return getDefaultRecommendations(limit);
-  }
-  
-  // Extract tags and topics
-  const tagIds = userInterests
-    .filter(interest => interest.tag_id)
-    .map(interest => interest.tag_id);
-  
-  const topicIds = userInterests
-    .filter(interest => interest.topic_id)
-    .map(interest => interest.topic_id);
-  
-  // 2. Get the user embedding (average of liked/favorited posts)
-  const userEmbedding = await getUserEmbedding(userId);
-  
-  // 3. Get candidate posts with relevant tags/topics
-  const { data: candidatePosts, error: postsError } = await supabase
-    .rpc('get_recommended_posts', {
-      p_user_id: userId,
-      p_tag_ids: tagIds,
-      p_topic_ids: topicIds,
-      p_limit: limit * 3 // Get more candidates than needed for better filtering
-    });
-  
-  if (postsError) {
-    console.error('Error fetching candidate posts:', postsError);
-    throw new Error('Failed to fetch candidate posts');
-  }
-  
-  if (!candidatePosts || candidatePosts.length === 0) {
-    return getDefaultRecommendations(limit);
-  }
-  
-  // 4. Calculate scores and sort posts
-  const scoredPosts = await calculatePostScores(
-    candidatePosts, 
-    userInterests,
-    userEmbedding
-  );
-  
-  // Return top N posts
-  return scoredPosts.slice(0, limit);
-}
-
-/**
- * Calculates the scores for posts based on interest matching and vector similarity
- * 
- * @param {Array} posts - Candidate posts
- * @param {Array} userInterests - User interests with weights
- * @param {Array} userEmbedding - User's embedding vector
- * @returns {Array} - Scored and sorted posts
- */
-async function calculatePostScores(posts, userInterests, userEmbedding) {
-  const supabase = createServerSupabaseClient();
-  
-  // Create maps for faster lookup
-  const tagWeights = {};
-  const topicWeights = {};
-  
-  userInterests.forEach(interest => {
-    if (interest.tag_id) {
-      tagWeights[interest.tag_id] = interest.weight;
-    }
-    if (interest.topic_id) {
-      topicWeights[interest.topic_id] = interest.weight;
-    }
-  });
-  
-  // Get post embeddings
-  const postIds = posts.map(post => post.id);
-  const { data: embeddings, error: embeddingError } = await supabase
-    .from('post_embeddings')
-    .select('post_id, embedding')
-    .in('post_id', postIds);
-  
-  if (embeddingError) {
-    console.error('Error fetching post embeddings:', embeddingError);
-    // Continue without embeddings
-  }
-  
-  const embeddingMap = {};
-  if (embeddings) {
-    embeddings.forEach(item => {
-      embeddingMap[item.post_id] = item.embedding;
-    });
-  }
-  
-  // Get post tags
-  const { data: postTags, error: tagsError } = await supabase
-    .from('post_hashtags')
-    .select('post_id, hashtag_id')
-    .in('post_id', postIds);
-  
-  if (tagsError) {
-    console.error('Error fetching post tags:', tagsError);
-    // Continue without tags
-  }
-  
-  const postTagsMap = {};
-  if (postTags) {
-    postTags.forEach(item => {
-      if (!postTagsMap[item.post_id]) {
-        postTagsMap[item.post_id] = [];
-      }
-      postTagsMap[item.post_id].push(item.hashtag_id);
-    });
-  }
-  
-  // Calculate scores for each post
-  const scoredPosts = posts.map(post => {
-    const postEmbedding = embeddingMap[post.id];
-    const postTags = postTagsMap[post.id] || [];
-    
-    // Calculate interest weight score (tag-based)
-    let interestWeightScore = 0;
-    let matchCount = 0;
-    
-    postTags.forEach(tagId => {
-      if (tagWeights[tagId]) {
-        interestWeightScore += tagWeights[tagId];
-        matchCount++;
-      }
-    });
-    
-    // Normalize interest weight score
-    if (matchCount > 0) {
-      interestWeightScore = interestWeightScore / matchCount;
-    }
-    
-    // Calculate embedding similarity score
-    let embeddingSimilarityScore = 0;
-    if (userEmbedding && postEmbedding) {
-      embeddingSimilarityScore = calculateCosineSimilarity(userEmbedding, postEmbedding);
-    }
-    
-    // Calculate combined score with weights
-    const combinedScore = calculateCombinedScore(
-      interestWeightScore,
-      embeddingSimilarityScore
-    );
-    
-    return {
-      ...post,
-      score: combinedScore,
-      interestScore: interestWeightScore,
-      similarityScore: embeddingSimilarityScore
+    // Get personalized recommendations using user embedding
+    const recommendationOptions = {
+      limit: limit * 2, // Get more than we need to allow for filtering
+      threshold,
+      excludePostIds
     };
-  });
-  
-  // Sort by score (highest first)
-  return scoredPosts.sort((a, b) => b.score - a.score);
-}
-
-/**
- * Gets default recommendations when user interests are not available
- * 
- * @param {number} limit - Maximum number of posts to return
- * @returns {Promise<Array>} - Array of recommended posts
- */
-async function getDefaultRecommendations(limit) {
-  const supabase = createServerSupabaseClient();
-  
-  // Get popular posts from the last 7 days
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  
-  const { data: popularPosts, error } = await supabase
-    .from('posts')
-    .select(`
-      id, 
-      title, 
-      content,
-      author_id,
-      board_id,
-      created_at,
-      view_count,
-      like_count,
-      comment_count
-    `)
-    .gte('created_at', sevenDaysAgo.toISOString())
-    .order('like_count', { ascending: false })
-    .limit(limit);
-  
-  if (error) {
-    console.error('Error fetching popular posts:', error);
-    throw new Error('Failed to fetch popular posts');
-  }
-  
-  return popularPosts || [];
-}
-
-/**
- * Calculates a user's embedding vector based on their liked and favorited posts
- * 
- * @param {string} userId - The user's ID
- * @returns {Promise<Array|null>} - User's embedding vector or null if not available
- */
-async function getUserEmbedding(userId) {
-  const supabase = createServerSupabaseClient();
-  
-  // Check if we have a cached user embedding
-  const userEmbeddingKey = `user:${userId}:embedding`;
-  const cachedEmbedding = await redis.get(userEmbeddingKey);
-  
-  if (cachedEmbedding) {
-    return cachedEmbedding;
-  }
-  
-  // Get posts that the user has liked or favorited
-  const { data: likedPosts, error: likesError } = await supabase
-    .from('votes')
-    .select('post_id')
-    .eq('user_id', userId)
-    .eq('vote_type', 'like')
-    .is('comment_id', null);
     
-  if (likesError) {
-    console.error('Error fetching liked posts:', likesError);
-    return null;
-  }
-  
-  const { data: favoritePosts, error: favsError } = await supabase
-    .from('favorites')
-    .select('post_id')
-    .eq('user_id', userId);
+    const recommendedPostIds = await getPersonalizedRecommendations(userId, recommendationOptions);
     
-  if (favsError) {
-    console.error('Error fetching favorite posts:', favsError);
-    return null;
-  }
-  
-  // Combine unique post IDs
-  const postIds = new Set();
-  
-  likedPosts?.forEach(item => postIds.add(item.post_id));
-  favoritePosts?.forEach(item => postIds.add(item.post_id));
-  
-  if (postIds.size === 0) {
-    return null;
-  }
-  
-  // Get embeddings for these posts
-  const { data: embeddings, error: embeddingError } = await supabase
-    .from('post_embeddings')
-    .select('embedding')
-    .in('post_id', Array.from(postIds))
-    .not('embedding', 'is', null);
-  
-  if (embeddingError || !embeddings || embeddings.length === 0) {
-    console.error('Error fetching post embeddings:', embeddingError);
-    return null;
-  }
-  
-  // Calculate average embedding
-  const averageEmbedding = calculateAverageEmbedding(
-    embeddings.map(item => item.embedding)
-  );
-  
-  // Cache user embedding
-  await redis.set(userEmbeddingKey, averageEmbedding, { ex: 60 * 60 * 24 }); // 24 hour cache
-  
-  return averageEmbedding;
-}
-
-/**
- * Calculates the average embedding from a list of embeddings
- * 
- * @param {Array<Array<number>>} embeddings - List of embedding vectors
- * @returns {Array<number>} - Average embedding vector
- */
-function calculateAverageEmbedding(embeddings) {
-  if (!embeddings || embeddings.length === 0) {
-    return null;
-  }
-  
-  const dimension = embeddings[0].length;
-  const result = new Array(dimension).fill(0);
-  
-  embeddings.forEach(embedding => {
-    for (let i = 0; i < dimension; i++) {
-      result[i] += embedding[i];
+    if (!recommendedPostIds || recommendedPostIds.length === 0) {
+      // Fallback to non-personalized recommendations if no embedding-based recommendations available
+      const { data: fallbackPosts, error: fallbackError } = await supabase
+        .from('posts')
+        .select('id, title, content, author_id, board_id, created_at, like_count, comment_count, view_count')
+        .eq('is_deleted', false)
+        .not('id', 'in', `(${excludePostIds.join(',')})`)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+        .range((page - 1) * limit, page * limit - 1);
+      
+      if (fallbackError) {
+        throw new Error(`Error fetching fallback posts: ${fallbackError.message}`);
+      }
+      
+      return new Response(JSON.stringify({
+        posts: fallbackPosts || [],
+        page,
+        limit,
+        total: fallbackPosts?.length || 0,
+        hasMore: (fallbackPosts?.length || 0) === limit,
+        isPersonalized: false,
+        message: 'No personalized recommendations available, showing recent posts instead'
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
-  });
-  
-  for (let i = 0; i < dimension; i++) {
-    result[i] /= embeddings.length;
+    
+    // Get the post IDs from the recommendations, sorted by similarity
+    const postIds = recommendedPostIds.map(rec => rec.post_id);
+    
+    // Fetch full post data for recommended posts
+    // Using direct select rather than 'in' for better control over order
+    const posts = [];
+    
+    // Create a lookup table for similarity scores
+    const similarityScores = Object.fromEntries(
+      recommendedPostIds.map(item => [item.post_id, item.similarity])
+    );
+    
+    // Fetch each post in batches of 10
+    const batchSize = 10;
+    for (let i = 0; i < postIds.length; i += batchSize) {
+      const batchIds = postIds.slice(i, i + batchSize);
+      
+      // If this batch is empty, continue to next batch
+      if (batchIds.length === 0) continue;
+      
+      const { data: batchPosts, error: batchError } = await supabase
+        .from('posts')
+        .select('id, title, content, author_id, board_id, created_at, like_count, comment_count, view_count, is_anonymous')
+        .in('id', batchIds)
+        .eq('is_deleted', false);
+      
+      if (batchError) {
+        console.error(`Error fetching batch posts:`, batchError);
+        continue;
+      }
+      
+      if (batchPosts && batchPosts.length > 0) {
+        // Add posts from this batch to the results
+        posts.push(...batchPosts);
+      }
+    }
+    
+    // Sort the posts by similarity score (same order as the recommendations)
+    posts.sort((a, b) => {
+      return (similarityScores[b.id] || 0) - (similarityScores[a.id] || 0);
+    });
+    
+    // Apply pagination to the sorted results
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedPosts = posts.slice(startIndex, endIndex);
+    
+    // Calculate if there are more results after this page
+    const hasMore = endIndex < posts.length;
+    
+    // Add the similarity scores to the response
+    const postsWithScores = paginatedPosts.map(post => ({
+      ...post,
+      similarity_score: similarityScores[post.id] || 0
+    }));
+    
+    return new Response(JSON.stringify({
+      posts: postsWithScores,
+      page,
+      limit,
+      total: posts.length,
+      hasMore,
+      isPersonalized: true
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+  } catch (error) {
+    console.error('Error getting post recommendations:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
-  
-  return result;
-}
-
-/**
- * Calculates cosine similarity between two vectors
- * 
- * @param {Array<number>} vec1 - First vector
- * @param {Array<number>} vec2 - Second vector
- * @returns {number} - Cosine similarity (0-1)
- */
-function calculateCosineSimilarity(vec1, vec2) {
-  if (!vec1 || !vec2 || vec1.length !== vec2.length) {
-    return 0;
-  }
-  
-  let dotProduct = 0;
-  let mag1 = 0;
-  let mag2 = 0;
-  
-  for (let i = 0; i < vec1.length; i++) {
-    dotProduct += vec1[i] * vec2[i];
-    mag1 += vec1[i] * vec1[i];
-    mag2 += vec2[i] * vec2[i];
-  }
-  
-  mag1 = Math.sqrt(mag1);
-  mag2 = Math.sqrt(mag2);
-  
-  if (mag1 === 0 || mag2 === 0) {
-    return 0;
-  }
-  
-  return dotProduct / (mag1 * mag2);
 }
