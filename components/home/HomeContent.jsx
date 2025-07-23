@@ -24,7 +24,7 @@ export default function HomeContent() {
       {/* 内容部分 */}
       <div className="grid md:grid-cols-3 gap-6">
         {/* 侧边栏 */}
-        <Sidebar isAuthenticated={isAuthenticated} />
+        <Sidebar isAuthenticated={isAuthenticated} userId={user?.id} />
         
         {/* 主要内容 */}
         <div className="md:col-span-2">

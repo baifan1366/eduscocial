@@ -422,6 +422,15 @@
     "connectWithCommunity": "Connect with Community",
     "welcome": "Welcome",
     "pageTitle": "EduSocial - Home",
-    "pageDescription": "Connect with your educational community"
+    "pageDescription": "Connect with your educational community",
+    "myBoard": "My Board",
+    "createNewBoard": "Create New Board",
+    "noBoard": "No board",
+    "loading": "Loading...",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "viewLess": "View Less",
+    "viewMore": "View More"
   }
 }

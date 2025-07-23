@@ -8,7 +8,7 @@ const useEditBoard = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ boardId, data }) => boardsApi.editBoard(boardId, data),
+        mutationFn: ({ boardId, data }) => boardsApi.editBoardByAdmin(boardId, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
         },

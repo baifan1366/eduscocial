@@ -16,7 +16,7 @@ const currentYear = new Date().getFullYear();
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="h-full">
-      <body className="min-h-screen flex flex-col bg-[#0A1929] text-white">
+      <body suppressHydrationWarning className="min-h-screen flex flex-col bg-[#0A1929] text-white">
         <div className="flex-grow">
           {children}
         </div>

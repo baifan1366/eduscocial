@@ -13,7 +13,7 @@ const useCreateBoard = (options = {}) => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (data) => boardsApi.createByAdmin(data),
+    mutationFn: (data) => boardsApi.createByUser(data),
     
     onSuccess: (data, variables, context) => {
       // Invalidate boards list queries to refetch with the new board

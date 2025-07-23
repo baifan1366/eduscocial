@@ -1,27 +1,27 @@
 'use client';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../ui/dialog';
-import { Input } from '../../ui/input';
-import { Textarea } from '../../ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
 import { Icon } from '@iconify/react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
-import { Checkbox } from '../../ui/checkbox';
-import { Button } from '../../ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Checkbox } from '../ui/checkbox';
+import { Button } from '../ui/button';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '../../ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '../ui/form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { SketchPicker } from 'react-color'
-import PreviewBoard from './PreviewBoard';
-import useCreateBoard from '@/hooks/admin/board/useCreateBoard';
+import PreviewBoard from '@/components/admin/boards/PreviewBoard';
+import useCreateBoard from '@/hooks/user/board/useCreateBoard';
 import useCheckBoardExists from '@/hooks/admin/board/useCheckBoardExists';
 import { debounce } from 'lodash';
 
-export default function CreateBoardDialog({ children, onBoardCreated }) {
+export default function CreateBoardDialog({ children, onSuccess }) {
     const [openDialog, setOpenDialog] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [boardNameToCheck, setBoardNameToCheck] = useState('');
@@ -124,8 +124,8 @@ export default function CreateBoardDialog({ children, onBoardCreated }) {
             toast.success(t('boardCreatedSuccessfully'));
             setOpenDialog(false);
             // 调用传入的回调函数以刷新表格
-            if (typeof onBoardCreated === 'function') {
-                onBoardCreated();
+            if (typeof onSuccess === 'function') {
+                onSuccess();
             }
         },
         onError: (error) => {
