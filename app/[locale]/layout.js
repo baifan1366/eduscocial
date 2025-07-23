@@ -14,7 +14,7 @@ export default async function LocaleLayout({ children, params }) {
       <ClientProviders>
         {/* NavbarWrapper will conditionally render the appropriate navbar */}
         <NavbarWrapper />
-        <main className="container mx-auto px-4 py-0 flex-grow min-h-screen">
+        <main className="container mx-auto px-4 py-0">
           {children}
         </main>
       </ClientProviders>
