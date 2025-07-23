@@ -5,17 +5,19 @@ import useGetBoards from '@/hooks/useGetBoards'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Search, VenetianMask, ListFilter, BookOpenCheck, CheckCircle, Globe, X, ScanEye, ArrowDownAZ, ArrowUpAZ, Plus, UserRound, Pen } from 'lucide-react'
+import { Search, VenetianMask, ListFilter, BookOpenCheck, CheckCircle, Globe, X, ScanEye, MoveUp, MoveDown, Plus, UserRound, Pen } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useTranslations } from 'next-intl'
 import CreateBoardDialog from './CreateBoardDialog'
 import { Badge } from '@/components/ui/badge'
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import EditBoardDialog from './EditBoardDialog' 
+import useUpdateBoardActiveStatus from '@/hooks/admin/board/useUpdateBoardActiveStatus'
 
 export default function DisplayAllBoards() {
-    const { data } = useGetBoards()
+    const { data, refetch } = useGetBoards()
     const boardsData = data?.boards || []
     const t = useTranslations('Board')
     const [search, setSearch] = useState('')
@@ -23,6 +25,7 @@ export default function DisplayAllBoards() {
     const [slugSort, setSlugSort] = useState('asc')
     const [createdAtSort, setCreatedAtSort] = useState('asc')
     const [currentSortField, setCurrentSortField] = useState('no') // Track which field is being sorted
+    const { mutate: updateBoardActiveStatus } = useUpdateBoardActiveStatus()
 
     const [filter, setFilter] = useState({
         language: 'all',
@@ -59,14 +62,6 @@ export default function DisplayAllBoards() {
         'true': true,
         'false': true
     })
-
-    const handleFilterChange = (key, value) => {
-        setFilter({ ...filter, [key]: value })
-    }
-
-    const removeFilter = (key) => {
-        setFilter({ ...filter, [key]: 'all' })
-    }
 
     // 处理多选切换
     const toggleLanguage = (lang) => {
@@ -139,12 +134,14 @@ export default function DisplayAllBoards() {
         }
     }
     
-    const toggleActive = (value) => {
-        setSelectedActive({
-            ...selectedActive,
-            [value]: !selectedActive[value]
-        })
-        
+    const toggleActive = (boardId, value) => {
+        // 更新后端状态
+        updateBoardActiveStatus({
+            boardId: boardId,
+            data: { is_active: value }
+        });
+
+        // 更新过滤状态（仅在从筛选器面板点击时使用）
         const newState = {...selectedActive, [value]: !selectedActive[value]};
         const allSelected = Object.values(newState).every(v => v);
         const noneSelected = Object.values(newState).every(v => !v);
@@ -290,9 +287,10 @@ export default function DisplayAllBoards() {
     return (
         <div className='w-full'>
             <div className='flex flex-col gap-4'>
-                <div className='flex items-center justify-between'>
-                    {/*filter language, visibility, status, anonymous, is_active, created at*/}
-                    <div className='flex items-center gap-2'>
+                <div className='flex items-center justify-between mb-2'>
+                    {/*左侧部分：筛选器和搜索栏*/}
+                    <div className='flex items-center gap-2 w-2/3'>
+                        {/*filter language, visibility, status, anonymous, is_active, created at*/}
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button variant='ghost'>
@@ -530,9 +528,7 @@ export default function DisplayAllBoards() {
                                 </div>
                             </PopoverContent>
                         </Popover>
-                    </div>
-                    {/*search bar*/}
-                    <div className='flex items-center gap-2 w-1/2'>
+
                         {/*搜索框带内置图标*/}
                         <div className="relative w-full">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
@@ -551,14 +547,16 @@ export default function DisplayAllBoards() {
                             )}
                         </div>
                     </div>
+
                     {/*create board button*/}   
-                    <div className='flex items-center gap-2'>
-                        <CreateBoardDialog>
+                    <div className='flex items-center'>
+                        <CreateBoardDialog onBoardCreated={() => refetch()}>
                             <Button 
                                 variant="orange"
                                 className="flex items-center gap-2"
                             >
                                 <Plus className="h-4 w-4" />
+                                {t('createBoard')}
                             </Button>
                         </CreateBoardDialog>
                     </div>
@@ -577,9 +575,9 @@ export default function DisplayAllBoards() {
                             <div className="flex items-center gap-1">
                                 {t('name')}
                                 {nameSort === 'asc' ? (
-                                    <ArrowUpAZ className="w-4 h-4 cursor-pointer" onClick={() => handleSort('name')} />
+                                    <MoveUp className="w-4 h-4 cursor-pointer" onClick={() => handleSort('name')} />
                                 ) : (
-                                    <ArrowDownAZ className="w-4 h-4 cursor-pointer" onClick={() => handleSort('name')} />
+                                    <MoveDown className="w-4 h-4 cursor-pointer" onClick={() => handleSort('name')} />
                                 )}
                             </div>
                         </TableHead>
@@ -587,9 +585,9 @@ export default function DisplayAllBoards() {
                             <div className="flex items-center gap-1">
                                 {t('slug')}
                                 {slugSort === 'asc' ? (
-                                    <ArrowUpAZ className="w-4 h-4 cursor-pointer" onClick={() => handleSort('slug')} />
+                                    <MoveUp className="w-4 h-4 cursor-pointer" onClick={() => handleSort('slug')} />
                                 ) : (
-                                    <ArrowDownAZ className="w-4 h-4 cursor-pointer" onClick={() => handleSort('slug')} />
+                                    <MoveDown className="w-4 h-4 cursor-pointer" onClick={() => handleSort('slug')} />
                                 )}
                             </div>
                         </TableHead>
@@ -609,9 +607,9 @@ export default function DisplayAllBoards() {
                             <div className="flex items-center gap-1">
                                 {t('createdAt')}
                                 {createdAtSort === 'asc' ? (
-                                    <ArrowUpAZ className="w-4 h-4 cursor-pointer" onClick={() => handleSort('created_at')} />
+                                    <MoveUp className="w-4 h-4 cursor-pointer" onClick={() => handleSort('created_at')} />
                                 ) : (
-                                    <ArrowDownAZ className="w-4 h-4 cursor-pointer" onClick={() => handleSort('created_at')} />
+                                    <MoveDown className="w-4 h-4 cursor-pointer" onClick={() => handleSort('created_at')} />
                                 )}
                             </div>
                         </TableHead>
@@ -624,16 +622,40 @@ export default function DisplayAllBoards() {
                     {sortedBoards.map((board, index) => (
                         <TableRow key={board.id}>
                             <TableCell>{index + 1}</TableCell>
-                            <TableCell className='flex items-center gap-2'>
-                                {board.anonymous ? <VenetianMask className='w-4 h-4 text-green-500' /> : <UserRound className='w-4 h-4 text-red-500' />}
-                                {board.name}
+                            <TableCell>
+                                <div className="flex items-center w-full">
+                                    {board.anonymous ? (
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <VenetianMask className='w-4 h-4 text-green-500' />
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    {t('anonymousBoard')}
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    ) : (
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <UserRound className='w-4 h-4 text-red-500' />
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    {t('nonAnonymousBoard')}
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    )}
+                                    <span className="ml-2">{board.name}</span>
+                                </div>
                             </TableCell>
                             <TableCell>{board.slug}</TableCell>
                             <TableCell>
                                 {board.language === 'zh-TW' ? t('chinese') : t('english')}
                             </TableCell>
                             <TableCell>
-                                <Badge variant={board.visibility === 'public' ? 'default' : 'secondary'}>
+                                <Badge variant={board.visibility === 'public' ? 'public' : 'private'}>
                                     {board.visibility === 'public' ? t('public') : t('private')}
                                 </Badge>
                             </TableCell>
@@ -643,15 +665,21 @@ export default function DisplayAllBoards() {
                                 </Badge>
                             </TableCell>
                             <TableCell>
-                                <Switch checked={board.is_active} />
+                                <Switch 
+                                    checked={board.is_active} 
+                                    onCheckedChange={() => toggleActive(board.id, !board.is_active)}
+                                    
+                                />
                             </TableCell>
                             <TableCell>
                                 {formatCreatedAt(board.created_at)}
                             </TableCell>
                             <TableCell>
-                                <Button variant='ghost'>
-                                    <Pen className='w-4 h-4' />
-                                </Button>
+                                <EditBoardDialog boardId={board.id}>
+                                    <Button variant='ghost'>
+                                        <Pen className='w-4 h-4' />
+                                    </Button>
+                                </EditBoardDialog>
                             </TableCell>
                         </TableRow>
                     ))}
