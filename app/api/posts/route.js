@@ -1,164 +1,197 @@
-import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase';
-import { getServerSession } from '@/lib/auth/serverAuth';
-import redis from '@/lib/redis/redis';
+import { createClient } from '@supabase/supabase-js';
+import { getUserFromToken } from '@/lib/auth/serverAuth';
+import { bufferUserAction } from '@/lib/redis/redisUtils';
+import qstashClient from '@/lib/qstash';
 import { generateEmbedding } from '@/lib/embedding';
-import { processPostHashtags } from '@/lib/hashtags';
+import { checkContentViolations } from '@/lib/moderation';
+
+// Initialize Supabase client
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ?
+  createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
+
+// Field validation schema
+const requiredFields = ['title', 'content'];
+const optionalFields = ['board_id', 'is_anonymous', 'post_type', 'scheduled_publish_at'];
 
 /**
  * POST handler for creating a new post
  * 
- * Request body should include:
- * - title: string
- * - content: string
- * - board_id: UUID
- * - is_anonymous: boolean (optional, default: false)
- * - post_type: string (optional, default: 'general')
- * - scheduled_publish_at: ISO date string (optional)
- * - hashtags: string[] (optional) - Array of hashtags
+ * Authentication: Requires valid JWT token
+ * Validation: Validates required fields and checks for content violations
+ * Processing: Creates pending post, logs user action, schedules moderation task
+ * Response: 201 Created with post ID on success
  */
 export async function POST(request) {
   try {
-    // Authenticate the user
-    const session = await getServerSession();
+    // 1. JWT Authentication: Get user from token
+    const user = await getUserFromToken(request);
     
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    if (!user || !user.id) {
+      return new Response(JSON.stringify({ 
+        error: 'Unauthorized: Valid authentication required'
+      }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
-    // Parse request body
-    const body = await request.json();
+    // 2. Parse and validate request body
+    let postData;
+    try {
+      postData = await request.json();
+    } catch (error) {
+      return new Response(JSON.stringify({ 
+        error: 'Invalid JSON payload'
+      }), { 
+        status: 400, 
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
     
     // Validate required fields
-    if (!body.title || !body.title.trim()) {
-      return NextResponse.json(
-        { error: 'Title is required' },
-        { status: 400 }
-      );
+    for (const field of requiredFields) {
+      if (!postData[field]) {
+        return new Response(JSON.stringify({ 
+          error: `Missing required field: ${field}`
+        }), { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     }
     
-    if (!body.content || !body.content.trim()) {
-      return NextResponse.json(
-        { error: 'Content is required' },
-        { status: 400 }
-      );
+    // 3. Check for content violations
+    const violationsCheck = await checkContentViolations({
+      title: postData.title,
+      content: postData.content
+    });
+    
+    if (violationsCheck.hasViolations) {
+      return new Response(JSON.stringify({ 
+        error: 'Content contains prohibited material',
+        violations: violationsCheck.violations
+      }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
-    if (!body.board_id) {
-      return NextResponse.json(
-        { error: 'Board ID is required' },
-        { status: 400 }
-      );
-    }
-    
-    // Initialize Supabase client
-    const supabase = createServerSupabaseClient();
-    
-    // Determine if post should be draft based on scheduled_publish_at
-    const now = new Date();
-    const scheduledDate = body.scheduled_publish_at ? new Date(body.scheduled_publish_at) : null;
-    const isDraft = scheduledDate && scheduledDate > now;
-    
-    // Prepare post data
-    const postData = {
-      title: body.title.trim(),
-      content: body.content.trim(),
-      author_id: session.user.id,
-      board_id: body.board_id,
-      is_anonymous: body.is_anonymous || false,
-      post_type: body.post_type || 'general',
-      is_draft: isDraft,
-      scheduled_publish_at: body.scheduled_publish_at || null,
-      created_by: session.user.id,
-      // Include other fields from body as needed
+    // 4. Prepare post data for insertion
+    const newPost = {
+      title: postData.title,
+      content: postData.content,
+      author_id: user.id,
+      created_by: user.id,
+      board_id: postData.board_id || null,
+      is_anonymous: postData.is_anonymous || false,
+      post_type: postData.post_type || 'general',
+      status: 'pending', // All posts start in pending status for moderation
+      is_deleted: false,
+      is_draft: false,
+      scheduled_publish_at: postData.scheduled_publish_at || null,
+      language: postData.language || 'zh-TW'
     };
     
-    // Insert post into database
-    const { data: post, error: postError } = await supabase
+    // 5. Insert post into database
+    const { data: post, error: insertError } = await supabase
       .from('posts')
-      .insert(postData)
-      .select('*')
+      .insert(newPost)
+      .select()
       .single();
     
-    if (postError) {
-      console.error('Error creating post:', postError);
-      return NextResponse.json(
-        { error: 'Failed to create post' },
-        { status: 500 }
-      );
+    if (insertError) {
+      console.error('Error creating post:', insertError);
+      return new Response(JSON.stringify({ 
+        error: 'Failed to create post',
+        details: insertError.message
+      }), { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
-    // Process hashtags if provided
-    if (body.hashtags && Array.isArray(body.hashtags) && body.hashtags.length > 0) {
-      try {
-        await processPostHashtags(post.id, body.hashtags, session.user.id);
-      } catch (hashtagError) {
-        console.error('Error processing hashtags:', hashtagError);
-        // Continue with post creation even if hashtag processing fails
-      }
-    }
+    const postId = post.id;
     
-    // Generate and store embedding if post is published immediately
-    if (!isDraft) {
-      try {
-        const embedding = await generateEmbedding(`${post.title} ${post.content}`);
-        
-        if (embedding) {
-          const { error: embeddingError } = await supabase
-            .from('post_embeddings')
-            .insert({
-              post_id: post.id,
-              embedding,
-              model_version: 'intfloat/e5-small' // Updated model version
-            });
-          
-          if (embeddingError) {
-            console.error('Error storing embedding:', embeddingError);
-          }
-        }
-      } catch (embeddingError) {
-        console.error('Error generating embedding:', embeddingError);
-        // Continue without embedding if there's an error
-      }
+    // 6. Generate embedding for the post (async)
+    try {
+      const combinedContent = `${post.title} ${post.content}`;
+      const embedding = await generateEmbedding(combinedContent);
       
-      // Invalidate Redis cache for user feed
-      try {
-        await redis.del(`user:${session.user.id}:feed`);
-        
-        // Also invalidate feed caches for followers if needed
-        const { data: followers } = await supabase
-          .from('followers')
-          .select('follower_id')
-          .eq('following_id', session.user.id);
-        
-        if (followers && followers.length > 0) {
-          const followerIds = followers.map(f => f.follower_id);
-          
-          // Delete cache for each follower
-          await Promise.all(
-            followerIds.map(id => redis.del(`user:${id}:feed`))
-          );
-        }
-      } catch (cacheError) {
-        console.error('Error invalidating cache:', cacheError);
+      if (embedding) {
+        // Store the embedding
+        await supabase
+          .from('post_embeddings')
+          .insert({
+            post_id: postId,
+            embedding: embedding,
+            model_version: 'v1'
+          });
       }
+    } catch (embeddingError) {
+      // Don't fail the request if embedding generation fails
+      console.error('Error generating post embedding:', embeddingError);
     }
     
-    // Return success response with created post
-    return NextResponse.json({
-      message: isDraft ? 'Post scheduled successfully' : 'Post created successfully',
-      post,
-      is_scheduled: isDraft
+    // 7. Log user action in Redis
+    await bufferUserAction(
+      user.id, 
+      'create_post', 
+      'posts', 
+      postId, 
+      null, 
+      {
+        title: post.title,
+        board_id: post.board_id
+      }
+    );
+    
+    // 8. Send content for moderation via QStash
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    await qstashClient.publishJSON({
+      url: `${baseUrl}/api/audit/text/moderate`,
+      body: {
+        content_id: postId,
+        content_type: 'post',
+        user_id: user.id,
+        text: `${post.title}\n${post.content}`,
+        metadata: {
+          board_id: post.board_id,
+          post_type: post.post_type
+        }
+      }
+    });
+    
+    // 9. Return success response
+    return new Response(JSON.stringify({
+      post_id: postId,
+      status: post.status,
+      message: 'Post created successfully and submitted for moderation'
+    }), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' }
     });
     
   } catch (error) {
-    console.error('Error creating post:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Error in post creation:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Internal server error', 
+      message: error.message 
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
+}
+
+/**
+ * GET handler for retrieving posts
+ * This is a placeholder for the GET implementation
+ */
+export async function GET(request) {
+  return new Response(JSON.stringify({ 
+    message: 'Use POST to create a new post'
+  }), { 
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
 }

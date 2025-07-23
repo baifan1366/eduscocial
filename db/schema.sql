@@ -77,6 +77,10 @@ CREATE TABLE users (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+<<<<<<< HEAD
+-- User profiles table for extended profile information
+=======
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 CREATE TABLE user_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -88,8 +92,13 @@ CREATE TABLE user_profiles (
     favorite_quotes TEXT,
     favorite_country TEXT,
     daily_active_time TEXT CHECK (daily_active_time IN ('morning', 'afternoon', 'evening', 'night', 'varies')),
+<<<<<<< HEAD
+    study_abroad TEXT NOT NULL,
+    leisure_activities TEXT NOT NULL,
+=======
     study_abroad TEXT NULL,
     leisure_activities TEXT NULL,
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
@@ -286,6 +295,16 @@ CREATE TABLE anonymous_avatars (
   created_by UUID REFERENCES users(id)
 );
 
+CREATE TABLE anonymous_avatars (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  avatar_url TEXT NOT NULL,
+  description TEXT,
+  is_premium_only BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -359,7 +378,11 @@ CREATE TABLE subscriptions (
   status TEXT NOT NULL CHECK(status IN ('active','cancelled','expired')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
+<<<<<<< HEAD
+  created_by UUID REFERENCES users(id)
+=======
   created_by UUID REFERENCES admin_users(id)
+>>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 );
 
 CREATE TABLE store_products (
@@ -956,4 +979,37 @@ CREATE TABLE user_report_history (
     status TEXT DEFAULT 'submitted' CHECK (status IN ('submitted', 'cancelled')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE user_embeddings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  embedding vector(384), -- 根据你的 embedding 模型调整维度
+  model_version TEXT NOT NULL,
+  generated_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+  UNIQUE(user_id)
+);
+
+CREATE TABLE post_visibility_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  action TEXT NOT NULL CHECK (action IN ('visible', 'hidden', 'boosted', 'demoted')),
+  reason TEXT,
+  weight_change FLOAT,
+  triggered_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE moderation_audit_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  content_type TEXT NOT NULL CHECK (content_type IN ('post', 'comment', 'media')),
+  content_id UUID NOT NULL,
+  moderation_type TEXT NOT NULL CHECK (moderation_type IN ('text', 'video', 'image', 'audio')),
+  model_name TEXT,
+  result_status TEXT CHECK (result_status IN ('flagged', 'safe', 'manual_review')),
+  flagged_categories TEXT[],
+  confidence_scores JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
