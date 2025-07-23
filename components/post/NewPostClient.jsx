@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useAuth from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { useCreatePost, useSaveDraft } from '@/hooks/useNewPost';
+import { useCreatePost, useSaveDraft, useGetDraft } from '@/hooks/useNewPost';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,30 +13,70 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
-import { Image, Camera, FileText, Info, Edit, ChevronDown } from 'lucide-react';
+import { Image, Camera, FileText, Info, Edit, ChevronDown, Save, AlertCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 export default function NewPostClient() {
+  const t = useTranslations('NewPost');
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('文章');
-  const [selectedBoard, setSelectedBoard] = useState('点此选择文章看板');
+  const [activeTab, setActiveTab] = useState('general');
+  const [selectedBoard, setSelectedBoard] = useState(t('selectBoard'));
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [showTooltip, setShowTooltip] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+
+  // Fetch existing draft if available
+  const { data: draft, isLoading: isDraftLoading } = useGetDraft(activeTab, {
+    enabled: isAuthenticated && !draftLoaded,
+    onSuccess: (data) => {
+      if (data && !draftLoaded) {
+        setTitle(data.title || '');
+        setContent(data.content || '');
+        if (data.template) {
+          setSelectedBoard(data.template);
+        }
+        setDraftLoaded(true);
+        setLastSaved(new Date(data.updated_at));
+        toast.info(t('draftLoaded'), {
+          description: t('continueDraft'),
+          duration: 3000,
+        });
+      }
+    }
+  });
 
   const { mutate: createPost, isPending: isSubmitting } = useCreatePost();
   const { mutate: saveDraft, isPending: isSavingDraft } = useSaveDraft();
 
-  const tabs = ['文章', '图片', '影片', '发起投票'];
+  const tabs = [t('article'), t('picture'), t('video'), t('poll')];
+
+  // Auto-save draft at regular intervals if enabled
+  useEffect(() => {
+    let autoSaveInterval;
+    if (autoSaveEnabled && (title.trim() || content.trim())) {
+      autoSaveInterval = setInterval(() => {
+        handleSaveDraft(true);
+      }, 30000); // Auto-save every 30 seconds
+    }
+    return () => {
+      if (autoSaveInterval) {
+        clearInterval(autoSaveInterval);
+      }
+    };
+  }, [autoSaveEnabled, title, content, selectedBoard]);
 
   const handleSubmit = () => {
     if (!title.trim()) {
-      toast.error('请输入标题');
+      toast.error(t('titleRequired'));
       return;
     }
 
     if (!content.trim()) {
-      toast.error('请输入内容');
+      toast.error(t('contentRequired'));
       return;
     }
 
@@ -44,17 +84,46 @@ export default function NewPostClient() {
       title: title.trim(),
       content: content.trim(),
       type: activeTab,
-      board: selectedBoard !== '点此选择文章看板' ? selectedBoard : null,
+      board: selectedBoard !== t('selectBoard') ? selectedBoard : null,
     };
 
     createPost(postData, {
       onSuccess: () => {
-        toast.success('发布成功！');
+        toast.success(t('publishSuccess'));
         router.push('/my');
       },
       onError: (error) => {
         console.error('Error creating post:', error);
-        toast.error('发布失败，请重试');
+        toast.error(t('publishError'));
+      }
+    });
+  };
+
+  const handleSaveDraft = (silent = false) => {
+    if (!title.trim() && !content.trim()) {
+      // Don't save empty drafts
+      return;
+    }
+
+    const draftData = {
+      title: title.trim(),
+      content: content.trim(),
+      type: activeTab,
+      template: selectedBoard !== t('selectBoard') ? selectedBoard : null,
+    };
+
+    saveDraft(draftData, {
+      onSuccess: (data) => {
+        setLastSaved(new Date());
+        if (!silent) {
+          toast.success(t('draftSaved'));
+        }
+      },
+      onError: (error) => {
+        console.error('Error saving draft:', error);
+        if (!silent) {
+          toast.error(t('draftSaveError'));
+        }
       }
     });
   };
@@ -65,12 +134,12 @@ export default function NewPostClient() {
 
   const handleNext = () => {
     if (!title.trim()) {
-      toast.error('请输入标题');
+      toast.error(t('titleRequired'));
       return;
     }
 
     if (!content.trim()) {
-      toast.error('请输入内容');
+      toast.error(t('contentRequired'));
       return;
     }
 
@@ -80,10 +149,10 @@ export default function NewPostClient() {
 
   const navigateToTab = (tab) => {
     const tabRoutes = {
-      '文章': '/newpost',
-      '图片': '/newpost/picture',
-      '影片': '/newpost/video',
-      '发起投票': '/newpost/poll'
+      [t('article')]: '/newpost',
+      [t('picture')]: '/newpost/picture',
+      [t('video')]: '/newpost/video',
+      [t('poll')]: '/newpost/poll'
     };
 
     const locale = window.location.pathname.split('/')[1];
@@ -114,6 +183,13 @@ export default function NewPostClient() {
 
       {/* 主要内容区域 */}
       <div className="max-w-4xl mx-auto p-4 ">
+        {isDraftLoading && (
+          <div className="mb-4 p-2 bg-blue-900/30 text-blue-200 rounded flex items-center gap-2">
+            <AlertCircle size={16} />
+            <span>{t('loadingDraft')}</span>
+          </div>
+        )}
+        
         {/* 顶部控制区域 */}
         <Card className="mb-4">
           <CardContent className="p-4">
@@ -121,19 +197,19 @@ export default function NewPostClient() {
               <div className="flex items-center space-x-2">
                 <Select value={selectedBoard} onValueChange={setSelectedBoard}>
                   <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="点此选择文章看板" />
+                    <SelectValue placeholder={t('selectBoard')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="点此选择文章看板">点此选择文章看板</SelectItem>
-                    <SelectItem value="学习讨论">学习讨论</SelectItem>
-                    <SelectItem value="生活分享">生活分享</SelectItem>
-                    <SelectItem value="技术交流">技术交流</SelectItem>
-                    <SelectItem value="求助问答">求助问答</SelectItem>
+                    <SelectItem value={t('selectBoard')}>{t('selectBoard')}</SelectItem>
+                    <SelectItem value={t('studyDiscussion')}>{t('studyDiscussion')}</SelectItem>
+                    <SelectItem value={t('lifeSharing')}>{t('lifeSharing')}</SelectItem>
+                    <SelectItem value={t('techExchange')}>{t('techExchange')}</SelectItem>
+                    <SelectItem value={t('helpQA')}>{t('helpQA')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex items-center space-x-2 text-muted-foreground">
-                <span className="text-sm">发文规则</span>
+                <span className="text-sm">{t('postRules')}</span>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -145,7 +221,7 @@ export default function NewPostClient() {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
-                    <p>选择卡牌可在下一步文章设定<br />开启私讯功能！</p>
+                    <p>{t('cardSelectHint')}</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -170,7 +246,7 @@ export default function NewPostClient() {
                     <Button variant="ghost" className="p-0 h-auto hover:bg-transparent">
                       <div className="flex items-center space-x-2">
                         <span className="text-white font-medium">
-                          {user?.name || user?.username || '选择发文身份'}
+                          {user?.name || user?.username || t('selectIdentity')}
                         </span>
                         <ChevronDown className="w-4 h-4 text-muted-foreground" />
                       </div>
@@ -178,18 +254,18 @@ export default function NewPostClient() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
                     <DropdownMenuItem>
-                      <span>{user?.name || user?.username || '默认身份'}</span>
+                      <span>{user?.name || user?.username || t('defaultIdentity')}</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem>
-                      <span>匿名发布</span>
+                      <span>{t('anonymousPost')}</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem>
-                      <span>学生身份</span>
+                      <span>{t('studentIdentity')}</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {new Date().toLocaleDateString('zh-CN', {
+                  {new Date().toLocaleDateString(t('locale'), {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -204,7 +280,7 @@ export default function NewPostClient() {
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <Label htmlFor="title" className="text-white font-medium">
-                  标题
+                  {t('title')}
                 </Label>
                 <Button variant="ghost" size="sm" className="p-1 h-auto">
                   <Edit className="w-4 h-4" />
@@ -215,7 +291,7 @@ export default function NewPostClient() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="请输入标题"
+                placeholder={t('enterTitle')}
                 maxLength={80}
                 className="w-full"
               />
@@ -225,16 +301,23 @@ export default function NewPostClient() {
             {/* 内容输入框 */}
             <div className="mb-4">
               <Label htmlFor="content" className="text-white font-medium mb-2 block">
-                叙述
+                {t('content')}
               </Label>
               <Textarea
                 id="content"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="请输入内容..."
+                placeholder={t('enterContent')}
                 className="min-h-[256px] resize-none"
               />
             </div>
+
+            {/* 显示上次保存时间 */}
+            {lastSaved && (
+              <div className="text-xs text-muted-foreground text-right">
+                {t('lastSaved')}: {lastSaved.toLocaleTimeString()}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -252,6 +335,16 @@ export default function NewPostClient() {
                 <Button variant="ghost" size="sm" className="p-2">
                   <FileText className="w-5 h-5" />
                 </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="p-2"
+                  onClick={() => handleSaveDraft(false)}
+                  disabled={isSavingDraft || (!title.trim() && !content.trim())}
+                >
+                  <Save className="w-5 h-5" />
+                  <span className="ml-1">{t('saveDraft')}</span>
+                </Button>
               </div>
               <div className="flex items-center space-x-3">
                 <Button
@@ -259,14 +352,14 @@ export default function NewPostClient() {
                   onClick={handleCancel}
                   disabled={isSubmitting}
                 >
-                  取消
+                  {t('cancel')}
                 </Button>
                 <Button
                   variant="orange"
                   onClick={handleNext}
                   disabled={isSubmitting || !title.trim() || !content.trim()}
                 >
-                  {isSubmitting ? '发布中...' : '下一步'}
+                  {isSubmitting ? t('publishing') : t('nextStep')}
                 </Button>
               </div>
             </div>

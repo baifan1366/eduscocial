@@ -1,49 +1,126 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { createClient } from '@supabase/supabase-js';
+import { getServerSession } from '@/lib/auth/serverAuth';
+import { supabase } from '@/lib/supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+export async function GET(request) {
+  try {
+    // Use getServerSession for authentication
+    const session = await getServerSession();
+    
+    if (!session || !session.user || !session.user.id) {
+      return NextResponse.json({ 
+        error: 'Unauthorized: Valid authentication required'
+      }, { 
+        status: 401
+      });
+    }
+
+    // Get query params
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type') || 'general';
+
+    // Fetch the user's most recent draft of the specified type
+    const { data: draft, error } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('author_id', session.user.id)
+      .eq('status', 'pending')
+      .eq('is_draft', true)
+      .eq('post_type', type)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Database error:', error);
+      return NextResponse.json({ 
+        error: 'Failed to fetch draft',
+        details: error.message
+      }, { 
+        status: 500
+      });
+    }
+
+    // If no draft found
+    if (!draft) {
+      return NextResponse.json({ 
+        success: true,
+        data: null,
+        message: 'No draft found' 
+      }, { 
+        status: 200
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: draft,
+      message: 'Draft retrieved successfully'
+    }, { 
+      status: 200
+    });
+
+  } catch (error) {
+    console.error('API error:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error.message
+    }, { 
+      status: 500
+    });
+  }
+}
 
 export async function POST(request) {
   try {
-    const session = await getServerSession(authOptions);
+    // Use getServerSession for authentication
+    const session = await getServerSession();
     
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session || !session.user || !session.user.id) {
+      return NextResponse.json({ 
+        error: 'Unauthorized: Valid authentication required'
+      }, { 
+        status: 401
+      });
     }
 
     const body = await request.json();
-    const { title, content, type = 'article', template = null } = body;
+    const { title, content, type = 'general', template = null } = body;
 
     // For drafts, we allow empty title and content
     const draftData = {
       title: title?.trim() || '',
       content: content?.trim() || '',
-      type,
+      post_type: type,
       template,
       author_id: session.user.id,
-      status: 'draft',
+      status: 'pending',
+      is_draft: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
 
     // Check if there's an existing draft for this user
-    const { data: existingDraft } = await supabase
+    const { data: existingDraft, error: queryError } = await supabase
       .from('posts')
       .select('id')
       .eq('author_id', session.user.id)
-      .eq('status', 'draft')
-      .eq('type', type)
+      .eq('status', 'pending')
+      .eq('is_draft', true)
+      .eq('post_type', type)
       .order('updated_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
+
+    if (queryError) {
+      console.error('Query error:', queryError);
+      return NextResponse.json({ 
+        error: 'Failed to check for existing drafts',
+        details: queryError.message
+      }, { 
+        status: 500
+      });
+    }
 
     let result;
     if (existingDraft) {
@@ -62,10 +139,12 @@ export async function POST(request) {
 
       if (error) {
         console.error('Database error:', error);
-        return NextResponse.json(
-          { error: 'Failed to update draft' },
-          { status: 500 }
-        );
+        return NextResponse.json({ 
+          error: 'Failed to update draft',
+          details: error.message
+        }, { 
+          status: 500
+        });
       }
 
       result = updatedDraft;
@@ -79,10 +158,12 @@ export async function POST(request) {
 
       if (error) {
         console.error('Database error:', error);
-        return NextResponse.json(
-          { error: 'Failed to save draft' },
-          { status: 500 }
-        );
+        return NextResponse.json({ 
+          error: 'Failed to save draft',
+          details: error.message
+        }, { 
+          status: 500
+        });
       }
 
       result = newDraft;
@@ -92,13 +173,17 @@ export async function POST(request) {
       success: true,
       data: result,
       message: 'Draft saved successfully'
+    }, { 
+      status: 200
     });
 
   } catch (error) {
     console.error('API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error.message
+    }, { 
+      status: 500
+    });
   }
 }
