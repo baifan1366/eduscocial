@@ -181,7 +181,13 @@ export async function middleware(request) {
       
       // 如果当前URL与来源URL相同，可能存在循环
       if (referer === currentUrl) {
-        return NextResponse.redirect(new URL(`/${locale}/error?code=auth_required`, request.url));
+        if(isAdminRoute) {
+          return NextResponse.redirect(new URL(`/${locale}/admin/login`, request.url));
+        } else if (isBusinessRoute) {
+          return NextResponse.redirect(new URL(`/${locale}/business/login`, request.url));
+        } else {
+          return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+        }
       }
       
       // 选择重定向目标
@@ -232,16 +238,16 @@ export async function middleware(request) {
     }
     
     // 检查管理员权限
-    if (isAdminRoute && tokenData.role !== 'ADMIN') {
+    if (isAdminRoute && tokenData.role !== 'admin') {
       return NextResponse.redirect(
-        new URL(`/${locale}/unauthorized`, request.url)
+        new URL(`/${locale}/admin/login`, request.url)
       );
     }
     
     // 检查商家权限
     if (isBusinessRoute && tokenData.role !== 'business') {
       return NextResponse.redirect(
-        new URL(`/${locale}/unauthorized`, request.url)
+        new URL(`/${locale}/business/login`, request.url)
       );
     }
     

@@ -1,10 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
-import { Label } from '../../ui/label';
 import { useAdminLogin } from '../../../hooks/useAuth';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -14,48 +11,30 @@ import { Eye, EyeOff, Shield, Lock, User, AlertCircle } from 'lucide-react';
 export default function AdminAuthForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState(null);
   const [inputError, setInputError] = useState('');
-  const router = useRouter();
-  const { login, isLoading, error } = useAdminLogin();  
+  const [loginError, setLoginError] = useState(null);
+  const { login, isLoading, error, isSuccess } = useAdminLogin();  
   const t = useTranslations('auth');
   const [showPassword, setShowPassword] = useState(false);
+
+  // 监听登录状态变化
+  useEffect(() => {
+    if (error) {
+      setLoginError(error);
+    }
+  }, [error]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setInputError('');
     setLoginError(null);
     
-    try {
-      if (!email || !password) {
-        setInputError(t('emailAndPasswordRequired'));
-        return;
-      }
-      
-      // 调用管理员登录API
-      const result = await login(email, password);
-      
-      if (result.success) {
-        // 额外确保本地存储中有用户信息
-        if (typeof window !== 'undefined' && result.user) {
-          try {
-            localStorage.setItem('adminUser', JSON.stringify({
-              ...result.user,
-              name: result.user.name || email.split('@')[0] || 'Admin User'
-            }));
-          } catch (e) {
-            console.error('Failed to store admin user:', e);
-          }
-        }
-      } else {
-        setError(result.error || t('loginFailed'));
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      setError(error.message || t('unexpectedError'));
-    } finally {
-      setIsLoading(false);
+    if (!email || !password) {
+      setInputError(t('emailAndPasswordRequired'));
+      return;
     }
+    
+    login({ email, password });
   };
 
   return (
@@ -89,10 +68,10 @@ export default function AdminAuthForm() {
           </CardHeader>
           
           <CardContent>
-            {error && (
+            {(error || loginError) && (
               <div className="mb-6 p-3 bg-red-500/20 border border-red-500 text-white rounded flex items-center">
                 <AlertCircle className="h-5 w-5 mr-2 text-red-500" />
-                {error}
+                {error || loginError}
               </div>
             )}
             

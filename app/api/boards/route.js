@@ -10,30 +10,54 @@ export async function GET(request) {
     const searchParams = new URL(request.url).searchParams;
     
     // 提取查询参数
-    const orderBy = searchParams.get('orderBy') || 'name';
+    const orderBy = searchParams.get('orderBy') || 'id';
     const orderDirection = searchParams.get('orderDirection') || 'asc';
-    const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const limit = parseInt(searchParams.get('limit') || '100', 10); 
     const offset = parseInt(searchParams.get('offset') || '0', 10);
     
     // 构建查询
     let query = supabase
       .from('boards')
-      .select('id, name, slug, description, post_count, last_activity')
+      .select('id, name, slug, description, color, icon, visibility, status, anonymous, is_active, sort_order, created_at, created_by, created_by_type, updated_at, language')
       .order(orderBy, { ascending: orderDirection === 'asc' })
       .limit(limit)
       .range(offset, offset + limit - 1);
     
     // 添加可选的过滤条件
-    if (searchParams.has('active')) {
-      query = query.eq('is_active', searchParams.get('active') === 'true');
+    if(searchParams.has('status')){
+      query = query.eq('status', searchParams.get('status'));
     }
-    
-    if (searchParams.has('featured')) {
-      query = query.eq('is_featured', searchParams.get('featured') === 'true');
+
+    if(searchParams.has('language')){
+      query = query.eq('language', searchParams.get('language'));
     }
-    
-    if (searchParams.has('category')) {
-      query = query.eq('category', searchParams.get('category'));
+
+    if(searchParams.has('visibility')){
+      query = query.eq('visibility', searchParams.get('visibility'));
+    }
+
+    if(searchParams.has('anonymous')){
+      query = query.eq('anonymous', searchParams.get('anonymous'));
+    }
+
+    if(searchParams.has('is_active')){
+      query = query.eq('is_active', searchParams.get('is_active'));
+    }
+
+    if(searchParams.has('sort_order')){
+      query = query.eq('sort_order', searchParams.get('sort_order'));
+    } 
+
+    if(searchParams.has('created_by')){
+      query = query.eq('created_by', searchParams.get('created_by'));
+    }
+
+    if(searchParams.has('created_by_type')){
+      query = query.eq('created_by_type', searchParams.get('created_by_type'));
+    }
+
+    if(searchParams.has('updated_at')){
+      query = query.eq('updated_at', searchParams.get('updated_at'));
     }
     
     // 执行查询

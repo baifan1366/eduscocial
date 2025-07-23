@@ -17,12 +17,28 @@ import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { SketchPicker } from 'react-color'
 import PreviewBoard from './PreviewBoard';
-import useCreateBoard from '@/hooks/admin/useCreateBoard';
+import useCreateBoard from '@/hooks/admin/board/useCreateBoard';
+import useCheckBoardExists from '@/hooks/admin/board/useCheckBoardExists';
+import { debounce } from 'lodash';
 
-export default function CreateBoardDialog({ children }) {
+export default function CreateBoardDialog({ children, onBoardCreated }) {
     const [openDialog, setOpenDialog] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);
+    const [boardNameToCheck, setBoardNameToCheck] = useState('');
     const t = useTranslations('Board');
+
+    // 使用自定义钩子检查板块名称是否存在
+    const { data: boardExistsData, isLoading: isCheckingBoardName } = useCheckBoardExists({
+        boardName: boardNameToCheck,
+        enabled: !!boardNameToCheck && boardNameToCheck.length > 0
+    });
+
+    // debounce函数，延迟检查板块名称
+    const debouncedCheckBoardName = debounce((name) => {
+        if (name && name.trim().length > 0) {
+            setBoardNameToCheck(name.trim());
+        }
+    }, 500);
 
     //set slug url bsed on board name
     //replace the empty space to -
@@ -98,6 +114,7 @@ export default function CreateBoardDialog({ children }) {
                 visibility: 'private',   
                 anonymousPost: false,
             });
+            setBoardNameToCheck('');
         }
     }, [openDialog, form]);
 
@@ -106,13 +123,34 @@ export default function CreateBoardDialog({ children }) {
         onSuccess: () => {
             toast.success(t('boardCreatedSuccessfully'));
             setOpenDialog(false);
+            // 调用传入的回调函数以刷新表格
+            if (typeof onBoardCreated === 'function') {
+                onBoardCreated();
+            }
         },
-        onError: () => {
-            toast.error(t('boardCreationFailed'));
+        onError: (error) => {
+            if (error.message.includes('duplicate key') || error.message.includes('already exists')) {
+                toast.error(t('boardAlreadyExists'));
+                form.setError('boardName', {
+                    type: 'manual',
+                    message: t('boardAlreadyExists')
+                });
+            } else {
+                toast.error(t('boardCreationFailed'));
+            }
         }
     });
 
-    const onSubmit = (data) => {
+    const onSubmit = async (data) => {
+        // 如果板块名称已存在，阻止提交并显示错误
+        if (boardExistsData?.exists) {
+            form.setError('boardName', {
+                type: 'manual',
+                message: t('boardAlreadyExists')
+            });
+            return;
+        }
+        
         createBoard({ data });
     };
 
@@ -157,12 +195,14 @@ export default function CreateBoardDialog({ children }) {
                                             // 当输入板块名称时自动更新 slug
                                             const newSlug = setSlug(e.target.value);
                                             form.setValue('slug', newSlug);
+                                            // 检查板块名称是否存在
+                                            debouncedCheckBoardName(e.target.value);
                                         }}
                                     />
                                     </FormControl>
                                     <div className="flex justify-between mt-1">
-                                        <FormMessage className="text-red-500 text-sm" /> 
-                                        <span />
+                                        <FormMessage className="text-red-500 text-sm" />
+                                        <span />                                        
                                         <span className="text-muted-foreground text-sm">
                                             {field.value?.trim().length || 0}/20
                                         </span>
