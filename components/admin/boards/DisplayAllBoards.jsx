@@ -5,7 +5,8 @@ import useGetBoards from '@/hooks/useGetBoards'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Search, VenetianMask, ListFilter, BookOpenCheck, CheckCircle, Globe, X, ScanEye, MoveUp, MoveDown, Plus, UserRound, Pen, ChevronDown } from 'lucide-react'
+import { Icon } from '@iconify/react'
+import { Search, VenetianMask, ListFilter, BookOpenCheck, CheckCircle, Globe, X, ScanEye, MoveUp, MoveDown, Plus, UserRound, Pen, ChevronDown, Check, Folder, FolderOpen } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -19,9 +20,13 @@ import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, Pagi
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import useUpdateBoardStatus from '@/hooks/admin/board/useUpdateBoardStatus'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import useMatchBoardWithCategory from '@/hooks/admin/board-category/useMatchBoardWithCategory'
+import useGetCategories from '@/hooks/admin/category/useGetCategories'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function DisplayAllBoards() {
-    const { data, refetch } = useGetBoards()
+    const { data, refetch, isLoading: isBoardsLoading } = useGetBoards({ includeCategoryData: true })
     const boardsData = data?.boards || []
     const t = useTranslations('Board')
     const [search, setSearch] = useState('')
@@ -34,6 +39,169 @@ export default function DisplayAllBoards() {
     const [currentPage, setCurrentPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [pageSize, setPageSize] = useState(10)
+    const [boardIdForCategories, setBoardIdForCategories] = useState(null)
+    
+    // 使用useGetCategories获取所有分类
+    const { data: allCategoriesData } = useGetCategories()
+    const categories = allCategoriesData?.categories || []
+    
+    const { mutate: updateBoardCategories } = useMatchBoardWithCategory()
+    const [searchCategory, setSearchCategory] = useState('')
+    const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false)
+
+    // 为每个看板的分类选择保持状态
+    const [boardCategories, setBoardCategories] = useState({})
+    
+    // 跟踪当前显示的board IDs
+    const [visibleBoardIds, setVisibleBoardIds] = useState([])
+    
+    // 总体加载状态
+    const isLoading = isBoardsLoading;
+
+    // 在组件初始化时，从boardsData获取分类信息
+    useEffect(() => {
+        if (boardsData.length > 0) {
+            const categoriesMap = {};
+            boardsData.forEach(board => {
+                if (board.categories) {
+                    categoriesMap[board.id] = board.categories.map(cat => cat.category_id);
+                } else {
+                    categoriesMap[board.id] = [];
+                }
+            });
+            
+            setBoardCategories(categoriesMap);
+        }
+    }, [boardsData]);
+    
+    // 将分类按照父子级结构进行组织
+    const organizedCategories = useMemo(() => {
+        // 创建分类映射
+        const categoryMap = categories.reduce((acc, category) => {
+            acc[category.id] = { ...category, children: [] }
+            return acc
+        }, {})
+        
+        // 构建树结构
+        const rootCategories = []
+        categories.forEach(category => {
+            if (category.parent_id) {
+                if (categoryMap[category.parent_id]) {
+                    categoryMap[category.parent_id].children.push(categoryMap[category.id])
+                }
+            } else {
+                rootCategories.push(categoryMap[category.id])
+            }
+        })
+        
+        return rootCategories
+    }, [categories])
+
+    // 过滤分类列表基于搜索词
+    const filteredCategories = useMemo(() => {
+        if (!searchCategory) return categories
+        
+        return categories.filter(category => 
+            category.name.toLowerCase().includes(searchCategory.toLowerCase())
+        )
+    }, [categories, searchCategory])
+
+    // 处理分类选择
+    const toggleCategory = async (boardId, categoryId) => {
+        // 初始化当前看板的分类状态
+        if (!boardCategories[boardId]) {
+            const currentBoard = boardsData.find(board => board.id === boardId)
+            const currentBoardCategories = currentBoard?.categories?.map(cat => cat.category_id) || []
+            
+            setBoardCategories(prev => ({
+                ...prev,
+                [boardId]: currentBoardCategories
+            }))
+            return
+        }
+        
+        // 检查分类是否已经被选择
+        const isSelected = boardCategories[boardId]?.includes(categoryId)
+        
+        // 更新选择状态
+        const updatedCategories = isSelected 
+            ? boardCategories[boardId].filter(id => id !== categoryId)
+            : [...(boardCategories[boardId] || []), categoryId]
+            
+        setBoardCategories(prev => ({
+            ...prev,
+            [boardId]: updatedCategories
+        }))
+        
+        // 调用API更新分类关联
+        try {
+            await updateBoardCategories({
+                data: {
+                    boardId,
+                    selectedCategoryIds: updatedCategories
+                }
+            })
+        } catch (error) {
+            console.error('Failed to update board categories:', error)
+        }
+    }
+    
+    // 递归渲染分类项
+    const renderCategoryItems = (categories, level = 0) => {
+        return categories.map(category => (
+            <div key={category.id}>
+                <CommandItem
+                    value={`category-${category.id}`}
+                    onSelect={() => toggleCategory(boardIdForCategories, category.id)}
+                    className={`pl-${level * 4 + 2} flex items-center gap-2`}
+                >
+                    <Icon icon={category.icon} style={{color: category.color}} className="h-4 w-4" />
+                    <span>{category.name}</span>
+                    {boardCategories[boardIdForCategories]?.includes(category.id) && (
+                        <Check className="h-4 w-4 ml-auto" />
+                    )}
+                </CommandItem>
+                {category.children?.length > 0 && renderCategoryItems(category.children, level + 1)}
+            </div>
+        ));
+    }
+
+    // 格式化显示已选分类
+    const formatSelectedCategories = (boardId) => {
+        if (!boardCategories[boardId] || boardCategories[boardId].length === 0) {
+            return t('noCategory')
+        }
+        
+        const selectedCategoryNames = boardCategories[boardId]
+            .map(id => categories.find(cat => cat.id === id)?.name || '')
+            .filter(Boolean)
+        
+        return selectedCategoryNames.length > 2 
+            ? `${selectedCategoryNames.slice(0, 2).join(', ')} +${selectedCategoryNames.length - 2}`
+            : selectedCategoryNames.join(', ')
+    }
+    
+    // 加载看板初始分类数据
+    useEffect(() => {
+        // 从已获取的板块数据中初始化分类状态
+        const initBoardCategories = () => {
+            const categoriesMap = {}
+            
+            boardsData.forEach(board => {
+                if (board.categories) {
+                    categoriesMap[board.id] = board.categories.map(cat => cat.category_id)
+                } else {
+                    categoriesMap[board.id] = []
+                }
+            })
+            
+            setBoardCategories(categoriesMap)
+        }
+        
+        if (boardsData.length > 0) {
+            initBoardCategories()
+        }
+    }, [boardsData])
 
     const [filter, setFilter] = useState({
         language: 'all',
@@ -108,19 +276,14 @@ export default function DisplayAllBoards() {
         }
     }
     
-    const toggleStatus = (boardId, value) => {
-        // 更新后端状态
-        updateBoardStatus({
-            boardId: boardId,
-            data: { status: value }
-        });
-
+    // 只用于筛选面板的状态切换
+    const toggleStatusFilter = (value) => {
         setSelectedStatus({
             ...selectedStatus,
             [value]: !selectedStatus[value]
         })
 
-        // 更新过滤状态（仅在从筛选器面板点击时使用）
+        // 更新过滤状态
         const newState = {...selectedStatus, [value]: !selectedStatus[value]};
         const allSelected = Object.values(newState).every(v => v);
         const noneSelected = Object.values(newState).every(v => !v);
@@ -130,6 +293,15 @@ export default function DisplayAllBoards() {
         } else {
             setFilter({...filter, status: 'custom'});
         }
+    }
+    
+    // 用于更新看板状态的函数
+    const handleStatusChange = (boardId, value) => {
+        // 更新后端状态
+        updateBoardStatus({
+            boardId: boardId,
+            data: { status: value }
+        });
     }
     
     const toggleAnonymous = (value) => {
@@ -315,11 +487,32 @@ export default function DisplayAllBoards() {
         }
     }, [sortedBoards.length, pageSize, currentPage])
 
+    // 更新可见的board IDs
+    useEffect(() => {
+        if (paginatedBoards && paginatedBoards.length > 0) {
+            const ids = paginatedBoards.map(board => board.id)
+            setVisibleBoardIds(ids)
+        }
+    }, [paginatedBoards])
+
     // show created at in format YYYY-MM-DD
     const formatCreatedAt = (createdAt) => {
         const date = new Date(createdAt)
         return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     }
+
+    // 骨架屏组件
+    const TableSkeleton = () => (
+        <div className="w-full">
+            <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </div>
+        </div>
+    )
 
     return (
         <div className='w-full'>
@@ -432,7 +625,7 @@ export default function DisplayAllBoards() {
                                             <Badge 
                                                 variant={selectedStatus['pending'] ? "outline" : "ghost"}
                                                 className={`flex items-center gap-1 px-3 py-1 cursor-pointer hover:bg-muted/50 ${selectedStatus['pending'] ? 'border border-primary/50' : ''}`}
-                                                onClick={() => toggleStatus('pending')}
+                                                onClick={() => toggleStatusFilter('pending')}
                                             >
                                                 {t('pending')}
                                                 {selectedStatus['pending'] && (
@@ -440,7 +633,7 @@ export default function DisplayAllBoards() {
                                                         className="h-3 w-3 ml-1 cursor-pointer" 
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            toggleStatus('pending');
+                                                            toggleStatusFilter('pending');
                                                         }}
                                                     />
                                                 )}
@@ -448,7 +641,7 @@ export default function DisplayAllBoards() {
                                             <Badge 
                                                 variant={selectedStatus['approved'] ? "outline" : "ghost"}
                                                 className={`flex items-center gap-1 px-3 py-1 cursor-pointer hover:bg-muted/50 ${selectedStatus['approved'] ? 'border border-primary/50' : ''}`}
-                                                onClick={() => toggleStatus('approved')}
+                                                onClick={() => toggleStatusFilter('approved')}
                                             >
                                                 {t('approved')}
                                                 {selectedStatus['approved'] && (
@@ -456,7 +649,7 @@ export default function DisplayAllBoards() {
                                                         className="h-3 w-3 ml-1 cursor-pointer" 
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            toggleStatus('approved');
+                                                            toggleStatusFilter('approved');
                                                         }}
                                                     />
                                                 )}
@@ -464,7 +657,7 @@ export default function DisplayAllBoards() {
                                             <Badge 
                                                 variant={selectedStatus['rejected'] ? "outline" : "ghost"}
                                                 className={`flex items-center gap-1 px-3 py-1 cursor-pointer hover:bg-muted/50 ${selectedStatus['rejected'] ? 'border border-primary/50' : ''}`}
-                                                onClick={() => toggleStatus('rejected')}
+                                                onClick={() => toggleStatusFilter('rejected')}
                                             >
                                                 {t('rejected')}
                                                 {selectedStatus['rejected'] && (
@@ -472,7 +665,7 @@ export default function DisplayAllBoards() {
                                                         className="h-3 w-3 ml-1 cursor-pointer" 
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            toggleStatus('rejected');
+                                                            toggleStatusFilter('rejected');
                                                         }}
                                                     />
                                                 )}
@@ -600,237 +793,294 @@ export default function DisplayAllBoards() {
                     </div>
                 </div>
             </div>
-            {/*search result will be shown here*/}
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>
-                            {t('no')}
-                        </TableHead>
-                        <TableHead>
-                            <div className="flex items-center gap-1">
-                                {t('name')}
-                                {nameSort === 'asc' ? (
-                                    <MoveUp className="w-4 h-4 cursor-pointer" onClick={() => handleSort('name')} />
-                                ) : (
-                                    <MoveDown className="w-4 h-4 cursor-pointer" onClick={() => handleSort('name')} />
-                                )}
-                            </div>
-                        </TableHead>
-                        <TableHead>
-                            <div className="flex items-center gap-1">
-                                {t('slug')}
-                                {slugSort === 'asc' ? (
-                                    <MoveUp className="w-4 h-4 cursor-pointer" onClick={() => handleSort('slug')} />
-                                ) : (
-                                    <MoveDown className="w-4 h-4 cursor-pointer" onClick={() => handleSort('slug')} />
-                                )}
-                            </div>
-                        </TableHead>
-                        <TableHead>
-                            {t('language')}
-                        </TableHead>
-                        <TableHead>
-                            {t('visibility')}
-                        </TableHead>
-                        <TableHead className="w-1/12">
-                            {t('status')}
-                        </TableHead>
-                        <TableHead>
-                            {t('active')}
-                        </TableHead>
-                        <TableHead>
-                            <div className="flex items-center gap-1">
-                                {t('createdAt')}
-                                {createdAtSort === 'asc' ? (
-                                    <MoveUp className="w-4 h-4 cursor-pointer" onClick={() => handleSort('created_at')} />
-                                ) : (
-                                    <MoveDown className="w-4 h-4 cursor-pointer" onClick={() => handleSort('created_at')} />
-                                )}
-                            </div>
-                        </TableHead>
-                        <TableHead>
-                            {t('actions')}
-                        </TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {paginatedBoards.map((board, index) => (
-                        <TableRow key={board.id}>
-                            <TableCell>{(currentPage - 1) * pageSize + index + 1}</TableCell>
-                            <TableCell>
-                                <div className="flex items-center w-full">
-                                    {board.anonymous ? (
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <VenetianMask className='w-4 h-4 text-green-500' />
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    {t('anonymousBoard')}
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    ) : (
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <UserRound className='w-4 h-4 text-red-500' />
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    {t('nonAnonymousBoard')}
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    )}
-                                    <span className="ml-2">{board.name}</span>
-                                </div>
-                            </TableCell>
-                            <TableCell>{board.slug}</TableCell>
-                            <TableCell>
-                                {board.language === 'zh-TW' ? t('chinese') : t('english')}
-                            </TableCell>
-                            <TableCell>
-                                <Badge variant={board.visibility === 'public' ? 'public' : 'private'}>
-                                    {board.visibility === 'public' ? t('public') : t('private')}
-                                </Badge>
-                            </TableCell>
-                            <TableCell>
-                                <DropdownMenu>  
-                                    <DropdownMenuTrigger asChild>
-                                        <div className="flex items-center cursor-pointer justify-between">
-                                            <Badge variant={board.status === 'pending' ? 'pending' : board.status === 'approved' ? 'approved' : 'rejected'}>
-                                                {board.status === 'pending' ? t('pending') : board.status === 'approved' ? t('approved') : t('rejected')}
-                                            </Badge>
-                                            <ChevronDown className='w-4 h-4 hover:text-[#FF7D00] ml-2' />
+            
+            {/* 显示骨架屏或数据表格 */}
+            {isLoading ? (
+                <TableSkeleton />
+            ) : (
+                <>
+                    {/*search result will be shown here*/}
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>
+                                    {t('no')}
+                                </TableHead>
+                                <TableHead>
+                                    <div className="flex items-center gap-1">
+                                        {t('name')}
+                                        {nameSort === 'asc' ? (
+                                            <MoveUp className="w-4 h-4 cursor-pointer" onClick={() => handleSort('name')} />
+                                        ) : (
+                                            <MoveDown className="w-4 h-4 cursor-pointer" onClick={() => handleSort('name')} />
+                                        )}
+                                    </div>
+                                </TableHead>
+                                <TableHead>
+                                    <div className="flex items-center gap-1">
+                                        {t('slug')}
+                                        {slugSort === 'asc' ? (
+                                            <MoveUp className="w-4 h-4 cursor-pointer" onClick={() => handleSort('slug')} />
+                                        ) : (
+                                            <MoveDown className="w-4 h-4 cursor-pointer" onClick={() => handleSort('slug')} />
+                                        )}
+                                    </div>
+                                </TableHead>
+                                <TableHead>
+                                    {t('language')}
+                                </TableHead>
+                                <TableHead>
+                                    {t('visibility')}
+                                </TableHead>
+                                <TableHead className="w-1/12">
+                                    {t('status')}
+                                </TableHead>
+                                <TableHead className="w-1/12">
+                                    {t('category')}
+                                </TableHead>
+                                <TableHead>
+                                    {t('active')}
+                                </TableHead>
+                                <TableHead>
+                                    <div className="flex items-center gap-1">
+                                        {t('createdAt')}
+                                        {createdAtSort === 'asc' ? (
+                                            <MoveUp className="w-4 h-4 cursor-pointer" onClick={() => handleSort('created_at')} />
+                                        ) : (
+                                            <MoveDown className="w-4 h-4 cursor-pointer" onClick={() => handleSort('created_at')} />
+                                        )}
+                                    </div>
+                                </TableHead>
+                                <TableHead>
+                                    {t('actions')}
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedBoards.map((board, index) => (
+                                <TableRow key={board.id}>
+                                    <TableCell>{(currentPage - 1) * pageSize + index + 1}</TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center w-full">
+                                            {board.anonymous ? (
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <VenetianMask className='w-4 h-4 text-green-500' />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            {t('anonymousBoard')}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            ) : (
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <UserRound className='w-4 h-4 text-red-500' />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            {t('nonAnonymousBoard')}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            )}
+                                            <span className="ml-2">{board.name}</span>
                                         </div>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                        <DropdownMenuItem onClick={() => toggleStatus(board.id, 'pending')}>{t('pending')}</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => toggleStatus(board.id, 'approved')}>{t('approved')}</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => toggleStatus(board.id, 'rejected')}>{t('rejected')}</DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </TableCell>
-                            <TableCell>
-                                <Switch 
-                                    checked={board.is_active} 
-                                    onCheckedChange={() => toggleActive(board.id, !board.is_active)}                                    
-                                />
-                            </TableCell>
-                            <TableCell>
-                                {formatCreatedAt(board.created_at)}
-                            </TableCell>
-                            <TableCell>
-                                <EditBoardDialog boardId={board.id}>
-                                    <Button variant='ghost'>
-                                        <Pen className='w-4 h-4' />
-                                    </Button>
-                                </EditBoardDialog>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-            <div className="flex items-center justify-between mt-4">
-                <div className="flex items-center space-x-2">
-                    <p className="text-sm text-muted-foreground">
-                        {t('rowsPerPage')}
-                    </p>
-                    <Select
-                        value={pageSize.toString()}
-                        onValueChange={(value) => setPageSize(Number(value))}
-                    >
-                        <SelectTrigger className="h-8 w-[70px]">
-                            <SelectValue placeholder={pageSize} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {[5, 10, 20, 50].map((size) => (
-                                <SelectItem key={size} value={size.toString()}>
-                                    {size}
-                                </SelectItem>
+                                    </TableCell>
+                                    <TableCell>{board.slug}</TableCell>
+                                    <TableCell>
+                                        {board.language === 'zh-TW' ? t('chinese') : t('english')}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant={board.visibility === 'public' ? 'public' : 'private'}>
+                                            {board.visibility === 'public' ? t('public') : t('private')}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <DropdownMenu>  
+                                            <DropdownMenuTrigger asChild>
+                                                <div className="flex items-center cursor-pointer justify-between">
+                                                    <Badge variant={board.status === 'pending' ? 'pending' : board.status === 'approved' ? 'approved' : 'rejected'}>
+                                                        {board.status === 'pending' ? t('pending') : board.status === 'approved' ? t('approved') : t('rejected')}
+                                                        <ChevronDown className='w-4 h-4 hover:text-[#FF7D00] ml-2' />
+                                                    </Badge>                                            
+                                                </div>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                                <DropdownMenuItem onClick={() => handleStatusChange(board.id, 'pending')}>{t('pending')}</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleStatusChange(board.id, 'approved')}>{t('approved')}</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleStatusChange(board.id, 'rejected')}>{t('rejected')}</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                    <TableCell className="w-1/12">
+                                        <Popover open={boardIdForCategories === board.id && categoryDropdownOpen} onOpenChange={(open) => {
+                                            if (open) {
+                                                setBoardIdForCategories(board.id)
+                                            }
+                                            setCategoryDropdownOpen(open)
+                                        }}>
+                                            <PopoverTrigger asChild>
+                                                <div className="flex items-center cursor-pointer justify-between">
+                                                    <Badge variant="outline">
+                                                        {formatSelectedCategories(board.id)}
+                                                        <ChevronDown className='w-4 h-4 hover:text-[#FF7D00] ml-2' />
+                                                    </Badge>                                            
+                                                </div>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-64 p-0">
+                                                <Command>
+                                                    <CommandInput 
+                                                        placeholder={t('searchCategories')} 
+                                                        value={searchCategory}
+                                                        onValueChange={setSearchCategory}
+                                                    />
+                                                    <CommandList>
+                                                        <CommandEmpty>{t('noResults')}</CommandEmpty>
+                                                        <CommandGroup heading={t('categories')}>
+                                                            {searchCategory ? 
+                                                                filteredCategories.map(category => (
+                                                                    <CommandItem 
+                                                                        key={category.id}
+                                                                        onSelect={() => toggleCategory(board.id, category.id)}
+                                                                    >
+                                                                        <Folder className="h-4 w-4 mr-2" />
+                                                                        {category.name}
+                                                                        {boardCategories[board.id]?.includes(category.id) && (
+                                                                            <Check className="h-4 w-4 ml-auto" />
+                                                                        )}
+                                                                    </CommandItem>
+                                                                )) : 
+                                                                renderCategoryItems(organizedCategories)
+                                                            }
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Switch 
+                                            checked={board.is_active} 
+                                            onCheckedChange={() => toggleActive(board.id, !board.is_active)}                                    
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        {formatCreatedAt(board.created_at)}
+                                    </TableCell>
+                                    <TableCell>
+                                        <EditBoardDialog boardId={board.id}>
+                                            <Button variant='ghost'>
+                                                <Pen className='w-4 h-4' />
+                                            </Button>
+                                        </EditBoardDialog>
+                                    </TableCell>
+                                </TableRow>
                             ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                
-                <div className="flex items-center justify-center space-x-6 lg:space-x-8">
-                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                        {t('page')} {currentPage} {t('of')} {totalPages}
+                        </TableBody>
+                    </Table>
+                    <div className="flex items-center justify-between mt-4">
+                        <div className="flex items-center space-x-2">
+                            <p className="text-sm text-muted-foreground">
+                                {t('rowsPerPage')}
+                            </p>
+                            <Select
+                                value={pageSize.toString()}
+                                onValueChange={(value) => setPageSize(Number(value))}
+                            >
+                                <SelectTrigger className="h-8 w-[70px]">
+                                    <SelectValue placeholder={pageSize} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {[5, 10, 20, 50].map((size) => (
+                                        <SelectItem key={size} value={size.toString()}>
+                                            {size}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        
+                        <div className="flex items-center justify-center space-x-6 lg:space-x-8">
+                            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                {t('page')} {currentPage} {t('of')} {totalPages}
+                            </div>
+                            <Pagination>
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious 
+                                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                                            aria-disabled={currentPage === 1}
+                                            className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                                        />
+                                    </PaginationItem>
+                                    
+                                    {/* 显示页码，最多显示5个 */}
+                                    {Array.from({length: Math.min(5, totalPages)}, (_, i) => {
+                                        // 如果总页数小于5，直接显示所有页码
+                                        if (totalPages <= 5) {
+                                            const page = i + 1;
+                                            return (
+                                                <PaginationItem key={page}>
+                                                    <PaginationLink 
+                                                        isActive={currentPage === page}
+                                                        onClick={() => setCurrentPage(page)}
+                                                    >
+                                                        {page}
+                                                    </PaginationLink>
+                                                </PaginationItem>
+                                            );
+                                        }
+                                        
+                                        // 如果总页数大于5，创建动态页码区间
+                                        let startPage = Math.max(currentPage - 2, 1);
+                                        if (currentPage > totalPages - 2) {
+                                            startPage = Math.max(totalPages - 4, 1);
+                                        }
+                                        const page = startPage + i;
+                                        
+                                        if (page <= totalPages) {
+                                            return (
+                                                <PaginationItem key={page}>
+                                                    <PaginationLink 
+                                                        isActive={currentPage === page}
+                                                        onClick={() => setCurrentPage(page)}
+                                                    >
+                                                        {page}
+                                                    </PaginationLink>
+                                                </PaginationItem>
+                                            );
+                                        }
+                                        return null;
+                                    })}
+                                    
+                                    {totalPages > 5 && currentPage < totalPages - 2 && (
+                                        <>
+                                            <PaginationItem>
+                                                <PaginationEllipsis />
+                                            </PaginationItem>
+                                            <PaginationItem>
+                                                <PaginationLink onClick={() => setCurrentPage(totalPages)}>
+                                                    {totalPages}
+                                                </PaginationLink>
+                                            </PaginationItem>
+                                        </>
+                                    )}
+                                    
+                                    <PaginationItem>
+                                        <PaginationNext 
+                                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                                            aria-disabled={currentPage === totalPages}
+                                            className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
+                        </div>
                     </div>
-                    <Pagination>
-                        <PaginationContent>
-                            <PaginationItem>
-                                <PaginationPrevious 
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                                    aria-disabled={currentPage === 1}
-                                    className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
-                                />
-                            </PaginationItem>
-                            
-                            {/* 显示页码，最多显示5个 */}
-                            {Array.from({length: Math.min(5, totalPages)}, (_, i) => {
-                                // 如果总页数小于5，直接显示所有页码
-                                if (totalPages <= 5) {
-                                    const page = i + 1;
-                                    return (
-                                        <PaginationItem key={page}>
-                                            <PaginationLink 
-                                                isActive={currentPage === page}
-                                                onClick={() => setCurrentPage(page)}
-                                            >
-                                                {page}
-                                            </PaginationLink>
-                                        </PaginationItem>
-                                    );
-                                }
-                                
-                                // 如果总页数大于5，创建动态页码区间
-                                let startPage = Math.max(currentPage - 2, 1);
-                                if (currentPage > totalPages - 2) {
-                                    startPage = Math.max(totalPages - 4, 1);
-                                }
-                                const page = startPage + i;
-                                
-                                if (page <= totalPages) {
-                                    return (
-                                        <PaginationItem key={page}>
-                                            <PaginationLink 
-                                                isActive={currentPage === page}
-                                                onClick={() => setCurrentPage(page)}
-                                            >
-                                                {page}
-                                            </PaginationLink>
-                                        </PaginationItem>
-                                    );
-                                }
-                                return null;
-                            })}
-                            
-                            {totalPages > 5 && currentPage < totalPages - 2 && (
-                                <>
-                                    <PaginationItem>
-                                        <PaginationEllipsis />
-                                    </PaginationItem>
-                                    <PaginationItem>
-                                        <PaginationLink onClick={() => setCurrentPage(totalPages)}>
-                                            {totalPages}
-                                        </PaginationLink>
-                                    </PaginationItem>
-                                </>
-                            )}
-                            
-                            <PaginationItem>
-                                <PaginationNext 
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                                    aria-disabled={currentPage === totalPages}
-                                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
-                                />
-                            </PaginationItem>
-                        </PaginationContent>
-                    </Pagination>
-                </div>
-            </div>
+                </>
+            )}
         </div>
     )
 }

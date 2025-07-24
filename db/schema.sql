@@ -784,7 +784,7 @@ CREATE TABLE board_category_mappings (
   category_id UUID NOT NULL REFERENCES board_categories(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id),
+  created_by UUID REFERENCES admin_users(id),
   UNIQUE(board_id, category_id)
 );
 
