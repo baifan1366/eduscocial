@@ -1,23 +1,20 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { validateUser } from '@/lib/auth/serverAuth';
+import { supabase } from '@/lib/supabase';
+import { getServerSession } from '@/lib/auth/serverAuth';
 import { trackUserAction } from '@/lib/utils';
 import { bufferLikeOperation } from '@/lib/redis/redisUtils';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 export async function POST(request, { params }) {
   try {
     const postId = params.id;
     
-    // Validate the user is logged in
-    const { user, error: authError } = await validateUser(request);
-    if (authError) {
-      return NextResponse.json({ error: authError }, { status: 401 });
+    // Get the user from session
+    const session = await getServerSession();
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    const user = session.user;
     
     // Buffer the like operation to Redis
     await bufferLikeOperation(user.id, postId, true);
@@ -44,11 +41,13 @@ export async function DELETE(request, { params }) {
   try {
     const postId = params.id;
     
-    // Validate the user is logged in
-    const { user, error: authError } = await validateUser(request);
-    if (authError) {
-      return NextResponse.json({ error: authError }, { status: 401 });
+    // Get the user from session
+    const session = await getServerSession();
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    const user = session.user;
     
     // Remove like
     const { error } = await supabase

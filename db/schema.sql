@@ -144,6 +144,7 @@ CREATE TABLE posts (
     created_by UUID REFERENCES users(id),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     is_draft BOOLEAN DEFAULT FALSE,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'published', 'rejected')),
     scheduled_publish_at TIMESTAMPTZ,
     language TEXT DEFAULT 'zh-TW',
     is_ad BOOLEAN DEFAULT FALSE,
@@ -809,7 +810,7 @@ CREATE TABLE post_embeddings (
 
 CREATE TABLE content_moderation (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  content_type TEXT NOT NULL CHECK (content_type IN ('post', 'comment', 'media')),
+  content_type TEXT NOT NULL CHECK (content_type IN ('posts', 'comments', 'media')),
   content_id UUID NOT NULL,
   moderation_type TEXT NOT NULL CHECK (moderation_type IN ('text', 'image', 'video', 'audio')),
   status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'flagged')),
@@ -819,7 +820,8 @@ CREATE TABLE content_moderation (
   moderator_id UUID REFERENCES users(id),
   moderated_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
 );
 
 CREATE TABLE chat_rooms (
@@ -879,7 +881,7 @@ CREATE TABLE user_interests (
 
 CREATE TABLE content_versions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    content_type TEXT NOT NULL CHECK (content_type IN ('post', 'comment')),
+    content_type TEXT NOT NULL CHECK (content_type IN ('posts', 'comments', 'media')),
     content_id UUID NOT NULL,
     version_number INTEGER NOT NULL,
     content TEXT NOT NULL,

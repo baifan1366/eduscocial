@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import redis from '@/lib/redis/redis';
 import { generateEmbedding } from '@/lib/embedding';
 import { verifyQStashSignature } from '@/lib/qstash';
@@ -22,9 +22,6 @@ export async function POST(request) {
         { status: 401 }
       );
     }
-    
-    // Initialize Supabase client
-    const supabase = createServerSupabaseClient();
     
     // Get current time
     const now = new Date().toISOString();
@@ -98,7 +95,7 @@ export async function POST(request) {
                 .insert({
                   post_id: post.id,
                   embedding,
-                  model_version: 'intfloat/e5-small' // Updated model version
+                  model_version: 'v1'
                 });
               
               if (insertError) {

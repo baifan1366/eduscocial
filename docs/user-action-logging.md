@@ -189,3 +189,55 @@ CREATE TABLE moderation_audit_log (
 - Dashboard for admins available at `/admin/dashboard`
 - Flagged content review queue at `/admin/review`
 - Moderation statistics tracked in `post_visibility_log` table 
+
+## Post Draft System
+
+### Overview
+
+The post draft system allows users to save and retrieve draft posts. The system automatically saves drafts while users are typing and provides a manual save option.
+
+### API Endpoints
+
+#### GET `/api/posts/draft`
+
+Retrieves the latest draft post for the authenticated user based on type.
+
+**Query Parameters:**
+- `type` (optional): The type of post to retrieve drafts for (default: 'article')
+
+**Response:**
+- Status 200: Returns the latest draft post
+- Status 404: No draft found
+- Status 401: Unauthorized
+
+#### POST `/api/posts/draft`
+
+Saves a draft post for the authenticated user.
+
+**Request Body:**
+```json
+{
+  "title": "Draft post title",
+  "content": "Draft post content",
+  "type": "article",
+  "template": "学习讨论"
+}
+```
+
+**Response:**
+- Status 200: Draft saved successfully
+- Status 401: Unauthorized
+
+### Client Implementation
+
+The system implements:
+1. Auto-save functionality that saves drafts at regular intervals
+2. Manual save via the "Save Draft" button
+3. Automatic loading of the most recent draft when opening the post editor
+4. Visual indicator showing when drafts were last saved
+
+### Benefits
+
+- Prevents loss of user content in case of browser crashes or connectivity issues
+- Allows users to continue working on posts across multiple sessions
+- Provides a better user experience with auto-save functionality 
