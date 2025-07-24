@@ -74,7 +74,7 @@ export default function MenuBar() {
                         focus:border-[#FF7D00] focus:bg-[#FF7D00] focus:text-white focus:shadow-xs
                         hover:bg-[#FF7D00] hover:border-[#FF7D00] hover:text-white hover:shadow-xs`}
                 >
-                    {t('Category')}
+                    {t('Categories')}
                 </MenubarTrigger>
                 <MenubarContent>
                     <MenubarItem 

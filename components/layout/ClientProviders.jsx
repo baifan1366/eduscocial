@@ -10,6 +10,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { AdminAuthProvider } from '@/components/admin/login/AdminAuthProvider';
 import { BusinessAuthProvider } from '@/components/business/auth/BusinessAuthProvider';
+import { ConfirmProvider } from '@/hooks/useConfirm';
 
 // Create a context for pathname to avoid repeated usePathname() calls
 const PathnameContext = createContext(null);
@@ -88,9 +89,11 @@ export default function ClientProviders({ children }) {
           <AuthProviderComponent>
             <SettingsProvider>
               <ProfileProvider>
-                {children}
-                <Toaster />
-                <ReactQueryDevtools initialIsOpen={false} />
+                <ConfirmProvider>
+                  {children}
+                  <Toaster />
+                  <ReactQueryDevtools initialIsOpen={false} />
+                </ConfirmProvider>
               </ProfileProvider>
             </SettingsProvider>
           </AuthProviderComponent>

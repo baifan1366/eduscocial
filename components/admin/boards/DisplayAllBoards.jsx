@@ -325,6 +325,7 @@ export default function DisplayAllBoards() {
         <div className='w-full'>
             <div className='flex flex-col gap-4'>
                 <div className='flex items-center justify-between mb-2'>
+                    <h2 className="text-xl font-bold">{t('boards')}</h2>
                     {/*左侧部分：筛选器和搜索栏*/}
                     <div className='flex items-center gap-2 w-2/3'>
                         {/*filter language, visibility, status, anonymous, is_active, created at*/}
@@ -598,8 +599,6 @@ export default function DisplayAllBoards() {
                         </CreateBoardDialog>
                     </div>
                 </div>
-
-                {/* Removed the Active Filters Display from outside the Popover */}
             </div>
             {/*search result will be shown here*/}
             <Table>

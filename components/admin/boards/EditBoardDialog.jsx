@@ -234,7 +234,7 @@ export default function EditBoardDialog({ boardId, children }) {
                                     <div className="space-y-4">
                                         <div className="flex flex-row gap-4">
                                             {/* Color */}
-                                            <div className="w-20">
+                                            <div className="w-32">
                                                 <FormField
                                                     control={form.control}
                                                     name="color"
@@ -270,7 +270,7 @@ export default function EditBoardDialog({ boardId, children }) {
                                             </div>
 
                                             {/* Category Icon */}
-                                            <div className="w-28">
+                                            <div className="w-40">
                                                 <FormField
                                                     control={form.control}
                                                     name="categoryIcon"
@@ -300,35 +300,7 @@ export default function EditBoardDialog({ boardId, children }) {
                                                 />
                                             </div>
                                         </div>
-                                    </div>
-                                    {/* LEFT 2nd Row: Description */}
-                                    <div>
-                                    <FormField
-                                        control={form.control}
-                                        name="description"
-                                        render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>{t('description')}</FormLabel>
-                                            <FormControl>
-                                            <Textarea
-                                                id="description"
-                                                {...field}
-                                                className="w-full"
-                                                placeholder={t('enterDescription')}
-                                                maxLength={100}
-                                            />
-                                            </FormControl>
-                                            <div className="flex justify-between mt-1">
-                                            <FormMessage className="text-red-500 text-sm" />
-                                            <span />
-                                            <span className="text-muted-foreground text-sm">
-                                                {field.value?.trim().length || 0}/100
-                                            </span>
-                                            </div>
-                                        </FormItem>
-                                        )}
-                                    />
-                                    </div>
+                                    </div>                                    
                                     {/* RIGHT 1st Row: Slug */}
                                     <div>
                                         <FormField
@@ -361,6 +333,34 @@ export default function EditBoardDialog({ boardId, children }) {
                                             )}
                                         />
                                     </div>
+                                    {/* LEFT 2nd Row: Description */}
+                                    <div>
+                                    <FormField
+                                        control={form.control}
+                                        name="description"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>{t('description')}</FormLabel>
+                                            <FormControl>
+                                            <Textarea
+                                                id="description"
+                                                {...field}
+                                                className="w-full"
+                                                placeholder={t('enterDescription')}
+                                                maxLength={100}
+                                            />
+                                            </FormControl>
+                                            <div className="flex justify-between mt-1">
+                                            <FormMessage className="text-red-500 text-sm" />
+                                            <span />
+                                            <span className="text-muted-foreground text-sm">
+                                                {field.value?.trim().length || 0}/100
+                                            </span>
+                                            </div>
+                                        </FormItem>
+                                        )}
+                                    />
+                                    </div>        
                                     {/* Visibility: if tick means public, else private */}
                                     <div className="md:col-span-2">
                                         <FormField

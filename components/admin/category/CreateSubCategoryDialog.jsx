@@ -1,7 +1,6 @@
 'use client'
 
 import useCreateCategory from '@/hooks/admin/category/useCreateCategory'
-import useGetCategories from '@/hooks/admin/category/useGetCategories'
 import { useTranslations } from 'next-intl'
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useForm } from 'react-hook-form'
@@ -19,19 +18,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { Icon } from '@iconify/react'
 import useCheckCategoryExists from '@/hooks/admin/category/useCheckCategoryExists'
 import { debounce } from 'lodash'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-const CreateCategoryDialog = forwardRef(({ children, onClick }, ref) => {
+const CreateSubCategoryDialog = forwardRef(({ children, onClick }, ref) => {
     const t = useTranslations('Category')
     const [openDialog, setOpenDialog] = useState(false)
     const [showColorPicker, setShowColorPicker] = useState(false)
     const [categoryNameToCheck, setCategoryNameToCheck] = useState('')
     const [parentId, setParentId] = useState(null)
-
-    // 获取所有分类，用于选择父分类
-    const { data: categoriesData } = useGetCategories({
-        enabled: openDialog
-    })
+    const [parentName, setParentName] = useState('')
 
     // 使用自定义钩子检查板块名称是否存在
     const { data: categoryExistsData, isLoading: isCheckingCategoryName } = useCheckCategoryExists({
@@ -72,7 +66,6 @@ const CreateCategoryDialog = forwardRef(({ children, onClick }, ref) => {
                     required_error: t('categoryIconRequired'),
                     invalid_type_error: t('categoryIconInvalidType'),
                 }).max(20, {message: t('categoryIconMaxLength')}),
-                parentId: z.string().optional().nullable(),
             })
         ),
         defaultValues: {
@@ -80,7 +73,6 @@ const CreateCategoryDialog = forwardRef(({ children, onClick }, ref) => {
             description: '',
             color: '#000000',
             categoryIcon: 'mdi:emoji-happy',
-            parentId: null,
         },  
     });
 
@@ -92,23 +84,21 @@ const CreateCategoryDialog = forwardRef(({ children, onClick }, ref) => {
                 description: '',
                 color: '#000000',
                 categoryIcon: 'mdi:emoji-happy',
-                parentId: null,
             });
-            setParentId(null);
         }
     }, [openDialog, form]);
 
     const { mutate: createCategory, isPending } = useCreateCategory({
         onSuccess: () => {
             setOpenDialog(false)
-            toast.success(t('categoryCreated'))
+            toast.success(t('subcategoryCreated'))
             // 调用父组件传入的onClick回调，用于刷新数据
             if (typeof onClick === 'function') {
                 onClick()
             }
         },
         onError: (error) => {
-            toast.error(t('categoryCreationFailed'))
+            toast.error(t('subcategoryCreationFailed'))
         }
     })
 
@@ -121,29 +111,30 @@ const CreateCategoryDialog = forwardRef(({ children, onClick }, ref) => {
             });
             return;
         }
-
-        // 处理父分类选择
-        const selectedParentId = data.parentId === "null" ? null : data.parentId;
+        
+        // 确保parentId存在
+        if (!parentId) {
+            toast.error(t('parentCategoryRequired'))
+            return;
+        }
+        
         createCategory({ 
             data: { 
                 name: data.name,
                 description: data.description,
                 color: data.color,
                 categoryIcon: data.categoryIcon,
-                parent_id: selectedParentId 
+                parent_id: parentId 
             } 
         });
     };
 
     // 暴露给父组件的函数
     useImperativeHandle(ref, () => ({
-        openWithParent: (id) => {
+        openWithParent: (id, name) => {
             setParentId(id)
+            setParentName(name)
             setOpenDialog(true)
-            // 如果有传入父ID，设置表单的parentId值
-            if (id) {
-                form.setValue('parentId', id.toString());
-            }
         }
     }))
 
@@ -155,17 +146,17 @@ const CreateCategoryDialog = forwardRef(({ children, onClick }, ref) => {
                 </div>
             ) : (
                 <Button onClick={() => setOpenDialog(true)}>
-                    {t('createButton')}
+                    {t('createSubCategory')}
                 </Button>
             )}
             <Dialog open={openDialog} onOpenChange={setOpenDialog}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
-                            {t('createCategory')}
+                            {t('createSubCategory')}
                         </DialogTitle>
                         <DialogDescription>
-                            {t('createCategoryDescription')}
+                            {t('createSubCategoryDescription')} {parentName && <span className="font-medium">"{parentName}"</span>}
                         </DialogDescription>
                     </DialogHeader>
                     <Form {...form} className="space-y-4">
@@ -210,12 +201,11 @@ const CreateCategoryDialog = forwardRef(({ children, onClick }, ref) => {
                                     )}
                                 />
                             </div>
-                            
                             {/* RIGHT 1st Row: Color, Icon */}
                             <div className="space-y-4">
                                 <div className="flex flex-row gap-4">
                                     {/* Color */}
-                                    <div className="w-32">
+                                    <div className="w-20">
                                         <FormField
                                             control={form.control}
                                             name="color"
@@ -251,7 +241,7 @@ const CreateCategoryDialog = forwardRef(({ children, onClick }, ref) => {
                                     </div>
 
                                     {/* Category Icon */}
-                                    <div className="w-40">
+                                    <div className="w-28">
                                         <FormField
                                             control={form.control}
                                             name="categoryIcon"
@@ -282,41 +272,8 @@ const CreateCategoryDialog = forwardRef(({ children, onClick }, ref) => {
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div className="md:col-span-1 w-full">
-                                <FormField
-                                    control={form.control}
-                                    name="parentId"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>{t('parentCategory')}</FormLabel>
-                                            <Select 
-                                                onValueChange={field.onChange} 
-                                                defaultValue={field.value || "null"}
-                                                value={field.value || "null"}
-                                            >
-                                                <FormControl>
-                                                    <SelectTrigger className="w-full min-w-[200px]">
-                                                        <SelectValue placeholder={t('selectParentCategory')} />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="null">{t('noParent')}</SelectItem>
-                                                    {categoriesData?.categories?.map(category => (
-                                                        <SelectItem key={category.id} value={category.id.toString()}>
-                                                            {category.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-
-                             {/* Description and Parent Category in same row */}
-                             <div className="md:col-span-1">
+                            {/* LEFT 2nd Row: Description */}
+                            <div className="md:col-span-2">
                                 <FormField
                                     control={form.control}
                                     name="description"
@@ -342,13 +299,13 @@ const CreateCategoryDialog = forwardRef(({ children, onClick }, ref) => {
                                     </FormItem>
                                     )}
                                 />
-                            </div>        
+                            </div>
                         </form>                        
                     </Form>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>{t('cancel')}</Button>
                         <Button type="submit" variant="orange" disabled={isPending || isCheckingCategoryName} onClick={form.handleSubmit(onSubmit)}>
-                            {isPending ? t('creating') : t('createButton')}
+                            {isPending ? t('creating') : t('create')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -357,6 +314,6 @@ const CreateCategoryDialog = forwardRef(({ children, onClick }, ref) => {
     )
 })
 
-CreateCategoryDialog.displayName = 'CreateCategoryDialog'
+CreateSubCategoryDialog.displayName = 'CreateSubCategoryDialog'
 
-export default CreateCategoryDialog
+export default CreateSubCategoryDialog
