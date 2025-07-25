@@ -600,7 +600,9 @@
     "deactiveCategoryConfirmDescription": "Are you sure you want to deactivate this category? This action will also deactivate all its subcategories.",
     "deactiveCategoryConfirmDescriptionFallback": "Are you sure you want to deactivate \"{name}\" category? This action will also deactivate all its subcategories.",
     "activateChildCategoryWarningTitleFallback": "Activate Child Category Warning",
-    "deactiveCategoryConfirmTitleFallback": "Deactivate Category Confirmation"
+    "deactiveCategoryConfirmTitleFallback": "Deactivate Category Confirmation",
+    "cannotDeleteCategoryWithChildren": "Cannot delete category with children",
+    "cannotDeleteCategoryWithChildrenFallback": "Cannot delete \"{name}\" category with children"
   },
   "confirmation": {
     "confirm": "Confirm",

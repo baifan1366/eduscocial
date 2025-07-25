@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { categoryApi } from '@/lib/api';
+import { categoryApi, boardCategoryMappingApi } from '@/lib/api';
 import queryKeys from '@/lib/queryKeys';
 
 /**
@@ -11,6 +11,7 @@ import queryKeys from '@/lib/queryKeys';
  * @param {string} options.orderDirection - 排序方向 ('asc' 或 'desc')
  * @param {number} options.limit - 限制返回的记录数
  * @param {number} options.offset - 查询偏移量
+ * @param {boolean} options.includeCategoryData - 是否包含分类数据
  * @returns {Object} 查询结果
  */
 export default function useGetCategories(options = {}) {
@@ -20,7 +21,8 @@ export default function useGetCategories(options = {}) {
     orderBy = 'name', 
     orderDirection = 'asc',
     limit = 100,
-    offset = 0 
+    offset = 0,
+    includeCategoryData = false
   } = options;
 
   // 构建查询参数
@@ -36,7 +38,45 @@ export default function useGetCategories(options = {}) {
     queryKey: queryKeys.categories.list(queryParams),
     queryFn: async () => {
       try {
-        return await categoryApi.getAll(queryParams);
+        const categoriesResult = await categoryApi.getAll(queryParams);
+        
+        if (!includeCategoryData) {
+          return categoriesResult;
+        }
+
+        const categories = categoriesResult.categories || [];
+
+        const batchSize = 10;
+        const categoryGroups = [];
+        for (let i = 0; i < categories.length; i += batchSize) {
+          categoryGroups.push(categories.slice(i, i + batchSize));
+        }
+
+        for (const group of categoryGroups) {
+          await Promise.all(
+            group.map(async (category) => {
+              try {
+                if (category.id) {
+                  // 修改：确保与useGetBoards.js中的处理方式一致
+                  // 传入null作为第一个参数(boardId)，category.id作为第二个参数(categoryId)
+                  const boardsResult = await boardCategoryMappingApi.getAll(null, category.id);
+                  if (boardsResult && boardsResult.boards) {
+                    category.boards = boardsResult.boards;
+                  } else {
+                    category.boards = [];
+                  }
+                } else {
+                  category.boards = [];
+                }
+              } catch (error) {
+                console.error(`get category ${category.id} boards error:`, error);
+                category.boards = [];
+              }
+            })
+          );
+        }
+
+        return categoriesResult;
       } catch (error) {
         console.error('error:', error);
         throw error;

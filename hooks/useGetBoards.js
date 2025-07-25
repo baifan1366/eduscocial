@@ -62,7 +62,8 @@ export default function useGetBoards(options = {}) {
             group.map(async (board) => {
               try {
                 if (board.id) {
-                  const categoryResult = await boardCategoryMappingApi.getAll(board.id);
+                  // 修改：明确使用boardId作为第一个参数，null作为第二个参数(categoryId)
+                  const categoryResult = await boardCategoryMappingApi.getAll(board.id, null);
                   // 将分类数据添加到board对象中
                   if (categoryResult && categoryResult.categories) {
                     board.categories = categoryResult.categories;

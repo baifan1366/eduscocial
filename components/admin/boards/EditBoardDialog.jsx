@@ -277,9 +277,6 @@ export default function EditBoardDialog({ boardId, children }) {
     // 当板块数据加载完成时，填充表单
     useEffect(() => {
         if (board) {
-            console.log("Board data loaded:", board); // 调试用
-            console.log("Status value:", board.status, "Type:", typeof board.status); // 查看status值和类型
-            
             // 确保表单状态和API返回的一致
             const formValues = {
                 boardName: board.name || '',
@@ -293,7 +290,6 @@ export default function EditBoardDialog({ boardId, children }) {
                 is_active: board.is_active !== undefined ? board.is_active : true,
             };
             
-            console.log("Setting form values:", formValues);
             form.reset(formValues);
         }
     }, [board, form])
@@ -571,7 +567,6 @@ export default function EditBoardDialog({ boardId, children }) {
                                                     render={({ field }) => {
                                                         // 确保status值正确传递给Select组件
                                                         const statusValue = field.value;
-                                                        console.log("Status in render:", statusValue);
                                                         return (
                                                         <FormItem>
                                                             <FormLabel>{t('status')}</FormLabel>

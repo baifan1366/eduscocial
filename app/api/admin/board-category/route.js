@@ -2,31 +2,50 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getServerSession } from "@/lib/auth/serverAuth";
 
-// use board id to get the board category mappings
+// use board_id or category_id to get the board category mappings
 export async function POST(request) {
-    const { boardId } = await request.json();
+    const { boardId, categoryId } = await request.json();
     
-    // 检查boardId是否有效
-    if (!boardId) {
-        return NextResponse.json({ categories: [] }, { status: 200 });
+    // 检查boardId and categoryId 是否有效
+    // boardId 和 categoryId 至少有一个有效, 其中一个会是null
+    if (!boardId && !categoryId) {
+        return NextResponse.json({ categories: [], boards: [] }, { status: 200 });
     }
 
     try {
-        const { data: existing, error } = await supabase
-            .from("board_category_mappings")
-            .select("category_id")
-            .eq("board_id", boardId);
+        if (boardId) {
+            const { data: getCategoryIds, error: getCategoryIdsError } = await supabase
+                .from("board_category_mappings")
+                .select("category_id")
+                .eq("board_id", boardId);
 
-        if (error) {
-            console.error("Error fetching board categories:", error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            if (getCategoryIdsError) {
+                console.error("Error fetching board categories:", getCategoryIdsError);
+                return NextResponse.json({ error: getCategoryIdsError.message }, { status: 500 });
+            }
+
+            // 如果没有找到任何分类，返回空数组
+            return NextResponse.json({ categories: getCategoryIds || [] }, { status: 200 });
         }
 
-        // 如果没有找到任何分类，返回空数组
-        return NextResponse.json({ categories: existing || [] }, { status: 200 });
+        if (categoryId) {
+            const { data: getBoardIds, error: getBoardIdsError } = await supabase
+                .from("board_category_mappings")
+                .select("board_id")
+                .eq("category_id", categoryId);
+
+            if (getBoardIdsError) {
+                console.error("Error fetching board categories:", getBoardIdsError);
+                return NextResponse.json({ error: getBoardIdsError.message }, { status: 500 });
+            }
+
+            return NextResponse.json({ boards: getBoardIds || [] }, { status: 200 });
+        }
+
+        return NextResponse.json({ error: "Invalid request data" }, { status: 400 });
     } catch (err) {
         console.error("Unexpected error:", err);
-        return NextResponse.json({ categories: [], error: "Unexpected error occurred" }, { status: 500 });
+        return NextResponse.json({ categories: [], boards: [], error: "Unexpected error occurred" }, { status: 500 });
     }
 }
 
