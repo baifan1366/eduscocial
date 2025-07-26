@@ -18,82 +18,85 @@ export async function POST(request) {
     }
 
     const supabase = createServerSupabaseClient();
+    
+    const { data: businessUser, error: businessUserError } = await supabase
+      .from('business_users')
+      .select('id, email, name, password, role')
+      .eq('email', email)
+      .single();
 
-    // check is the password and email match
-    const { data: user, error: userError } = await supabase
-    .from('business_users')
-    .select('id, email, name, password')
-    .eq('email', email)
-    .single();
-
-    if (userError || !user) {
+    if (businessUserError || !businessUser) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
 
-     //create business_sessions exist or not, if not create it
-    const { data: businessSession, error: businessSessionError } = await supabase
+    //create business_sessions exist or not, if not create it
+    const { data: businessSessions, error: businessSessionsError } = await supabase
       .from('business_sessions')
       .select('id')
-      .eq('business_user_id', user.id)
-      .single();
+      .eq('business_user_id', businessUser.id);
 
-    if (businessSessionError) {
-      console.error('Failed to create business session:', businessSessionError);
+    if (businessSessionsError) {
+      console.error('Failed to query business sessions:', businessSessionsError);
     }
 
-    if (!businessSession) {
-      await supabase
+    // 检查是否存在会话
+    if (!businessSessions || businessSessions.length === 0) {
+      const { error: insertError } = await supabase
         .from('business_sessions')
         .insert({
-          business_user_id: user.id,
+          business_user_id: businessUser.id,
           ip_address: request.ip,
           user_agent: request.headers.get('user-agent'),
           device_info: request.headers.get('sec-ch-ua-platform'),
           location: request.headers.get('cf-ipcountry'),
           is_active: true,
           last_seen: new Date().toISOString()
-      });
+        });
 
-      if (businessSessionError) {
-        console.error('Failed to create business session:', businessSessionError);
+      if (insertError) {
+        console.error('Failed to create business session:', insertError);
       }
     }
 
-    // Verify password 
-    const isPasswordValid = await comparePassword(password, user.password);
+    // Verify password using comparePassword instead of rehashing
+    const isPasswordValid = await comparePassword(password, businessUser.password);
     if (!isPasswordValid) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
-
+    
     // Generate JWT token
     const token = await generateJWT({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: 'business',
+      id: businessUser.id,
+      email: businessUser.email,
+      name: businessUser.name,
+      role: 'business'
     });
 
     // Store session in Redis
-    await storeSession(user.id, {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: 'business',
+    await storeSession(businessUser.id, {
+      id: businessUser.id,
+      email: businessUser.email,
+      name: businessUser.name,
+      role: 'business'
     });
 
-    // Update user's last login timestamp
-    await supabase
+    // update last seen
+    const { error: updatedBusinessSessionError } = await supabase
       .from('business_sessions')
       .update({ last_seen: new Date().toISOString() })
-      .eq('business_user_id', user.id);
+      .eq('business_user_id', businessUser.id);
+
+    if (updatedBusinessSessionError) {
+      console.error('Failed to update business session:', updatedBusinessSessionError);
+    }
 
     // Set auth cookie
     const response = NextResponse.json({
       message: 'Login successful',
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
+        id: businessUser.id,
+        email: businessUser.email,
+        name: businessUser.name,
         role: 'business'
       }
     }, { status: 200 });
@@ -105,4 +108,4 @@ export async function POST(request) {
     console.error('Business login error:', error);
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
   }
-} 
+}

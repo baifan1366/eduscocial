@@ -536,7 +536,7 @@ export function useBusinessLogin() {
       }
       
       // 重定向到商家面板
-      router.push(`/${locale}/business/landing`);
+      router.push(`/${locale}/business/home`);
     },
     onError: (error) => {
       console.error('Business login error:', error);

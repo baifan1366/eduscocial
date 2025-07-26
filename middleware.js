@@ -105,6 +105,13 @@ export async function middleware(request) {
   if (isPublicRoute) {
     const response = intlMiddleware(request);
     response.cookies.delete(REDIRECT_COUNT_COOKIE);
+    // 将当前路径存储到cookie中，供服务端组件使用
+    response.cookies.set('current-path', pathname, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'strict',
+      maxAge: 60 * 5 // 5分钟
+    });
     return response;
   }
 
@@ -258,6 +265,13 @@ export async function middleware(request) {
   const response = intlMiddleware(request);
   // 重置重定向计数
   response.cookies.delete(REDIRECT_COUNT_COOKIE);
+  // 将当前路径存储到cookie中，供服务端组件使用
+  response.cookies.set('current-path', pathname, {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'strict',
+    maxAge: 60 * 5 // 5分钟
+  });
   return response;
 }
 
