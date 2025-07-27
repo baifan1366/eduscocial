@@ -21,7 +21,7 @@ export async function POST(request) {
     
     const { data: businessUser, error: businessUserError } = await supabase
       .from('business_users')
-      .select('id, email, name, password, role')
+      .select('id, email, name, password, role, avatar_url')
       .eq('email', email)
       .single();
 
@@ -77,7 +77,8 @@ export async function POST(request) {
       id: businessUser.id,
       email: businessUser.email,
       name: businessUser.name,
-      role: 'business'
+      role: 'business',
+      avatar_url: businessUser.avatar_url
     });
 
     // update last seen
@@ -97,7 +98,8 @@ export async function POST(request) {
         id: businessUser.id,
         email: businessUser.email,
         name: businessUser.name,
-        role: 'business'
+        role: 'business',
+        avatar_url: businessUser.avatar_url
       }
     }, { status: 200 });
 

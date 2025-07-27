@@ -145,7 +145,7 @@ const data = {
       items: [
         {
           title: "Buy Credits",
-          url: "#",
+          url: "/business/payments-and-credits/buy-credits",
           icon: DollarSign,
         },
         {

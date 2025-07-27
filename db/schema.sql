@@ -1002,3 +1002,68 @@ CREATE TABLE moderation_audit_log (
   confidence_scores JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE credit_plans (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  credit_amount INTEGER NOT NULL, -- how many credits this plan gives
+  original_price FLOAT NOT NULL,
+  discount_price FLOAT,
+  billing_cycle TEXT NOT NULL CHECK (billing_cycle IN ('one_time', 'monthly', 'yearly')),
+  currency TEXT DEFAULT 'RM',
+  is_discounted BOOLEAN DEFAULT FALSE,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES admin_users(id)
+);
+
+CREATE TABLE credit_orders (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  business_user_id UUID NOT NULL REFERENCES business_users(id),
+  plan_id UUID NOT NULL REFERENCES credit_plans(id),
+  quantity INTEGER DEFAULT 1,
+  total_price FLOAT NOT NULL,
+  currency TEXT DEFAULT 'RM',
+  status TEXT NULL CHECK (status IN ('pending', 'paid', 'cancelled', 'failed', 'refunded')),
+  payment_provider TEXT, -- e.g. 'stripe', 'toyyibpay', etc.
+  payment_reference TEXT, -- external txn ID
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES business_users(id)
+);
+
+CREATE TABLE invoices (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  order_id UUID NOT NULL REFERENCES credit_orders(id) ON DELETE CASCADE,
+  invoice_number TEXT UNIQUE NOT NULL,
+  business_name TEXT,
+  business_tax_id TEXT,
+  billing_address TEXT,
+  pdf_url TEXT, -- if invoice is generated externally
+  issued_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE business_credits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  business_user_id UUID NOT NULL REFERENCES business_users(id) ON DELETE CASCADE,
+  total_credits INTEGER DEFAULT 0,
+  used_credits INTEGER DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(business_user_id)
+);
+
+CREATE TABLE credit_transactions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  business_user_id UUID NOT NULL REFERENCES business_users(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES credit_orders(id),
+  type TEXT NOT NULL CHECK (type IN ('top_up', 'usage', 'refund', 'adjustment')),
+  credit_change INTEGER NOT NULL, -- + for top-up, - for usage
+  balance_after INTEGER,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);

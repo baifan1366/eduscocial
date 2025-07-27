@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import useGetBoards from '@/hooks/useGetBoards'
+import useGetBoards from '@/hooks/user/board/useGetBoards'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'

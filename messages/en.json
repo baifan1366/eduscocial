@@ -649,6 +649,14 @@
     "Ad Creatives": "Ad Creatives",
     "Ad Preview": "Ad Preview",
     "Payments & Credits": "Payments & Credits",
-    "Setup Guide": "Setup Guide"
+    "Setup Guide": "Setup Guide",
+    "Payments and credits": "Payments and Credits",
+    "Buy credits": "Buy Credits",
+    "Checkout": "Checkout",
+    "Business": "Business"
+  },
+  "Credits": {
+    "credits": "Credits",
+    "buy": "Buy"
   }
 }
