@@ -26,6 +26,18 @@ export async function POST(request) {
       });
     }
     
+    // Get the request parameters (if any)
+    let requestParams = {};
+    try {
+      const requestBody = await request.json();
+      requestParams = requestBody || {};
+    } catch (e) {
+      // No body or invalid JSON, proceed with defaults
+      requestParams = {};
+    }
+    
+    const { priorityUsers = [], lookbackDays = 7 } = requestParams;
+    
     const results = {
       timestamp: new Date().toISOString(),
       actions: null,
@@ -43,15 +55,27 @@ export async function POST(request) {
     
     // 2. Process user embeddings
     try {
-      // Find users who need embedding updates (active in the last 7 days)
-      const userIds = await findUsersForEmbeddingUpdate(7, BATCH_SIZE);
+      // Process priority users first (if specified)
+      if (priorityUsers.length > 0) {
+        const priorityResults = await processBatchUserEmbeddings(priorityUsers, {
+          lookbackDays: 30, // Look back further for priority users
+          forceRefresh: true
+        });
+        results.priorityEmbeddings = priorityResults;
+      }
       
-      if (userIds.length > 0) {
+      // Find users who need embedding updates (active in the last N days)
+      const userIds = await findUsersForEmbeddingUpdate(lookbackDays, BATCH_SIZE);
+      
+      // Exclude priority users that have already been processed
+      const remainingUsers = userIds.filter(id => !priorityUsers.includes(id));
+      
+      if (remainingUsers.length > 0) {
         // Process user embeddings in batch
-        const embeddingResults = await processBatchUserEmbeddings(userIds);
+        const embeddingResults = await processBatchUserEmbeddings(remainingUsers);
         results.embeddings = embeddingResults;
       } else {
-        results.embeddings = { message: 'No users found needing embedding updates' };
+        results.embeddings = { message: 'No additional users found needing embedding updates' };
       }
     } catch (embeddingError) {
       console.error('Error processing user embeddings:', embeddingError);

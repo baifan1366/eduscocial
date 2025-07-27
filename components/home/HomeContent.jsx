@@ -1,17 +1,37 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import useGetHomePosts from '@/hooks/useGetHomePosts';
 import useAuth from '@/hooks/useAuth';
+import useCheckNewUser from '@/hooks/useCheckNewUser';
 import PostsList from './PostsList';
 import Sidebar from './Sidebar';
+import InterestSelectionDialog from '@/components/onboarding/InterestSelectionDialog';
 
 export default function HomeContent() {
   const t = useTranslations('HomePage');
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { data: posts, isLoading: isPostsLoading, error } = useGetHomePosts();
+  const { data, isLoading: isPostsLoading, error } = useGetHomePosts();
   const isAuthenticated = !!user;
+  
+  // Extract posts array from the API response
+  const posts = data?.posts || [];
+  
+  // Check if user is new for onboarding
+  const { data: newUserData } = useCheckNewUser({
+    enabled: !!user?.id,
+    refetchOnWindowFocus: false,
+  });
+  
+  const [showInterestDialog, setShowInterestDialog] = useState(false);
+  
+  // Show interest selection dialog for new users
+  useEffect(() => {
+    if (newUserData?.isNewUser && user?.id) {
+      setShowInterestDialog(true);
+    }
+  }, [newUserData?.isNewUser, user?.id]);
   
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -35,6 +55,12 @@ export default function HomeContent() {
           />
         </div>
       </div>
+      
+      {/* Interest selection dialog for new users */}
+      <InterestSelectionDialog 
+        isOpen={showInterestDialog}
+        onClose={() => setShowInterestDialog(false)}
+      />
     </div>
   );
 } 

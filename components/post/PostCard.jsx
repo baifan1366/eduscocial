@@ -1,7 +1,15 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
+import { trackUserAction } from '@/lib/userEmbedding';
+import useAuth from '@/hooks/useAuth';
 
-export default function PostCard({ post }) {
+export default function PostCard({ post, onView }) {
+  const { user } = useAuth();
+  const [hasTrackedView, setHasTrackedView] = useState(false);
+
   // 格式化日期，如"2小时前"，"3天前"等
   const formatTimeAgo = (dateString) => {
     const date = new Date(dateString);
@@ -24,6 +32,43 @@ export default function PostCard({ post }) {
     if (interval > 1) return Math.floor(interval) + " 分钟前";
     
     return Math.floor(seconds) + " 秒前";
+  };
+  
+  // Track post view when visible in viewport
+  const handlePostView = () => {
+    // Only track view once per component instance
+    if (hasTrackedView) return;
+    
+    setHasTrackedView(true);
+    
+    // Call parent onView handler if provided
+    if (onView && typeof onView === 'function') {
+      onView(post.id);
+    }
+    
+    // Track view action for embedding updates if user is logged in
+    if (user?.id) {
+      trackUserAction(user.id, 'view_post', post.id, {
+        source: 'post_card',
+        title: post.title?.substring(0, 50)
+      });
+    }
+  };
+  
+  // Handle post like
+  const handleLike = (e) => {
+    e.preventDefault(); // Prevent navigation
+    
+    // Track like action for embedding updates if user is logged in
+    if (user?.id) {
+      trackUserAction(user.id, 'like_post', post.id, {
+        source: 'post_card',
+        title: post.title?.substring(0, 50)
+      });
+    }
+    
+    // Here you would also call your API to record the like
+    // This is a placeholder for actual like functionality
   };
 
   return (
@@ -48,7 +93,7 @@ export default function PostCard({ post }) {
         </div>
       </div>
 
-      <div className="p-4">
+      <div className="p-4" onClick={handlePostView}>
         <Link href={`/post/${post.id}`} className="block">
           <h3 className="font-bold text-lg mb-2 text-slate-900 hover:text-orange-500 transition-colors line-clamp-2">
             {post.title}
@@ -70,7 +115,10 @@ export default function PostCard({ post }) {
           <span>{post.view_count || 0}</span>
         </div>
         
-        <div className="flex items-center">
+        <div 
+          className="flex items-center cursor-pointer hover:text-blue-500"
+          onClick={handleLike}
+        >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
           </svg>

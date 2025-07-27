@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { trackProfileUpdate } from '@/lib/userEmbedding';
 
 export function ProfileForm() {
   const t = useTranslations('Profile');
@@ -29,8 +30,19 @@ export function ProfileForm() {
   };
 
   const handleSaveAll = async () => {
+    // Store original profile for tracking changes
+    const originalProfile = { ...profile };
+    
     const result = await updateProfile(profile);
     if (result.success) {
+      // Track profile update for embedding updates
+      if (result.data?.userId) {
+        trackProfileUpdate(
+          result.data.userId,
+          originalProfile,
+          profile
+        );
+      }
       toast.success('Profile saved successfully!');
     }
   };

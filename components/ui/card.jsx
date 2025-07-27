@@ -11,6 +11,17 @@ export function Card({ children, className = '', ...props }) {
   );
 }
 
+export function CardTitle({ children, className = '', ...props }) {
+  return (
+    <h3 
+      className={`text-xl font-bold text-white ${className}`}
+      {...props}
+    >
+      {children}
+    </h3>
+  );
+}
+
 export function CardHeader({ children, className = '', ...props }) {
   return (
     <div 
