@@ -16,7 +16,9 @@ import {
   Settings,
   Bell,
   Globe,
-  Shield
+  Shield,
+  File,
+  Edit
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
@@ -46,6 +48,11 @@ export default function MySidebar() {
       title: 'My Personal Wall',
       href: `${baseUrl}/my`,
       icon: <User className="w-5 h-5" />
+    },
+    {
+      title: 'My Drafts',
+      href: `${baseUrl}/my/drafts`,
+      icon: <Edit className="w-5 h-5" />
     },
     {
       title: 'Topics I Follow',

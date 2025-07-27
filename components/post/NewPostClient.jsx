@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import useAuth from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useCreatePost, useSaveDraft, useGetDraft } from '@/hooks/useNewPost';
+import { useGetDraftById } from '@/hooks/useDrafts';
+import DraftSelectionDropdown from './DraftSelectionDropdown';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -29,9 +31,36 @@ export default function NewPostClient() {
   const [lastSaved, setLastSaved] = useState(null);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
-  // Fetch existing draft if available
+  // Check for draft ID in URL
+  const searchParams = useSearchParams();
+  const draftIdFromUrl = searchParams?.get('draft');
+
+  // Fetch specific draft by ID if present in URL
+  const { data: draftById, isLoading: isDraftByIdLoading } = useGetDraftById(draftIdFromUrl, {
+    enabled: !!draftIdFromUrl && isAuthenticated,
+    onSuccess: (data) => {
+      if (data && !draftLoaded) {
+        setTitle(data.title || '');
+        setContent(data.content || '');
+        if (data.post_type) {
+          setActiveTab(data.post_type);
+        }
+        if (data.template) {
+          setSelectedBoard(data.template);
+        }
+        setDraftLoaded(true);
+        setLastSaved(new Date(data.updated_at));
+        toast.info(t('draftLoaded'), {
+          description: t('continueDraft'),
+          duration: 3000,
+        });
+      }
+    }
+  });
+
+  // Fetch latest draft if no specific draft is requested
   const { data: draft, isLoading: isDraftLoading } = useGetDraft(activeTab, {
-    enabled: isAuthenticated && !draftLoaded,
+    enabled: isAuthenticated && !draftLoaded && !draftIdFromUrl,
     onSuccess: (data) => {
       if (data && !draftLoaded) {
         setTitle(data.title || '');
@@ -183,11 +212,26 @@ export default function NewPostClient() {
 
       {/* 主要内容区域 */}
       <div className="max-w-4xl mx-auto p-4 ">
-        {isDraftLoading && (
+        {(isDraftLoading || isDraftByIdLoading) && (
           <div className="mb-4 p-2 bg-blue-900/30 text-blue-200 rounded flex items-center gap-2">
             <AlertCircle size={16} />
             <span>{t('loadingDraft')}</span>
           </div>
+        )}
+        
+        {/* Draft Selection Dropdown */}
+        {isAuthenticated && !isDraftLoading && !isDraftByIdLoading && !draftLoaded && (
+          <DraftSelectionDropdown activeTab={activeTab} onDraftSelect={(draft) => {
+            if (draft) {
+              setTitle(draft.title || '');
+              setContent(draft.content || '');
+              if (draft.template) {
+                setSelectedBoard(draft.template);
+              }
+              setDraftLoaded(true);
+              setLastSaved(new Date(draft.updated_at));
+            }
+          }} />
         )}
         
         {/* 顶部控制区域 */}
