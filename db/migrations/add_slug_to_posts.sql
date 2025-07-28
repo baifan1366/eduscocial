@@ -6,7 +6,10 @@ ALTER TABLE posts ADD COLUMN slug TEXT;
 
 -- Create unique index on slug for fast lookups
 CREATE UNIQUE INDEX idx_posts_slug ON posts(slug) WHERE slug IS NOT NULL;
-
+CREATE INDEX idx_posts_author_id ON posts(author_id);
+CREATE INDEX idx_posts_board_id ON posts(board_id);
+CREATE INDEX idx_posts_created_at ON posts(created_at);
+CREATE INDEX idx_posts_status ON posts(status);
 -- Create function to generate slug from title
 CREATE OR REPLACE FUNCTION generate_slug(title TEXT)
 RETURNS TEXT AS $$
