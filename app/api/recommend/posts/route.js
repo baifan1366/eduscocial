@@ -61,7 +61,7 @@ export async function GET(request) {
       // Fallback to non-personalized recommendations if no embedding-based recommendations available
       const { data: fallbackPosts, error: fallbackError } = await supabase
         .from('posts')
-        .select('id, title, content, author_id, board_id, created_at, like_count, comment_count, view_count')
+        .select('id, title, content, slug, author_id, board_id, created_at, like_count, comment_count, view_count, is_anonymous')
         .eq('is_deleted', false)
         .not('id', 'in', `(${excludePostIds.join(',')})`)
         .order('created_at', { ascending: false })
@@ -108,7 +108,7 @@ export async function GET(request) {
       
       const { data: batchPosts, error: batchError } = await supabase
         .from('posts')
-        .select('id, title, content, author_id, board_id, created_at, like_count, comment_count, view_count, is_anonymous')
+        .select('id, title, content, slug, author_id, board_id, created_at, like_count, comment_count, view_count, is_anonymous')
         .in('id', batchIds)
         .eq('is_deleted', false);
       

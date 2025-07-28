@@ -30,6 +30,7 @@ export default function NewPostClient() {
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const [lastSaved, setLastSaved] = useState(null);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [selectedIdentity, setSelectedIdentity] = useState('default'); // 'default', 'anonymous', 'student'
 
   // Check for draft ID in URL
   const searchParams = useSearchParams();
@@ -47,6 +48,9 @@ export default function NewPostClient() {
         }
         if (data.template) {
           setSelectedBoard(data.template);
+        }
+        if (data.is_anonymous !== undefined) {
+          setSelectedIdentity(data.is_anonymous ? 'anonymous' : 'default');
         }
         setDraftLoaded(true);
         setLastSaved(new Date(data.updated_at));
@@ -67,6 +71,9 @@ export default function NewPostClient() {
         setContent(data.content || '');
         if (data.template) {
           setSelectedBoard(data.template);
+        }
+        if (data.is_anonymous !== undefined) {
+          setSelectedIdentity(data.is_anonymous ? 'anonymous' : 'default');
         }
         setDraftLoaded(true);
         setLastSaved(new Date(data.updated_at));
@@ -112,14 +119,18 @@ export default function NewPostClient() {
     const postData = {
       title: title.trim(),
       content: content.trim(),
-      type: activeTab,
+      post_type: activeTab,
       board: selectedBoard !== t('selectBoard') ? selectedBoard : null,
+      is_anonymous: selectedIdentity === 'anonymous',
     };
 
     createPost(postData, {
-      onSuccess: () => {
+      onSuccess: (data) => {
         toast.success(t('publishSuccess'));
-        router.push('/my');
+        // Redirect to the new post using slug if available, otherwise use ID
+        const postIdentifier = data.slug || data.id;
+        const locale = window.location.pathname.split('/')[1];
+        router.push(`/${locale}/home/${postIdentifier}`);
       },
       onError: (error) => {
         console.error('Error creating post:', error);
@@ -139,6 +150,7 @@ export default function NewPostClient() {
       content: content.trim(),
       type: activeTab,
       template: selectedBoard !== t('selectBoard') ? selectedBoard : null,
+      is_anonymous: selectedIdentity === 'anonymous',
     };
 
     saveDraft(draftData, {
@@ -228,6 +240,9 @@ export default function NewPostClient() {
               if (draft.template) {
                 setSelectedBoard(draft.template);
               }
+              if (draft.is_anonymous !== undefined) {
+                setSelectedIdentity(draft.is_anonymous ? 'anonymous' : 'default');
+              }
               setDraftLoaded(true);
               setLastSaved(new Date(draft.updated_at));
             }
@@ -290,20 +305,25 @@ export default function NewPostClient() {
                     <Button variant="ghost" className="p-0 h-auto hover:bg-transparent">
                       <div className="flex items-center space-x-2">
                         <span className="text-white font-medium">
-                          {user?.name || user?.username || t('selectIdentity')}
+                          {selectedIdentity === 'anonymous' 
+                            ? t('anonymousPost')
+                            : selectedIdentity === 'student'
+                            ? t('studentIdentity')
+                            : user?.name || user?.username || t('selectIdentity')
+                          }
                         </span>
                         <ChevronDown className="w-4 h-4 text-muted-foreground" />
                       </div>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedIdentity('default')}>
                       <span>{user?.name || user?.username || t('defaultIdentity')}</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedIdentity('anonymous')}>
                       <span>{t('anonymousPost')}</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedIdentity('student')}>
                       <span>{t('studentIdentity')}</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>

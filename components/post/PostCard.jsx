@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { trackUserAction } from '@/lib/userEmbedding';
 import useAuth from '@/hooks/useAuth';
+import { useTranslations } from 'next-intl';
 
 export default function PostCard({ post, onView }) {
   const { user } = useAuth();
   const [hasTrackedView, setHasTrackedView] = useState(false);
+  const t = useTranslations('NewPost');
 
   // 格式化日期，如"2小时前"，"3天前"等
   const formatTimeAgo = (dateString) => {
@@ -76,14 +78,14 @@ export default function PostCard({ post, onView }) {
       <div className="border-b border-slate-100 bg-slate-50 px-4 py-2 flex items-center">
         <div className="h-6 w-6 rounded-full overflow-hidden bg-slate-200 mr-2">
           <img
-            src={post.users?.avatar_url || '/images/default-avatar.png'}
-            alt={post.users?.username || 'User'}
+            src={post.is_anonymous ? '/images/default-avatar.png' : (post.users?.avatar_url || '/images/default-avatar.png')}
+            alt={post.is_anonymous ? t('anonymousPost') : (post.users?.username || 'User')}
             className="h-full w-full object-cover"
           />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-slate-800 truncate">
-            {post.users?.username || 'Anonymous'}
+            {post.is_anonymous ? t('anonymousPost') : (post.users?.username || post.users?.name || t('anonymousPost'))}
           </p>
         </div>
         <div className="flex items-center text-xs text-slate-500">

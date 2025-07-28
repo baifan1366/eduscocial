@@ -9,7 +9,7 @@ export const metadata = {
 
 export default async function NewPostPage({ params }) {
   const session = await getServerSession();
-  const locale = params.locale;
+  const { locale } = await params;
 
   // Protect this route - redirect to login if not authenticated
   if (!session) {
