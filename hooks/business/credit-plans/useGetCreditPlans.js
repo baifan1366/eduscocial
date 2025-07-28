@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { boardsApi } from '@/lib/api';
+import { creditPlansApi } from '@/lib/api';
+import queryKeys from '@/lib/queryKeys';
 
 /**
- * 用于获取面板列表的钩子
+ * 用于获取信用计划列表的钩子
  * @param {Object} options - 查询选项
  * @param {boolean} options.enabled - 是否启用查询
  * @param {Object} options.filters - 过滤条件
@@ -12,14 +13,14 @@ import { boardsApi } from '@/lib/api';
  * @param {number} options.offset - 查询偏移量
  * @returns {Object} 查询结果
  */
-export default function useGetBoards(options = {}) {
+export default function useGetCreditPlans(options = {}) {
   const { 
     enabled = true, 
     filters = {}, 
-    orderBy = 'name', 
+    orderBy = 'credit_amount', 
     orderDirection = 'asc',
     limit = 100,
-    offset = 0 
+    offset = 0,
   } = options;
 
   // 构建查询参数
@@ -32,14 +33,10 @@ export default function useGetBoards(options = {}) {
   };
 
   return useQuery({
-    queryKey: ['boards', orderBy, orderDirection, limit, offset, filters],
+    queryKey: queryKeys.creditPlans.list(queryParams),
     queryFn: async () => {
-      try {
-        return await boardsApi.getAll(queryParams);
-      } catch (error) {
-        console.error('error:', error);
-        throw error;
-      }
+      const result = await creditPlansApi.getAll(queryParams);
+      return result.credit_plans;
     },
     enabled,
     placeholderData: (previousData) => previousData, // replaces keepPreviousData

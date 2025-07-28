@@ -45,7 +45,7 @@ export async function PUT(request, { params }) {
 
     try {
         const requestData = await request.json();
-        const { boardName, slug, description, color, categoryIcon, visibility, anonymousPost } = requestData;
+        const { boardName, slug, description, color, categoryIcon, visibility, anonymousPost, is_active, status } = requestData;
         const { data, error } = await supabase
             .from('boards')
             .update({
@@ -56,6 +56,8 @@ export async function PUT(request, { params }) {
                 icon: categoryIcon,
                 visibility: visibility,
                 anonymous: anonymousPost,
+                is_active: is_active,
+                status: status,
                 updated_at: new Date(),
             })
             .eq('id', id)

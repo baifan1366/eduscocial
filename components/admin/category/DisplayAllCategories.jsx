@@ -20,7 +20,9 @@ import { toast } from 'sonner'
 
 export default function DisplayAllCategories() {
     const t = useTranslations('Category')
-    const { data, isLoading, error, refetch } = useGetCategories()
+    const { data, isLoading, error, refetch } = useGetCategories({
+        includeCategoryData: true
+    })
     const [activeId, setActiveId] = useState(null)
     const [expandedCategories, setExpandedCategories] = useState([])
     const [search, setSearch] = useState('')
@@ -60,8 +62,13 @@ export default function DisplayAllCategories() {
         return categories.filter(category => {
             const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase())
             
-            // 如果当前类别匹配，则保留整个类别
-            if (matchesSearch) return true
+            // 检查板块是否匹配搜索词
+            const hasMatchingBoards = category.boards && category.boards.some(board => 
+                board.name.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            
+            // 如果当前类别或其板块匹配，则保留整个类别
+            if (matchesSearch || hasMatchingBoards) return true
             
             // 如果当前类别不匹配，检查其子类别是否匹配
             if (category.children && category.children.length > 0) {
@@ -83,8 +90,14 @@ export default function DisplayAllCategories() {
         if (!data?.categories) return []
         
         const categoryMap = {}
+        
+        // 首先，创建所有分类对象的副本，保留boards数据
         data.categories.forEach(category => {
-            categoryMap[category.id] = { ...category, children: [] }
+            categoryMap[category.id] = { 
+                ...category, 
+                children: [],
+                boards: category.boards || [] // 确保保留boards数据
+            }
         })
         
         const rootCategories = []
@@ -116,12 +129,6 @@ export default function DisplayAllCategories() {
     const handleDragEnd = (event) => {
         setActiveId(null)
         const { active, over } = event
-        
-        if (active.id !== over.id) {
-            // Here you would implement the logic to update the category order
-            console.log(`Moving category ${active.id} to position of ${over.id}`)
-            // API call to update category order would go here
-        }
     }
 
     const toggleExpand = useCallback((categoryId) => {

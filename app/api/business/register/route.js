@@ -101,6 +101,18 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Failed to create business account' }, { status: 500 });
     }
 
+    // Create business credits record
+    const { error: businessCreditsError } = await supabase
+      .from('business_credits')
+      .insert({
+        business_user_id: newUser.id
+      });
+
+    if (businessCreditsError) {
+      console.error('Create business credits error:', businessCreditsError);
+      return NextResponse.json({ message: 'Failed to create business credits' }, { status: 500 });
+    }
+
     // Generate JWT token
     const token = await generateJWT({
       id: newUser.id,

@@ -30,18 +30,18 @@ export async function POST(request) {
     }
 
     //create admin_sessions exist or not, if not create it
-    const { data: adminSession, error: adminSessionError } = await supabase
+    const { data: adminSessions, error: adminSessionsError } = await supabase
       .from('admin_sessions')
       .select('id')
-      .eq('admin_user_id', adminUser.id)
-      .single();
+      .eq('admin_user_id', adminUser.id);
 
-    if (adminSessionError) {
-      console.error('Failed to create admin session:', adminSessionError);
+    if (adminSessionsError) {
+      console.error('Failed to query admin sessions:', adminSessionsError);
     }
 
-    if (!adminSession) {
-      await supabase
+    // 检查是否存在会话
+    if (!adminSessions || adminSessions.length === 0) {
+      const { error: insertError } = await supabase
         .from('admin_sessions')
         .insert({
           admin_user_id: adminUser.id,
@@ -53,8 +53,8 @@ export async function POST(request) {
           last_seen: new Date().toISOString()
         });
 
-      if (adminSessionError) {
-        console.error('Failed to create admin session:', adminSessionError);
+      if (insertError) {
+        console.error('Failed to create admin session:', insertError);
       }
     }
 
@@ -64,7 +64,6 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
     
-
     // Generate JWT token
     const token = await generateJWT({
       id: adminUser.id,
@@ -82,7 +81,7 @@ export async function POST(request) {
     });
 
     // update last seen
-    const { data: updatedAdminSession, error: updatedAdminSessionError } = await supabase
+    const { error: updatedAdminSessionError } = await supabase
       .from('admin_sessions')
       .update({ last_seen: new Date().toISOString() })
       .eq('admin_user_id', adminUser.id);

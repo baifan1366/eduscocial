@@ -1,15 +1,7 @@
 import '../../../app/globals.css';
+import BusinessSidebarWrapper from '@/components/layout/BusinessSidebarWrapper';
 
-export const metadata = {
-  title: 'Business | EduSocial',
-  description: 'Business portal for EduSocial',
-};
-
-export default async function BusinessLayout({ children }) {
-
-  return (
-    <div className="container mx-auto p-4">
-      {children}
-    </div>
-  );
-} 
+export default function BusinessLayout({ children }) {
+  // 使用客户端包装组件，它会根据路径自动处理认证状态
+  return <BusinessSidebarWrapper>{children}</BusinessSidebarWrapper>;
+}

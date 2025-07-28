@@ -7,7 +7,7 @@ import useSettings from '@/hooks/useSettings';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
-import useGetBoards from '@/hooks/useGetBoards';
+import useGetBoards from '@/hooks/user/board/useGetBoards';
 
 export default function GeneralSettings() {
   const { settings, loading, updateSetting } = useSettings();
