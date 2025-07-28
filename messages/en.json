@@ -684,6 +684,35 @@
   },
   "Credits": {
     "credits": "Credits",
-    "buy": "Buy"
+    "buy": "Buy",
+    "processing": "Processing..."
+  },
+  "Checkout": {
+    "securePayment": "Secure Payment",
+    "paymentDetails": "Payment Details",
+    "paymentProcessed": "Payment Processed",
+    "paymentCancelled": "Payment Cancelled",
+    "loadingPayment": "Loading Payment...",
+    "paymentError": "Payment Error",
+    "paymentSuccess": "Payment Successful",
+    "paymentFailed": "Payment Failed",
+    "paymentPending": "Payment Pending",
+    "paymentRefunded": "Payment Refunded",  
+    "clickProceed": "Click Proceed",
+    "securePaymentDescription": "Your payment is secure with Stripe",
+    "orderSummary": "Order Summary",
+    "proceedToPayment": "Proceed to Payment",
+    "loading": "Loading...",
+    "thankYou": "Thank You",
+    "creditsAdded": "Credits added successfully",
+    "backToHome": "Back to Home",
+    "paymentCancelMessage": "Payment cancelled",
+    "tryAgain": "Try Again",
+    "credits": "Credits",
+    "price": "Price",
+    "total": "Total",
+    "processing": "Processing...",
+    "payNow": "Pay Now",
+    "orderDetailsNotAvailable": "Order details not available"
   }
 }

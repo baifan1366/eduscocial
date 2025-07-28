@@ -1037,8 +1037,12 @@ CREATE TABLE credit_orders (
 
 CREATE TABLE invoices (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  business_user_id UUID NOT NULL REFERENCES business_users(id) ON DELETE CASCADE,
   order_id UUID NOT NULL REFERENCES credit_orders(id) ON DELETE CASCADE,
   invoice_number TEXT UNIQUE NOT NULL,
+  amount FLOAT NOT NULL,
+  currency TEXT DEFAULT 'RM',
+  status TEXT DEFAULT 'paid' CHECK (status IN ('pending', 'paid', 'cancelled')),
   business_name TEXT,
   business_tax_id TEXT,
   billing_address TEXT,

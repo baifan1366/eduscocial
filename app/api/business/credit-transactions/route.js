@@ -3,8 +3,17 @@ import { supabase } from "@/lib/supabase";
 import { getServerSession } from "@/lib/auth/serverAuth";
 
 export async function POST(request) {
-    const { data } = await request.json();
-    
+    let data;
+    try {
+        const requestBody = await request.json();
+        data = requestBody.data || requestBody;
+    } catch (error) {
+        console.error('JSON parsing error:', error);
+        return NextResponse.json({
+            error: "Invalid JSON format in request body"
+        }, { status: 400 });
+    }
+
     // 获取用户会话
     const session = await getServerSession();
     

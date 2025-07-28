@@ -7,6 +7,8 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useRouter } from 'next/navigation';
+import useCreateCreditOrder from '@/hooks/business/credit-order/useCreateCreditOrder';
+import { useState, useRef } from 'react';
 
 const GridItem = ({
   area,
@@ -50,7 +52,11 @@ export default function DisplayAllCreditPlans() {
     const { data: creditPlans, isLoading } = useGetCreditPlans();
     const t = useTranslations('Credits');
     const router = useRouter();
-    const orderId = "baifan1366"
+    const { mutate, isPending } = useCreateCreditOrder();
+    const [processingPlanId, setProcessingPlanId] = useState(null);
+    
+    // 添加一个ref来跟踪是否正在处理订单
+    const isProcessingRef = useRef(false);
     
     if (isLoading) {
         return (
@@ -130,9 +136,43 @@ export default function DisplayAllCreditPlans() {
                             <Button 
                                 variant="orange" 
                                 className="w-full"
-                                onClick={() => router.push(`/business/payments-and-credits/buy-credits/checkout?planId=${plan.id}&orderId=${orderId}`)}
+                                disabled={isPending || isProcessingRef.current}
+                                onClick={() => {
+                                    // 防止重复点击创建多个订单
+                                    if (isPending || isProcessingRef.current) return;
+                                    
+                                    // 立即设置处理中状态
+                                    isProcessingRef.current = true;
+                                    
+                                    // 记录正在处理的plan ID
+                                    setProcessingPlanId(plan.id);
+                                    
+                                    // 创建订单，然后导航到结账页面
+                                    mutate({
+                                        planId: plan.id,
+                                    }, {
+                                        onSuccess: (data) => {
+                                            console.log('订单创建成功:', data);
+                                            const orderId = data?.credit_order?.id;
+                                            if (orderId) {
+                                                router.push(`/business/payments-and-credits/buy-credits/checkout?planId=${plan.id}&orderId=${orderId}`);
+                                            } else {
+                                                console.error('未能获取orderId', data);
+                                                setProcessingPlanId(null);
+                                                isProcessingRef.current = false; // 重置状态
+                                            }
+                                        },
+                                        onError: (error) => {
+                                            console.error('创建订单失败:', error);
+                                            setProcessingPlanId(null);
+                                            isProcessingRef.current = false; // 出错时重置状态
+                                        }
+                                    });
+                                }}
                             >
-                                {t('buy')}
+                                {(isPending || isProcessingRef.current) ? 
+                                    `${t('processing')}` : 
+                                    t('buy')}
                             </Button>
                         </div>
                     }
