@@ -49,6 +49,8 @@
     "createNewPost": "Create New Post",
     "loadingDrafts": "Loading drafts...",
     "errorLoadingDrafts": "Error loading drafts",
+    "loading": "Loading...",
+    "loadError": "Error loading boards",
     "continueWithDraft": "Continue with a draft",
     "untitledDraft": "Untitled Draft",
     "noDraftsAvailable": "No drafts available"

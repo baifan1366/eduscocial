@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useCreatePost, useSaveDraft, useGetDraft } from '@/hooks/useNewPost';
 import { useGetDraftById } from '@/hooks/useDrafts';
+import useGetBoards from '@/hooks/user/board/useGetBoards';
 import DraftSelectionDropdown from './DraftSelectionDropdown';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,7 +24,8 @@ export default function NewPostClient() {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('general');
-  const [selectedBoard, setSelectedBoard] = useState(t('selectBoard'));
+  const [selectedBoard, setSelectedBoard] = useState('__placeholder__');
+  const [selectedBoardId, setSelectedBoardId] = useState('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [showTooltip, setShowTooltip] = useState(false);
@@ -35,6 +37,17 @@ export default function NewPostClient() {
   // Check for draft ID in URL
   const searchParams = useSearchParams();
   const draftIdFromUrl = searchParams?.get('draft');
+
+  // Fetch boards from database
+  const { data: boardsData, isLoading: isBoardsLoading, error: boardsError } = useGetBoards({
+    enabled: true,
+    filters: {
+      is_active: true,
+      status: 'approved'
+    },
+    orderBy: 'sort_order',
+    orderDirection: 'asc'
+  });
 
   // Fetch specific draft by ID if present in URL
   const { data: draftById, isLoading: isDraftByIdLoading } = useGetDraftById(draftIdFromUrl, {
@@ -48,6 +61,15 @@ export default function NewPostClient() {
         }
         if (data.template) {
           setSelectedBoard(data.template);
+          // Find the board ID from the boards data
+          if (boardsData?.boards) {
+            const board = boardsData.boards.find(b => b.name === data.template);
+            if (board) {
+              setSelectedBoardId(board.id);
+            }
+          }
+        } else {
+          setSelectedBoard('__placeholder__');
         }
         if (data.is_anonymous !== undefined) {
           setSelectedIdentity(data.is_anonymous ? 'anonymous' : 'default');
@@ -71,6 +93,15 @@ export default function NewPostClient() {
         setContent(data.content || '');
         if (data.template) {
           setSelectedBoard(data.template);
+          // Find the board ID from the boards data
+          if (boardsData?.boards) {
+            const board = boardsData.boards.find(b => b.name === data.template);
+            if (board) {
+              setSelectedBoardId(board.id);
+            }
+          }
+        } else {
+          setSelectedBoard('__placeholder__');
         }
         if (data.is_anonymous !== undefined) {
           setSelectedIdentity(data.is_anonymous ? 'anonymous' : 'default');
@@ -120,7 +151,7 @@ export default function NewPostClient() {
       title: title.trim(),
       content: content.trim(),
       post_type: activeTab,
-      board: selectedBoard !== t('selectBoard') ? selectedBoard : null,
+      board_id: selectedBoardId || null,
       is_anonymous: selectedIdentity === 'anonymous',
     };
 
@@ -149,7 +180,7 @@ export default function NewPostClient() {
       title: title.trim(),
       content: content.trim(),
       type: activeTab,
-      template: selectedBoard !== t('selectBoard') ? selectedBoard : null,
+      template: selectedBoard !== '__placeholder__' ? selectedBoard : null,
       is_anonymous: selectedIdentity === 'anonymous',
     };
 
@@ -239,6 +270,15 @@ export default function NewPostClient() {
               setContent(draft.content || '');
               if (draft.template) {
                 setSelectedBoard(draft.template);
+                // Find the board ID from the boards data
+                if (boardsData?.boards) {
+                  const board = boardsData.boards.find(b => b.name === draft.template);
+                  if (board) {
+                    setSelectedBoardId(board.id);
+                  }
+                }
+              } else {
+                setSelectedBoard('__placeholder__');
               }
               if (draft.is_anonymous !== undefined) {
                 setSelectedIdentity(draft.is_anonymous ? 'anonymous' : 'default');
@@ -254,16 +294,39 @@ export default function NewPostClient() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
-                <Select value={selectedBoard} onValueChange={setSelectedBoard}>
+                <Select
+                  value={selectedBoard}
+                  onValueChange={(value) => {
+                    setSelectedBoard(value);
+                    // Find the board ID when a board is selected
+                    if (boardsData?.boards && value !== '__placeholder__' && value !== '__loading__' && value !== '__error__') {
+                      const board = boardsData.boards.find(b => b.name === value);
+                      setSelectedBoardId(board ? board.id : '');
+                    } else {
+                      setSelectedBoardId('');
+                    }
+                  }}
+                >
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder={t('selectBoard')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={t('selectBoard')}>{t('selectBoard')}</SelectItem>
-                    <SelectItem value={t('studyDiscussion')}>{t('studyDiscussion')}</SelectItem>
-                    <SelectItem value={t('lifeSharing')}>{t('lifeSharing')}</SelectItem>
-                    <SelectItem value={t('techExchange')}>{t('techExchange')}</SelectItem>
-                    <SelectItem value={t('helpQA')}>{t('helpQA')}</SelectItem>
+                    <SelectItem value="__placeholder__">{t('selectBoard')}</SelectItem>
+                    {isBoardsLoading ? (
+                      <SelectItem value="__loading__" disabled>
+                        {t('loading') || 'Loading...'}
+                      </SelectItem>
+                    ) : boardsError ? (
+                      <SelectItem value="__error__" disabled>
+                        {t('loadError') || 'Error loading boards'}
+                      </SelectItem>
+                    ) : (
+                      boardsData?.boards?.map((board) => (
+                        <SelectItem key={board.id} value={board.name}>
+                          {board.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
