@@ -703,5 +703,17 @@
   "Credits": {
     "credits": "Credits",
     "buy": "Buy"
+  },
+  "PostDetail": {
+    "pageTitle": "Post Details - EduSocial",
+    "pageDescription": "View post details and comments"
+  },
+  "BoardDetail": {
+    "pageTitle": "Board Details - EduSocial",
+    "pageDescription": "Explore board discussions and posts"
+  },
+  "BoardsListing": {
+    "pageTitle": "All Boards - EduSocial",
+    "pageDescription": "Explore all discussion boards and communities"
   }
 }

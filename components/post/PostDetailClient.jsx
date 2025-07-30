@@ -8,6 +8,7 @@ import { ArrowLeft, Heart, MessageCircle, Share2, Bookmark } from 'lucide-react'
 import useGetPost from '@/hooks/useGetPost';
 import UserAvatar from '@/components/ui/UserAvatar';
 import { Button } from '@/components/ui/button';
+import CommentsList from '@/components/comments/CommentsList';
 
 export default function PostDetailClient({ postId, locale, isAuthenticated }) {
   const t = useTranslations('PostDetail');
@@ -209,12 +210,12 @@ export default function PostDetailClient({ postId, locale, isAuthenticated }) {
         </div>
       </div>
 
-      {/* Comments section placeholder */}
-      <div className="mt-6 bg-[#132F4C] rounded-lg p-6 border border-[#1E3A5F]">
-        <h3 className="text-lg font-semibold text-white mb-4">Comments</h3>
-        <p className="text-gray-400 text-center py-8">
-          Comments feature coming soon...
-        </p>
+      {/* Comments section */}
+      <div className="mt-6">
+        <CommentsList
+          postId={postId}
+          initialCommentsCount={post.commentsCount || post.comments_count || 0}
+        />
       </div>
     </div>
   );
