@@ -3,8 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-// API functions
-const commentsApi = {
+// Local API functions for comments
+const localCommentsApi = {
   // 获取帖子的评论列表
   getPostComments: async (postId, options = {}) => {
     const params = new URLSearchParams({
@@ -127,7 +127,7 @@ const commentsApi = {
 export const usePostComments = (postId, options = {}) => {
   return useQuery({
     queryKey: ['comments', 'post', postId, options],
-    queryFn: () => commentsApi.getPostComments(postId, options),
+    queryFn: () => localCommentsApi.getPostComments(postId, options),
     enabled: !!postId,
     staleTime: 30 * 1000, // 30 seconds
     ...options.queryOptions
@@ -143,7 +143,7 @@ export const usePostComments = (postId, options = {}) => {
 export const useComment = (commentId, options = {}) => {
   return useQuery({
     queryKey: ['comments', commentId],
-    queryFn: () => commentsApi.getComment(commentId),
+    queryFn: () => localCommentsApi.getComment(commentId),
     enabled: !!commentId,
     staleTime: 60 * 1000, // 1 minute
     ...options
@@ -159,7 +159,7 @@ export const useCreateComment = (postId) => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (commentData) => commentsApi.createComment(postId, commentData),
+    mutationFn: (commentData) => localCommentsApi.createComment(postId, commentData),
     onSuccess: (newComment) => {
       // Invalidate and refetch comments for this post
       queryClient.invalidateQueries({ queryKey: ['comments', 'post', postId] });
@@ -191,7 +191,7 @@ export const useUpdateComment = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ commentId, updateData }) => commentsApi.updateComment(commentId, updateData),
+    mutationFn: ({ commentId, updateData }) => localCommentsApi.updateComment(commentId, updateData),
     onSuccess: (updatedComment) => {
       // Update the specific comment in cache
       queryClient.setQueryData(['comments', updatedComment.id], updatedComment);
@@ -217,7 +217,7 @@ export const useDeleteComment = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (commentId) => commentsApi.deleteComment(commentId),
+    mutationFn: (commentId) => localCommentsApi.deleteComment(commentId),
     onSuccess: (_, commentId) => {
       // Invalidate all comment-related queries
       queryClient.invalidateQueries({ queryKey: ['comments'] });
@@ -230,15 +230,17 @@ export const useDeleteComment = () => {
   });
 };
 
+
+
 /**
  * Hook for voting on comments
  * @returns {Object} Mutation object
  */
 export const useVoteComment = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ commentId, voteType }) => commentsApi.voteComment(commentId, voteType),
+    mutationFn: ({ commentId, voteType }) => localCommentsApi.voteComment(commentId, voteType),
     onSuccess: (result, { commentId }) => {
       // Update comment vote status in cache
       queryClient.setQueryData(['comments', commentId, 'vote'], {
@@ -246,10 +248,42 @@ export const useVoteComment = () => {
         likesCount: result.likesCount,
         dislikesCount: result.dislikesCount
       });
-      
+
+      // Update the comment in the post comments list
+      queryClient.setQueriesData(
+        { queryKey: ['comments', 'post'] },
+        (oldData) => {
+          if (!oldData) return oldData;
+
+          const updateComment = (comment) => {
+            if (comment.id === commentId) {
+              return {
+                ...comment,
+                likesCount: result.likesCount,
+                dislikesCount: result.dislikesCount
+              };
+            }
+            if (comment.replies) {
+              return {
+                ...comment,
+                replies: comment.replies.map(updateComment)
+              };
+            }
+            return comment;
+          };
+
+          return {
+            ...oldData,
+            pages: oldData.pages.map(page => ({
+              ...page,
+              comments: page.comments.map(updateComment)
+            }))
+          };
+        }
+      );
+
       // Invalidate comment queries to refresh vote counts
       queryClient.invalidateQueries({ queryKey: ['comments', commentId] });
-      queryClient.invalidateQueries({ queryKey: ['comments', 'post'] });
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to vote on comment');
@@ -265,7 +299,7 @@ export const useVoteComment = () => {
 export const useCommentVoteStatus = (commentId) => {
   return useQuery({
     queryKey: ['comments', commentId, 'vote'],
-    queryFn: () => commentsApi.getCommentVoteStatus(commentId),
+    queryFn: () => localCommentsApi.getCommentVoteStatus(commentId),
     enabled: !!commentId,
     staleTime: 30 * 1000, // 30 seconds
   });

@@ -1,0 +1,39 @@
+{
+  "NewPost": {
+    "article": "文章",
+    "picture": "图片", 
+    "video": "视频",
+    "poll": "投票",
+    "anonymousPost": "匿名帖子",
+    "selectBoard": "选择版块",
+    "title": "标题",
+    "content": "内容",
+    "tags": "标签",
+    "publish": "发布",
+    "draft": "草稿",
+    "cancel": "取消",
+    "publishing": "发布中...",
+    "locale": "zh-CN",
+    "draftAvailable": "草稿可用",
+    "draftChooseOption": "您有已保存的草稿。选择继续编辑或创建新帖子。",
+    "draftOptions": "选择选项",
+    "createNewPost": "创建新帖子",
+    "loadingDrafts": "加载草稿中...",
+    "errorLoadingDrafts": "加载草稿时出错",
+    "loading": "加载中...",
+    "loadError": "加载版块时出错",
+    "continueWithDraft": "继续使用草稿"
+  },
+  "Reactions": {
+    "addReaction": "添加表情反应",
+    "removeReaction": "移除表情反应",
+    "loginToReact": "请先登录以添加反应",
+    "reactionFailed": "添加反应失败，请重试",
+    "reactionRemoved": "反应已移除",
+    "reactionAdded": "反应已添加",
+    "duplicateReaction": "您已经添加过这个反应了",
+    "selectEmoji": "选择表情",
+    "noReactions": "暂无反应",
+    "reactionsCount": "{count} 个反应"
+  }
+}
