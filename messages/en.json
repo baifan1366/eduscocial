@@ -704,10 +704,6 @@
     "credits": "Credits",
     "buy": "Buy"
   },
-  "PostDetail": {
-    "pageTitle": "Post Details - EduSocial",
-    "pageDescription": "View post details and comments"
-  },
   "BoardDetail": {
     "pageTitle": "Board Details - EduSocial",
     "pageDescription": "Explore board discussions and posts"
@@ -715,5 +711,17 @@
   "BoardsListing": {
     "pageTitle": "All Boards - EduSocial",
     "pageDescription": "Explore all discussion boards and communities"
+  },
+  "Reactions": {
+    "addReaction": "Add reaction",
+    "removeReaction": "Remove reaction",
+    "loginToReact": "Please login to react",
+    "reactionFailed": "Failed to add reaction, please try again",
+    "reactionRemoved": "Reaction removed",
+    "reactionAdded": "Reaction added",
+    "duplicateReaction": "You have already reacted this way",
+    "selectEmoji": "Select an emoji",
+    "noReactions": "No reactions yet",
+    "reactionsCount": "{count} reactions"
   }
 }

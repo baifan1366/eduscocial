@@ -1,0 +1,39 @@
+{
+  "NewPost": {
+    "article": "Artikel",
+    "picture": "Gambar",
+    "video": "Video", 
+    "poll": "Undian",
+    "anonymousPost": "Pos Tanpa Nama",
+    "selectBoard": "Pilih papan",
+    "title": "Tajuk",
+    "content": "Kandungan",
+    "tags": "Tag",
+    "publish": "Terbitkan",
+    "draft": "Draf",
+    "cancel": "Batal",
+    "publishing": "Menerbitkan...",
+    "locale": "ms-MY",
+    "draftAvailable": "Draf Tersedia",
+    "draftChooseOption": "Anda mempunyai draf yang disimpan. Pilih untuk terus mengedit atau cipta pos baru.",
+    "draftOptions": "Pilih Pilihan",
+    "createNewPost": "Cipta Pos Baru",
+    "loadingDrafts": "Memuatkan draf...",
+    "errorLoadingDrafts": "Ralat memuatkan draf",
+    "loading": "Memuatkan...",
+    "loadError": "Ralat memuatkan papan",
+    "continueWithDraft": "Teruskan dengan draf"
+  },
+  "Reactions": {
+    "addReaction": "Tambah reaksi",
+    "removeReaction": "Buang reaksi",
+    "loginToReact": "Sila log masuk untuk memberi reaksi",
+    "reactionFailed": "Gagal menambah reaksi, sila cuba lagi",
+    "reactionRemoved": "Reaksi dibuang",
+    "reactionAdded": "Reaksi ditambah",
+    "duplicateReaction": "Anda sudah memberi reaksi ini",
+    "selectEmoji": "Pilih emoji",
+    "noReactions": "Belum ada reaksi",
+    "reactionsCount": "{count} reaksi"
+  }
+}
