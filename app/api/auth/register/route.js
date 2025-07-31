@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { validatePasswordStrength, hashPassword } from '@/lib/auth/password';
+import { generateUserInterestEmbedding } from '@/lib/userEmbedding';
 
 export async function POST(request) {
   try {
@@ -122,6 +123,20 @@ export async function POST(request) {
         { error: '创建用户配置文件时出错' },
         { status: 500 }
       );
+    }
+
+    // 为新用户创建初始嵌入向量（异步，不阻塞注册流程）
+    try {
+      // 由于新用户没有交互历史，这里会创建一个空的嵌入向量记录
+      // 实际的嵌入向量会在用户有足够的交互数据后通过批处理生成
+      await generateUserInterestEmbedding(newUser.id, {
+        lookbackDays: 30,
+        storeInDb: true,
+        storeInRedis: false // 新用户不需要缓存空嵌入向量
+      });
+    } catch (embeddingError) {
+      // 嵌入向量创建失败不应该影响注册流程
+      console.error('创建用户嵌入向量时出错（非阻塞）:', embeddingError);
     }
 
     // 返回成功响应和用户数据，但不包含会话

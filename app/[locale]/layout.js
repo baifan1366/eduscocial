@@ -6,7 +6,7 @@ import { getMessages } from '../../messages/utils';
 import NavbarWrapper from '../../components/layout/NavbarWrapper';
 
 export default async function LocaleLayout({ children, params }) {
-  const { locale = 'en' } = params; 
+  const { locale = 'en' } = await params; 
   const messages = await getMessages(locale);
   
   return (
@@ -14,7 +14,7 @@ export default async function LocaleLayout({ children, params }) {
       <ClientProviders>
         {/* NavbarWrapper will conditionally render the appropriate navbar */}
         <NavbarWrapper />
-        <main className="container mx-auto px-4 py-0 flex-grow min-h-screen">
+        <main className="container mx-auto px-4 py-0">
           {children}
         </main>
       </ClientProviders>

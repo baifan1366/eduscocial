@@ -16,8 +16,10 @@ const currentYear = new Date().getFullYear();
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="h-full">
-      <body className="min-h-screen flex flex-col bg-[#0A1929] text-white">
-        {children}
+      <body suppressHydrationWarning className="min-h-screen flex flex-col bg-[#0A1929] text-white">
+        <div className="flex-grow">
+          {children}
+        </div>
         <footer className="bg-[#061120] py-6 px-4">
           <div className="container mx-auto text-center text-gray-400">
             <p suppressHydrationWarning>© {currentYear} EduSocial. All rights reserved.</p>

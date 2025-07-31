@@ -128,7 +128,7 @@ export default function AuthForm({ isRegister = false }) {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-medium">
-                {isRegister ? t('primaryEmail') : t('studentEmail')}
+                {isRegister ? t('primaryEmail') : t('studentEmail')} <span className="text-red-500">*</span>
               </label>
               <input
                 id="email"
@@ -145,7 +145,7 @@ export default function AuthForm({ isRegister = false }) {
             {isRegister ? (
               <div className="space-y-2">
                 <label htmlFor="name" className="block text-sm font-medium">
-                  {t('username')}
+                  {t('username')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="username"
@@ -166,7 +166,7 @@ export default function AuthForm({ isRegister = false }) {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <label htmlFor="password" className="block text-sm font-medium">
-                  {t('password')}
+                  {t('password')} <span className="text-red-500">*</span>
                 </label>
                 {!isRegister && (
                   <Link 
@@ -201,7 +201,7 @@ export default function AuthForm({ isRegister = false }) {
             {isRegister ? (
               <div className="space-y-2">
                 <label htmlFor="confirmPassword" className="block text-sm font-medium">
-                  {t('confirmPassword')}
+                  {t('confirmPassword')} <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center border rounded-md bg-[#0A1929] border-[#132F4C] pl-3 pr-0 w-full focus-within:outline-none focus-within:ring-2 focus-within:ring-white">
                   <input
@@ -274,8 +274,8 @@ export default function AuthForm({ isRegister = false }) {
         <CardFooter className="text-center">
           <>
             {isRegister ? (
-              <Link href="/login" className="text-[#FF7D00] text-sm hover:underline">
-                {t('alreadyHaveAccount')}
+              <Link href="/login" className="text-sm">
+                <span className="text-gray-500">{t('alreadyHaveAccount')}</span>{' '}<span className="text-[#FF7D00] hover:underline">{t('signIn')}</span>
               </Link>
             ) : (
               <>

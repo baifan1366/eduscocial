@@ -27,7 +27,11 @@ const publicRoutes = [
   '/register',
   '/forgot-password',
   '/admin/login',
+  '/admin/register',
+  '/admin/forgot-password',
   '/business/login',
+  '/business/register',
+  '/business/forgot-password',
   '/error',
 ];
 
@@ -101,6 +105,13 @@ export async function middleware(request) {
   if (isPublicRoute) {
     const response = intlMiddleware(request);
     response.cookies.delete(REDIRECT_COUNT_COOKIE);
+    // 将当前路径存储到cookie中，供服务端组件使用
+    response.cookies.set('current-path', pathname, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'strict',
+      maxAge: 60 * 5 // 5分钟
+    });
     return response;
   }
 
@@ -177,7 +188,13 @@ export async function middleware(request) {
       
       // 如果当前URL与来源URL相同，可能存在循环
       if (referer === currentUrl) {
-        return NextResponse.redirect(new URL(`/${locale}/error?code=auth_required`, request.url));
+        if(isAdminRoute) {
+          return NextResponse.redirect(new URL(`/${locale}/admin/login`, request.url));
+        } else if (isBusinessRoute) {
+          return NextResponse.redirect(new URL(`/${locale}/business/login`, request.url));
+        } else {
+          return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+        }
       }
       
       // 选择重定向目标
@@ -228,16 +245,16 @@ export async function middleware(request) {
     }
     
     // 检查管理员权限
-    if (isAdminRoute && tokenData.role !== 'ADMIN') {
+    if (isAdminRoute && tokenData.role !== 'admin') {
       return NextResponse.redirect(
-        new URL(`/${locale}/unauthorized`, request.url)
+        new URL(`/${locale}/admin/login`, request.url)
       );
     }
     
     // 检查商家权限
     if (isBusinessRoute && tokenData.role !== 'business') {
       return NextResponse.redirect(
-        new URL(`/${locale}/unauthorized`, request.url)
+        new URL(`/${locale}/business/login`, request.url)
       );
     }
     
@@ -248,6 +265,13 @@ export async function middleware(request) {
   const response = intlMiddleware(request);
   // 重置重定向计数
   response.cookies.delete(REDIRECT_COUNT_COOKIE);
+  // 将当前路径存储到cookie中，供服务端组件使用
+  response.cookies.set('current-path', pathname, {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'strict',
+    maxAge: 60 * 5 // 5分钟
+  });
   return response;
 }
 

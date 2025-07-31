@@ -3,7 +3,7 @@ import { createServerSupabaseClient } from '../../../../lib/supabase';
 import { generateJWT } from '../../../../lib/auth/jwt';
 import { storeSession } from '../../../../lib/auth/session';
 import { setAuthCookie } from '../../../../lib/auth/cookies';
-import { hashPassword } from '../../../../lib/auth/password';
+import { comparePassword } from '../../../../lib/auth/password';
 
 /**
  * Admin login API route
@@ -19,64 +19,85 @@ export async function POST(request) {
 
     const supabase = createServerSupabaseClient();
     
-    // Check if user exists
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('id, email, username, password_hash')
+    const { data: adminUser, error: adminUserError } = await supabase
+      .from('admin_users')
+      .select('id, email, name, password, role')
       .eq('email', email)
       .single();
 
-    if (userError || !user) {
+    if (adminUserError || !adminUser) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Check if user is an admin
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
+    //create admin_sessions exist or not, if not create it
+    const { data: adminSessions, error: adminSessionsError } = await supabase
+      .from('admin_sessions')
+      .select('id')
+      .eq('admin_user_id', adminUser.id);
 
-    if (adminError || !adminUser) {
-      return NextResponse.json({ message: 'Not an admin account' }, { status: 403 });
+    if (adminSessionsError) {
+      console.error('Failed to query admin sessions:', adminSessionsError);
     }
 
-    // Verify password
-    const hashedInputPassword = await hashPassword(password);
-    if (user.password_hash !== hashedInputPassword) {
+    // 检查是否存在会话
+    if (!adminSessions || adminSessions.length === 0) {
+      const { error: insertError } = await supabase
+        .from('admin_sessions')
+        .insert({
+          admin_user_id: adminUser.id,
+          ip_address: request.ip,
+          user_agent: request.headers.get('user-agent'),
+          device_info: request.headers.get('sec-ch-ua-platform'),
+          location: request.headers.get('cf-ipcountry'),
+          is_active: true,
+          last_seen: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('Failed to create admin session:', insertError);
+      }
+    }
+
+    // Verify password using comparePassword instead of rehashing
+    const isPasswordValid = await comparePassword(password, adminUser.password);
+    if (!isPasswordValid) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
-
+    
     // Generate JWT token
     const token = await generateJWT({
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: adminUser.role
+      id: adminUser.id,
+      email: adminUser.email,
+      name: adminUser.name,
+      role: 'admin'
     });
 
     // Store session in Redis
-    await storeSession(user.id, {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: adminUser.role
+    await storeSession(adminUser.id, {
+      id: adminUser.id,
+      email: adminUser.email,
+      name: adminUser.name,
+      role: 'admin'
     });
 
-    // Update user's last login timestamp
-    await supabase
-      .from('users')
-      .update({ last_login_at: new Date().toISOString() })
-      .eq('id', user.id);
+    // update last seen
+    const { error: updatedAdminSessionError } = await supabase
+      .from('admin_sessions')
+      .update({ last_seen: new Date().toISOString() })
+      .eq('admin_user_id', adminUser.id);
+
+    if (updatedAdminSessionError) {
+      console.error('Failed to update admin session:', updatedAdminSessionError);
+    }
 
     // Set auth cookie
     const response = NextResponse.json({
       message: 'Login successful',
       user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        role: adminUser.role
+        id: adminUser.id,
+        email: adminUser.email,
+        name: adminUser.name,
+        role: 'admin'
       }
     }, { status: 200 });
 

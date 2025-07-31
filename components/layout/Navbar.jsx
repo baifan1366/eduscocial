@@ -33,19 +33,6 @@ export default function Navbar() {
   const actuallyLoading = isLoading && (!user || status === 'loading');
   const readyToShowAuth = isAuthenticated || (user && user.id) || status === 'authenticated';
 
-  // Add debug logging
-  useEffect(() => {
-    console.log('Navbar auth status:', { 
-      status, 
-      isLoading,
-      actuallyLoading,
-      isAuthenticated, 
-      readyToShowAuth,
-      userId: user?.id || 'none',
-      localStorageUserId: typeof window !== 'undefined' ? localStorage.getItem('userId') : 'not available'
-    });
-  }, [status, isLoading, isAuthenticated, actuallyLoading, readyToShowAuth, user]);
-
   // Handle user logout with improved error handling
   const handleUserLogout = async () => {
     setIsLoggingOut(true);
@@ -114,10 +101,12 @@ export default function Navbar() {
           {readyToShowAuth ? (
             // Regular user authenticated
             <div className="flex items-center gap-4">
-              {/* Post Button */}
-              <button className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#132F4C] transition-colors">
+              <Link 
+                href={`/${pathname?.split('/')[1] || 'en'}/newpost`}
+                className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#132F4C] transition-colors"
+              >
                 <Plus className="w-5 h-5 text-white" />
-              </button>
+              </Link>
 
               {/* Navigation Icons */}
               <div className="flex items-center space-x-1">

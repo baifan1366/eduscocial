@@ -10,8 +10,6 @@ import { useSearchParams, usePathname } from 'next/navigation';
 import { api } from '../lib/api';
 import { getUserSession, storeUserSession, removeUserSession } from '../lib/redis/redisUtils';
 
-
-
 /**
  * Custom hook for user login
  * @returns {Object} Login mutation and status
@@ -267,6 +265,42 @@ export function useAdminLogin() {
   const router = useRouter();
   const pathname = usePathname();
   const [error, setError] = useState(null);
+  // 添加用户状态
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [status, setStatus] = useState('unauthenticated');
+  
+  // 在初始化时尝试获取用户会话
+  useEffect(() => {
+    async function fetchSession() {
+      try {
+        // 检查是否已经存在用户id
+        let userId = null;
+        try {
+          userId = localStorage.getItem('userId');
+        } catch (e) {
+          console.error('Error retrieving userId from localStorage:', e);
+        }
+
+        // 如果有userId，尝试从Redis获取会话
+        if (userId) {
+          const sessionData = await getUserSession(userId);
+          
+          // 如果Redis中有有效会话且用户是管理员
+          if (sessionData && sessionData.valid && 
+              ['support', 'ads_manager', 'superadmin'].includes(sessionData.role)) {
+            setUser({ id: userId, ...sessionData });
+            setIsAuthenticated(true);
+            setStatus('authenticated');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching admin session:', error);
+      }
+    }
+    
+    fetchSession();
+  }, []);
 
   const mutation = useMutation({
     mutationFn: async (credentials) => {
@@ -331,6 +365,13 @@ export function useAdminLogin() {
       // 确保data是有效的对象
       const userData = data && typeof data === 'object' ? data : {};
       
+      // 设置用户状态
+      if (userData.user) {
+        setUser(userData.user);
+        setIsAuthenticated(true);
+        setStatus('authenticated');
+      }
+      
       // Invalidate and refetch user session
       queryClient.invalidateQueries({ queryKey: ['session'] });
       
@@ -356,7 +397,57 @@ export function useAdminLogin() {
     isLoading: mutation.isPending,
     error,
     setError,
-    isSuccess: mutation.isSuccess
+    isSuccess: mutation.isSuccess,
+    // 添加用户相关状态
+    user,
+    isAuthenticated,
+    status,
+    logout: async () => {
+      try {
+        // 从localStorage中清除用户ID
+        try {
+          localStorage.removeItem('userId');
+        } catch (e) {
+          console.error('Error clearing userId from localStorage:', e);
+        }
+        
+        // 清除auth_token cookie
+        try {
+          document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+        } catch (e) {
+          console.error('Error clearing auth_token cookie:', e);
+        }
+        
+        // 从Redis中移除会话
+        if (user?.id) {
+          await removeUserSession(user.id);
+        }
+        
+        // 调用管理员登出API
+        const result = await api.auth.adminLogout();
+        
+        // 清除状态
+        setUser(null);
+        setIsAuthenticated(false);
+        setStatus('unauthenticated');
+        
+        // 获取当前语言环境
+        let locale = 'en';
+        try {
+          locale = pathname.split('/')[1] || 'en';
+        } catch (e) {
+          console.error('Error getting locale:', e);
+        }
+        
+        // 重定向到管理员登录页面
+        router.push(`/${locale}/admin/login`);
+        
+        return result;
+      } catch (error) {
+        console.error('Admin logout error:', error);
+        return { success: false, error: error.message };
+      }
+    }
   };
 }
 
@@ -445,7 +536,7 @@ export function useBusinessLogin() {
       }
       
       // 重定向到商家面板
-      router.push(`/${locale}/business/dashboard`);
+      router.push(`/${locale}/business/home`);
     },
     onError: (error) => {
       console.error('Business login error:', error);
@@ -455,6 +546,73 @@ export function useBusinessLogin() {
 
   return {
     login: mutation.mutate,
+    isLoading: mutation.isPending,
+    error,
+    setError,
+    isSuccess: mutation.isSuccess
+  };
+}
+
+/**
+ * Custom hook for business registration
+ * @returns {Object} Registration mutation and status
+ */
+export function useBusinessRegister() {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [error, setError] = useState(null);
+
+  const mutation = useMutation({
+    mutationFn: async (userData) => {
+      // Reset previous errors
+      setError(null);
+
+      try {
+        // Call register API
+        const result = await api.auth.businessRegister(userData);
+        
+        // 注册成功不再存储会话到Redis
+        // 不再自动登录用户
+        
+        return result;
+      } catch (error) {
+        console.error('Business registration process error:', error);
+        setError(error.message || 'Business registration failed');
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      // 确保data是有效的对象
+      const userData = data && typeof data === 'object' ? data : {};
+      
+      // 注册成功后，不再进行会话查询
+      // queryClient.invalidateQueries({ queryKey: ['session'] });
+      
+      let locale = 'en';
+      try {
+        locale = pathname.split('/')[1] || 'en';
+      } catch (e) {
+        console.error('Error getting locale:', e);
+      }
+      
+      // 检查是否需要验证电子邮件
+      if (userData.requiresEmailVerification) {
+        // 提示用户检查电子邮件（将来实现）
+        router.push(`/${locale}/verify-email?email=${encodeURIComponent(userData.email || '')}`);
+      } else {
+        // 重定向到登录页面，而不是直接进入home页面
+        router.push(`/${locale}/business/login?registered=true`);
+      }
+    },
+    onError: (error) => {
+      console.error('Business registration error:', error);
+      setError(error.message || 'Business registration failed');
+    }
+  });
+
+  return {
+    register: mutation.mutate,
     isLoading: mutation.isPending,
     error,
     setError,
@@ -528,7 +686,7 @@ export function useLogout() {
         try {
           if (session?.user?.role === 'business') {
             result = await api.auth.businessLogout();
-          } else if (['support', 'ads_manager', 'superadmin'].includes(session?.user?.role)) {
+          } else if (session?.user?.role === 'admin') {
             result = await api.auth.adminLogout();
           } else {
             result = await api.auth.logout();
@@ -594,7 +752,7 @@ export function useLogout() {
       // Redirect based on role
       if (session?.user?.role === 'business') {
         router.push(`/${locale}/business/login`);
-      } else if (['support', 'ads_manager', 'superadmin'].includes(session?.user?.role)) {
+      } else if (session?.user?.role === 'admin') {
         router.push(`/${locale}/admin/login`);
       } else {
         router.push(`/${locale}/login`);
@@ -1030,7 +1188,7 @@ export function useSession() {
   // Helper function to check if user is an admin
   const isAdmin = () => {
     if (!isAuthenticated || !data?.user?.role) return false;
-    return ['support', 'ads_manager', 'superadmin'].includes(data.user.role);
+    return ['admin'].includes(data.user.role);
   };
 
   // Helper function to check if user is a business user

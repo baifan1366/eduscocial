@@ -11,18 +11,18 @@ import { hashPassword } from '../../../../lib/auth/password';
  */
 export async function POST(request) {
   try {
-    const { name, email, password, contactPhone, description } = await request.json();
+    const { businessName, email, password } = await request.json();
     
     // Validate required fields
-    if (!name || !email || !password) {
-      return NextResponse.json({ message: 'Name, email and password are required' }, { status: 400 });
+    if (!businessName || !email || !password) {
+      return NextResponse.json({ message: 'Business name, email and password are required' }, { status: 400 });
     }
 
     const supabase = createServerSupabaseClient();
     
     // Check if email already exists
     const { data: existingUser, error: userError } = await supabase
-      .from('users')
+      .from('business_users')
       .select('id')
       .eq('email', email)
       .single();
@@ -36,18 +36,16 @@ export async function POST(request) {
 
     // Create user record
     const { data: newUser, error: createUserError } = await supabase
-      .from('users')
+      .from('business_users')
       .insert({
         email,
-        username: email.split('@')[0], // Generate username from email
-        password_hash: passwordHash,
-        is_active: true,
-        is_verified: true,
-        gender: 'other', // Default value
+        name: businessName,
+        password: passwordHash,
+        role: 'business',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-      .select('id, email, username')
+      .select('id, email, name, role, created_at, updated_at')
       .single();
 
     if (createUserError) {
@@ -57,16 +55,19 @@ export async function POST(request) {
 
     // Create user_profiles record
     const { error: profileError } = await supabase
-      .from('user_profiles')
+      .from('business_profiles')
       .insert({
-        user_id: newUser.id,
-        interests: '',
-        relationship_status: 'prefer_not_to_say',
-        favorite_quotes: '',
-        favorite_country: '',
+        business_id: newUser.id,
+        company_name: '',
+        company_description: '',
+        company_location: '',
+        company_phone_number: '',
+        company_address: '',
+        company_city: '',
+        company_state: '',
+        company_zip_code: '',
+        company_country: '',
         daily_active_time: 'varies',
-        study_abroad: 'no',
-        leisure_activities: '',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       });
@@ -78,41 +79,54 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Failed to create user profile' }, { status: 500 });
     }
 
-    // Create advertiser record
-    const { data: advertiser, error: advertiserError } = await supabase
-      .from('advertisers')
+    // Create business services record
+    const { data: businessServices, error: businessServicesError } = await supabase
+      .from('business_services')
       .insert({
-        name,
-        contact_email: email,
-        contact_phone: contactPhone || '',
-        created_by: newUser.id
+        business_id: newUser.id,
+        company_email: email,
+        company_facebook: '',
+        company_instagram: '',
+        company_twitter: '',
+        company_linkedin: '',
+        company_youtube: '',
       })
-      .select('id')
+      .select('id, business_id, company_email, company_facebook, company_instagram, company_twitter, company_linkedin, company_youtube, created_at, updated_at')
       .single();
 
-    if (advertiserError) {
-      // Rollback user creation if advertiser creation fails
-      await supabase.from('users').delete().eq('id', newUser.id);
-      console.error('Create advertiser error:', advertiserError);
+    if (businessServicesError) {
+      // Rollback user creation if business services creation fails
+      await supabase.from('business_users').delete().eq('id', newUser.id);
+      console.error('Create business services error:', businessServicesError);
       return NextResponse.json({ message: 'Failed to create business account' }, { status: 500 });
+    }
+
+    // Create business credits record
+    const { error: businessCreditsError } = await supabase
+      .from('business_credits')
+      .insert({
+        business_user_id: newUser.id
+      });
+
+    if (businessCreditsError) {
+      console.error('Create business credits error:', businessCreditsError);
+      return NextResponse.json({ message: 'Failed to create business credits' }, { status: 500 });
     }
 
     // Generate JWT token
     const token = await generateJWT({
       id: newUser.id,
       email: newUser.email,
-      username: newUser.username,
+      name: newUser.name,
       role: 'business',
-      advertiserId: advertiser.id
     });
 
     // Store session in Redis
     await storeSession(newUser.id, {
       id: newUser.id,
       email: newUser.email,
-      username: newUser.username,
+      name: newUser.name,
       role: 'business',
-      advertiserId: advertiser.id
     });
 
     // Set auth cookie and return response
@@ -121,7 +135,7 @@ export async function POST(request) {
       user: {
         id: newUser.id,
         email: newUser.email,
-        username: newUser.username,
+        name: newUser.name,
         role: 'business'
       }
     }, { status: 201 });

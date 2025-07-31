@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import BusinessRegisterForm from '../../../../components/business/register/BusinessRegisterForm';
 
 export const metadata = {
-  title: 'Business Registration | EduSocial',
+  title: 'Register | Business | EduSocial',
   description: 'Register your business account on EduSocial',
   openGraph: {
     title: 'Create a Business Account on EduSocial',

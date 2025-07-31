@@ -22,7 +22,6 @@ export async function POST(request) {
       try {
         // Blacklist the token immediately
         await blacklistToken(token);
-        console.log('Admin token successfully blacklisted during logout');
         
         // Verify token to get user ID for session cleanup
         const decoded = await verifyJWT(token);

@@ -13,6 +13,7 @@ const InterestSelectionDialog = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const [selectedTopics, setSelectedTopics] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [updatingEmbedding, setUpdatingEmbedding] = useState(false);
 
   // Fetch topics using React Query
   const { 
@@ -43,8 +44,38 @@ const InterestSelectionDialog = ({ isOpen, onClose }) => {
     isError: saveError,
     error: saveErrorData
   } = useUpdateUserInterests({
-    onSuccess: () => {
-      onClose();
+    onSuccess: async () => {
+      // After saving interests, trigger embedding update
+      if (user?.id) {
+        try {
+          setUpdatingEmbedding(true);
+          
+          // Call API to update user embedding immediately
+          const response = await fetch('/api/users/update-embedding', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              forceRefresh: true,
+              lookbackDays: 30
+            }),
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to update user embedding');
+          }
+          
+        } catch (error) {
+          console.error('Error updating user embedding:', error);
+          // Non-blocking error - we still close the dialog
+        } finally {
+          setUpdatingEmbedding(false);
+          onClose();
+        }
+      } else {
+        onClose();
+      }
     }
   });
   
@@ -156,15 +187,15 @@ const InterestSelectionDialog = ({ isOpen, onClose }) => {
           <Button
             variant="outline"
             onClick={handleSkip}
-            disabled={saving}
+            disabled={saving || updatingEmbedding}
           >
             Skip for Now
           </Button>
           <Button
             onClick={handleSave}
-            disabled={saving || (selectedTopics.length === 0 && selectedTags.length === 0)}
+            disabled={saving || updatingEmbedding || (selectedTopics.length === 0 && selectedTags.length === 0)}
           >
-            {saving ? 'Saving...' : 'Save Preferences'}
+            {saving || updatingEmbedding ? 'Saving...' : 'Save Preferences'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -8,9 +8,15 @@ import { SettingsProvider } from '@/hooks/useSettings';
 import { ProfileProvider } from '@/contexts/profile-context';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+import { AdminAuthProvider } from '@/components/admin/login/AdminAuthProvider';
+import { BusinessAuthProvider } from '@/components/business/auth/BusinessAuthProvider';
+import { ConfirmProvider } from '@/hooks/useConfirm';
+import { checkBusinessAuthentication } from '@/lib/utils/authUtils';
 
 // Create a context for pathname to avoid repeated usePathname() calls
 const PathnameContext = createContext(null);
+// 创建一个BusinessAuth上下文用于共享isBusinessAuthenticated状态
+const BusinessAuthContext = createContext(null);
 
 export function PathnameProvider({ children }) {
   const pathname = usePathname();
@@ -29,6 +35,15 @@ export function usePathnameContext() {
   return context;
 }
 
+// 提供BusinessAuth上下文的hook
+export function useBusinessAuth() {
+  const context = useContext(BusinessAuthContext);
+  if (context === undefined) {
+    throw new Error('useBusinessAuth must be used within a BusinessAuthContext.Provider');
+  }
+  return context;
+}
+
 // Safe version of usePathname that won't break SSR
 export function useSafePathname() {
   if (typeof window === 'undefined') {
@@ -40,7 +55,13 @@ export function useSafePathname() {
 
 export default function ClientProviders({ children }) {
   const [isClient, setIsClient] = useState(false);
-  
+  const pathname = usePathname();
+  const isAdminPage = pathname.includes('/admin');
+  const isBusinessPage = pathname.includes('/business');
+  const isBusinessAuthenticated = checkBusinessAuthentication(pathname);
+
+  const AuthProviderComponent = isAdminPage ? AdminAuthProvider : isBusinessPage ? BusinessAuthProvider : AuthProvider;
+
   // Create QueryClient with optimized defaults
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
@@ -78,15 +99,19 @@ export default function ClientProviders({ children }) {
   const content = (
     <QueryClientProvider client={queryClient}>
         <PathnameProvider>
-          <AuthProvider>
-            <SettingsProvider>
-              <ProfileProvider>
-                {children}
-                <Toaster />
-                <ReactQueryDevtools initialIsOpen={false} />
-              </ProfileProvider>
-            </SettingsProvider>
-          </AuthProvider>
+          <BusinessAuthContext.Provider value={{ isBusinessAuthenticated }}>
+            <AuthProviderComponent>
+              <SettingsProvider>
+                <ProfileProvider>
+                  <ConfirmProvider>
+                    {children}
+                    <Toaster />
+                    <ReactQueryDevtools initialIsOpen={false} />
+                  </ConfirmProvider>
+                </ProfileProvider>
+              </SettingsProvider>
+            </AuthProviderComponent>
+          </BusinessAuthContext.Provider>
         </PathnameProvider>
     </QueryClientProvider>
   );

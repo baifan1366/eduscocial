@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/serverAuth';
 import { supabase } from '@/lib/supabase';
 import { profileSchema, profileUpdateSchema } from '@/lib/validations/profile';
+import { trackProfileUpdate } from '@/lib/userEmbedding';
 
 // GET handler to retrieve user profile
 export async function GET(request) {
@@ -110,6 +111,13 @@ export async function PUT(request) {
 
     const profileData = validationResult.data;
 
+    // 获取旧的用户数据用于跟踪变更
+    const { data: oldUserData } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+
     // Convert camelCase to snake_case for database and map to users table fields
     const dbData = {
       username: profileData.displayName,
@@ -130,14 +138,24 @@ export async function PUT(request) {
     });
 
     // Update the user record directly
-    const { error } = await supabase
+    const { data: updatedUserData, error } = await supabase
       .from('users')
       .update(dbData)
-      .eq('id', session.user.id);
+      .eq('id', session.user.id)
+      .select()
+      .single();
 
     if (error) {
       console.error('Error saving user profile:', error);
       return NextResponse.json({ error: 'Failed to save profile' }, { status: 500 });
+    }
+
+    // 跟踪个人资料更新以触发嵌入向量更新
+    try {
+      await trackProfileUpdate(session.user.id, oldUserData, updatedUserData);
+    } catch (trackingError) {
+      // 跟踪失败不应该影响主要功能
+      console.error('Error tracking profile update:', trackingError);
     }
 
     return NextResponse.json({

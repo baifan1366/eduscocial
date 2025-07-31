@@ -1,17 +1,47 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useState, useEffect } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import useGetHomePosts from '@/hooks/useGetHomePosts';
+import useGetBoards from '@/hooks/user/board/useGetBoards';
 import useAuth from '@/hooks/useAuth';
+import useCheckNewUser from '@/hooks/useCheckNewUser';
 import PostsList from './PostsList';
+import BoardsList from './BoardsList';
 import Sidebar from './Sidebar';
+import InterestSelectionDialog from '@/components/onboarding/InterestSelectionDialog';
 
 export default function HomeContent() {
   const t = useTranslations('HomePage');
+  const locale = useLocale();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { data: posts, isLoading: isPostsLoading, error } = useGetHomePosts();
+  const { data, isLoading: isPostsLoading, error } = useGetHomePosts();
+  const { data: boardsData, isLoading: isBoardsLoading, error: boardsError } = useGetBoards({
+    limit: 12,
+    orderBy: 'created_at',
+    orderDirection: 'desc',
+    filters: { status: 'approved', is_active: true }
+  });
   const isAuthenticated = !!user;
+
+  // Extract posts array from the API response
+  const posts = data?.posts || [];
+  const boards = boardsData?.boards || [];
+  
+  // Check if user is new for onboarding
+  const { data: newUserData } = useCheckNewUser({
+    enabled: !!user?.id,
+    refetchOnWindowFocus: false,
+  });
+  
+  const [showInterestDialog, setShowInterestDialog] = useState(false);
+  
+  // Show interest selection dialog for new users
+  useEffect(() => {
+    if (newUserData?.isNewUser && user?.id) {
+      setShowInterestDialog(true);
+    }
+  }, [newUserData?.isNewUser, user?.id]);
   
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -24,17 +54,32 @@ export default function HomeContent() {
       {/* 内容部分 */}
       <div className="grid md:grid-cols-3 gap-6">
         {/* 侧边栏 */}
-        <Sidebar isAuthenticated={isAuthenticated} />
-        
+        <Sidebar isAuthenticated={isAuthenticated} userId={user?.id} />
+
         {/* 主要内容 */}
-        <div className="md:col-span-2">
-          <PostsList 
-            posts={posts} 
-            isLoading={isPostsLoading} 
+        <div className="md:col-span-2 space-y-8">
+          {/* 热门板块 */}
+          <BoardsList
+            boards={boards}
+            isLoading={isBoardsLoading}
+            error={boardsError}
+            locale={locale}
+          />
+
+          {/* 最新帖子 */}
+          <PostsList
+            posts={posts}
+            isLoading={isPostsLoading}
             error={error}
           />
         </div>
       </div>
+      
+      {/* Interest selection dialog for new users */}
+      <InterestSelectionDialog 
+        isOpen={showInterestDialog}
+        onClose={() => setShowInterestDialog(false)}
+      />
     </div>
   );
 } 

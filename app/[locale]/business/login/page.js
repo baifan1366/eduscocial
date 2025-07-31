@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import BusinessAuthForm from '../../../../components/business/login/BusinessAuthForm';
 
 export const metadata = {
-  title: 'Business Login | EduSocial',
+  title: 'Login | Business | EduSocial',
   description: 'Business login to EduSocial',
   openGraph: {
     title: 'Business Login to EduSocial',
