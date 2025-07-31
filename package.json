@@ -45,6 +45,7 @@
     "cmdk": "^1.1.1",
     "cookies-next": "^6.0.0",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.1",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.525.0",
     "motion": "^12.23.9",

@@ -1,22 +1,32 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import useGetHomePosts from '@/hooks/useGetHomePosts';
+import useGetBoards from '@/hooks/user/board/useGetBoards';
 import useAuth from '@/hooks/useAuth';
 import useCheckNewUser from '@/hooks/useCheckNewUser';
 import PostsList from './PostsList';
+import BoardsList from './BoardsList';
 import Sidebar from './Sidebar';
 import InterestSelectionDialog from '@/components/onboarding/InterestSelectionDialog';
 
 export default function HomeContent() {
   const t = useTranslations('HomePage');
+  const locale = useLocale();
   const { user, isLoading: isAuthLoading } = useAuth();
   const { data, isLoading: isPostsLoading, error } = useGetHomePosts();
+  const { data: boardsData, isLoading: isBoardsLoading, error: boardsError } = useGetBoards({
+    limit: 12,
+    orderBy: 'created_at',
+    orderDirection: 'desc',
+    filters: { status: 'approved', is_active: true }
+  });
   const isAuthenticated = !!user;
-  
+
   // Extract posts array from the API response
   const posts = data?.posts || [];
+  const boards = boardsData?.boards || [];
   
   // Check if user is new for onboarding
   const { data: newUserData } = useCheckNewUser({
@@ -45,12 +55,21 @@ export default function HomeContent() {
       <div className="grid md:grid-cols-3 gap-6">
         {/* 侧边栏 */}
         <Sidebar isAuthenticated={isAuthenticated} userId={user?.id} />
-        
+
         {/* 主要内容 */}
-        <div className="md:col-span-2">
-          <PostsList 
-            posts={posts} 
-            isLoading={isPostsLoading} 
+        <div className="md:col-span-2 space-y-8">
+          {/* 热门板块 */}
+          <BoardsList
+            boards={boards}
+            isLoading={isBoardsLoading}
+            error={boardsError}
+            locale={locale}
+          />
+
+          {/* 最新帖子 */}
+          <PostsList
+            posts={posts}
+            isLoading={isPostsLoading}
             error={error}
           />
         </div>

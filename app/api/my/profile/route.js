@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/serverAuth';
 import { supabase } from '@/lib/supabase';
+import { trackProfileUpdate } from '@/lib/userEmbedding';
 
 // GET handler to retrieve user profile
 export async function GET(request) {
@@ -54,6 +55,13 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Profile data is required' }, { status: 400 });
         }
 
+        // 获取旧的个人资料数据用于跟踪变更
+        const { data: oldProfile } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .single();
+
         // Prepare profile data with required fields
         const profileData = {
             user_id: session.user.id,
@@ -74,6 +82,14 @@ export async function POST(request) {
         if (error) {
             console.error('Error updating profile:', error);
             return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+        }
+
+        // 跟踪个人资料更新以触发嵌入向量更新
+        try {
+            await trackProfileUpdate(session.user.id, oldProfile, data);
+        } catch (trackingError) {
+            // 跟踪失败不应该影响主要功能
+            console.error('Error tracking profile update:', trackingError);
         }
 
         return NextResponse.json({

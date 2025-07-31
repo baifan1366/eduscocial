@@ -15,6 +15,7 @@ export const useCreatePost = () => {
             queryClient.invalidateQueries({ queryKey: ['posts'] });
             queryClient.invalidateQueries({ queryKey: ['my', 'posts'] });
             queryClient.invalidateQueries({ queryKey: ['recommend'] });
+            queryClient.invalidateQueries({ queryKey: ['recommendations'] });
         },
     });
 };

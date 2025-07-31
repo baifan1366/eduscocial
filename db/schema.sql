@@ -132,6 +132,7 @@ CREATE TABLE posts (
     author_id UUID REFERENCES users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
+    slug TEXT NOT NULL,
     is_anonymous BOOLEAN DEFAULT FALSE,
     post_type TEXT DEFAULT 'general' CHECK (post_type IN ('general', 'question', 'sharing', 'poll')),
     is_pinned BOOLEAN DEFAULT FALSE,

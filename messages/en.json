@@ -49,6 +49,8 @@
     "createNewPost": "Create New Post",
     "loadingDrafts": "Loading drafts...",
     "errorLoadingDrafts": "Error loading drafts",
+    "loading": "Loading...",
+    "loadError": "Error loading boards",
     "continueWithDraft": "Continue with a draft",
     "untitledDraft": "Untitled Draft",
     "noDraftsAvailable": "No drafts available"
@@ -528,6 +530,22 @@
     "viewLess": "View Less",
     "viewMore": "View More"
   },
+  "PostDetail": {
+    "pageTitle": "Post Details - EduSocial",
+    "pageDescription": "View post details and comments",
+    "article": "Article",
+    "picture": "Picture",
+    "video": "Video",
+    "poll": "Poll",
+    "anonymousPost": "Anonymous Post",
+    "back": "Back",
+    "comments": "Comments",
+    "commentsComingSoon": "Comments feature coming soon...",
+    "postNotFound": "Post not found",
+    "postNotFoundDescription": "The post you're looking for doesn't exist or has been removed.",
+    "goBack": "Go Back",
+    "errorLoadingPost": "Error loading post"
+  },
   "Category": {
     "createCategory": "Create Category",
     "createCategoryTitle": "Create Category",
@@ -724,6 +742,15 @@
     "order_not_found_or_invalid": "Order not found or invalid",
     "no_order_id_provided": "No order ID provided",
     "orderDetailsNotAvailable": "Order details not available",
-    "backToOrderSummary": "Back to Order Summary"
+    "backToOrderSummary": "Back to Order Summary",
+    "buy": "Buy"
+  },
+  "BoardDetail": {
+    "pageTitle": "Board Details - EduSocial",
+    "pageDescription": "Explore board discussions and posts"
+  },
+  "BoardsListing": {
+    "pageTitle": "All Boards - EduSocial",
+    "pageDescription": "Explore all discussion boards and communities"
   }
 }

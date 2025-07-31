@@ -76,9 +76,12 @@ export default function NewPicturePostClient() {
         };
 
         createPost(postData, {
-            onSuccess: () => {
+            onSuccess: (data) => {
                 toast.success('发布成功！');
-                router.push('/my');
+                // Redirect to the new post using slug if available, otherwise use ID
+                const postIdentifier = data.slug || data.id;
+                const locale = window.location.pathname.split('/')[1];
+                router.push(`/${locale}/home/${postIdentifier}`);
             },
             onError: (error) => {
                 console.error('Error creating post:', error);

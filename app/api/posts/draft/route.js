@@ -85,7 +85,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { title, content, type = 'general', template = null } = body;
+    const { title, content, type = 'general', template = null, is_anonymous = false } = body;
 
     // For drafts, we allow empty title and content
     const draftData = {
@@ -93,6 +93,7 @@ export async function POST(request) {
       content: content?.trim() || '',
       post_type: type,
       template,
+      is_anonymous,
       author_id: session.user.id,
       status: 'pending',
       is_draft: true,
@@ -131,6 +132,7 @@ export async function POST(request) {
           title: draftData.title,
           content: draftData.content,
           template: draftData.template,
+          is_anonymous: draftData.is_anonymous,
           updated_at: draftData.updated_at
         })
         .eq('id', existingDraft.id)

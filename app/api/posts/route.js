@@ -4,6 +4,7 @@ import { bufferUserAction } from '@/lib/redis/redisUtils';
 import { qstashClient } from '@/lib/qstash';
 import { generateEmbedding } from '@/lib/embedding';
 import { checkContentViolations, updateUserEmbedding } from '@/lib/moderation';
+import { generateUniqueSlug } from '@/lib/utils/slugUtils';
 
 /**
  * POST handler for creating a new post
@@ -78,8 +79,29 @@ export async function POST(request) {
     }
     
     console.log('[POST /api/posts] Content passed moderation check');
-    
-    // 4. Prepare post data for insertion
+
+    // 4. Generate unique slug for the post (if slug column exists)
+    let slug = null;
+    try {
+      console.log('[POST /api/posts] Generating unique slug');
+      const checkSlugExists = async (slug) => {
+        const { data, error } = await supabase
+          .from('posts')
+          .select('id')
+          .eq('slug', slug)
+          .maybeSingle(); // Use maybeSingle() instead of single() to handle 0 results gracefully
+
+        // Return true if data exists (slug is taken), false otherwise
+        return !!data && !error;
+      };
+
+      slug = await generateUniqueSlug(postData.title, checkSlugExists);
+      console.log('[POST /api/posts] Generated slug:', slug);
+    } catch (error) {
+      console.log('[POST /api/posts] Slug generation failed (column may not exist yet):', error.message);
+    }
+
+    // 5. Prepare post data for insertion
     const newPost = {
       title: postData.title,
       content: postData.content,
@@ -94,8 +116,13 @@ export async function POST(request) {
       scheduled_publish_at: postData.scheduled_publish_at || null,
       language: postData.language || 'zh-TW'
     };
-    
-    // 5. Insert post into database
+
+    // Add slug only if it was generated successfully
+    if (slug) {
+      newPost.slug = slug;
+    }
+
+    // 6. Insert post into database
     console.log('[POST /api/posts] Inserting post into database');
     const { data: post, error: insertError } = await supabase
       .from('posts')
@@ -267,6 +294,7 @@ export async function POST(request) {
     return new Response(JSON.stringify({
       message: 'Post created successfully and pending moderation',
       id: postId,
+      slug: slug, // Include slug in response
       processing: {
         embedding_scheduled: embeddingScheduled,
         action_logged: loggingSuccess,
