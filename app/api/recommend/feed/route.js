@@ -1,4 +1,4 @@
-import { getUserFromToken } from '@/lib/auth/serverAuth';
+import { getServerSession } from '@/lib/auth/serverAuth';
 import { vectorRecallByUserInterests } from '@/lib/vectorSearch';
 import { rankPostsPersonalized, getDefaultRankingParameters } from '@/lib/rankingSystem';
 import { getUserSession, bufferUserAction } from '@/lib/redis/redisUtils';
@@ -12,16 +12,16 @@ import redis from '@/lib/redis/redis';
 export async function GET(request) {
   try {
     // Get user authentication
-    const user = await getUserFromToken(request);
+    const session = await getServerSession();;
     
-    if (!user || !user.id) {
+    if (!session || !session.id) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
       });
     }
     
-    const userId = user.id;
+    const userId = session.id;
     const url = new URL(request.url);
     
     // Parse query parameters with defaults
@@ -43,18 +43,17 @@ export async function GET(request) {
     const excludeParam = url.searchParams.get('exclude') || '';
     let excludePostIds = excludeParam ? excludeParam.split(',') : [];
     
-    // Get recently viewed posts to exclude
-    const session = await getUserSession(userId);
-    if (session && session.recently_viewed_posts) {
-      try {
-        const recentlyViewed = JSON.parse(session.recently_viewed_posts);
-        if (Array.isArray(recentlyViewed)) {
-          excludePostIds = [...excludePostIds, ...recentlyViewed];
-        }
-      } catch (error) {
-        console.error('Error parsing recently viewed posts:', error);
-      }
-    }
+    // // Get recently viewed posts to exclude
+    // if (session && session.recently_viewed_posts) {
+    //   try {
+    //     const recentlyViewed = JSON.parse(session.recently_viewed_posts);
+    //     if (Array.isArray(recentlyViewed)) {
+    //       excludePostIds = [...excludePostIds, ...recentlyViewed];
+    //     }
+    //   } catch (error) {
+    //     console.error('Error parsing recently viewed posts:', error);
+    //   }
+    // }
     
     // Check cache for feed results (unless skipped or forcing refresh)
     if (!skipCache && !forceRefresh) {
