@@ -1,11 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
 import { getUserEmbedding, getPersonalizedRecommendations } from '@/lib/userEmbedding';
 import { getUserSession } from '@/lib/redis/redisUtils';
-import { getUserFromToken } from '@/lib/auth/serverAuth';
+import { getServerSession } from '@/lib/auth/serverAuth';
+import { createServerSupabaseClient } from '@/lib/supabase';
 
 // Initialize Supabase client
-const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ?
-  createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
+const supabase = createServerSupabaseClient(true); // Use service role
 
 /**
  * GET handler for personalized post recommendations
@@ -14,16 +13,16 @@ const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SE
 export async function GET(request) {
   try {
     // Get user authentication
-    const user = await getUserFromToken(request);
-    
-    if (!user || !user.id) {
+    const session = await getServerSession();
+
+    if (!session || !session.user || !session.user.id) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
       });
     }
-    
-    const userId = user.id;
+
+    const userId = session.user.id;
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
     const page = parseInt(url.searchParams.get('page') || '1', 10);
@@ -34,12 +33,12 @@ export async function GET(request) {
     const excludePostIds = excludeParam ? excludeParam.split(',') : [];
     
     // Get user session for tracking purposes
-    const session = await getUserSession(userId);
-    
+    const userSession = await getUserSession(userId);
+
     // Add recently viewed posts to exclude list
-    if (session && session.recently_viewed_posts) {
+    if (userSession && userSession.recently_viewed_posts) {
       try {
-        const recentlyViewed = JSON.parse(session.recently_viewed_posts);
+        const recentlyViewed = JSON.parse(userSession.recently_viewed_posts);
         if (Array.isArray(recentlyViewed)) {
           excludePostIds.push(...recentlyViewed);
         }
