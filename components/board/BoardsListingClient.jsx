@@ -3,13 +3,12 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { Search, Grid, List, Filter, Hash, Globe, Lock, MessageCircle, Eye, Calendar } from 'lucide-react';
+import { Search, Grid, List, Filter, Hash, Sparkles, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import useGetBoards from '@/hooks/user/board/useGetBoards';
+import BoardCard from './BoardCard';
 
 export default function BoardsListingClient({ locale, isAuthenticated, user }) {
   const t = useTranslations('BoardsListing');
@@ -178,85 +177,19 @@ export default function BoardsListingClient({ locale, isAuthenticated, user }) {
           </p>
         </div>
       ) : (
-        <div className={viewMode === 'grid' 
-          ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" 
+        <div className={viewMode === 'grid'
+          ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
           : "space-y-4"
         }>
           {filteredBoards.map(board => (
-            <Card 
-              key={board.id} 
-              className={`bg-[#132F4C] border-[#1E3A5F] hover:border-blue-500/50 transition-all duration-200 cursor-pointer group ${
-                viewMode === 'list' ? 'flex-row' : ''
-              }`}
-              onClick={() => handleBoardClick(board)}
-            >
-              <CardHeader className={viewMode === 'list' ? 'flex-row items-center space-y-0 pb-3' : 'pb-3'}>
-                <div className={`flex items-center gap-3 ${viewMode === 'list' ? 'flex-1' : ''}`}>
-                  {/* Board Icon */}
-                  <div 
-                    className="w-12 h-12 rounded-lg flex items-center justify-center text-lg font-semibold text-white flex-shrink-0"
-                    style={{ backgroundColor: board.color || '#1E3A5F' }}
-                  >
-                    {board.icon || board.name.charAt(0).toUpperCase()}
-                  </div>
-                  
-                  {/* Board Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-white group-hover:text-blue-400 transition-colors truncate">
-                      {board.name}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge 
-                        variant={board.visibility === 'public' ? 'default' : 'secondary'}
-                        className="text-xs"
-                      >
-                        {board.visibility === 'public' ? (
-                          <><Globe className="w-3 h-3 mr-1" />Public</>
-                        ) : (
-                          <><Lock className="w-3 h-3 mr-1" />Private</>
-                        )}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="pt-0">
-                {/* Description */}
-                <p className="text-gray-400 text-sm mb-4 line-clamp-2">
-                  {board.description || 'No description available'}
-                </p>
-                
-                {/* Stats */}
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <MessageCircle className="w-3 h-3" />
-                      <span>{board.postsCount || 0}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Eye className="w-3 h-3" />
-                      <span>{board.view_count || 0}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      <span>{new Date(board.created_at).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Categories */}
-                  {board.categories && board.categories.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      <Hash className="w-3 h-3" />
-                      <span className="truncate max-w-20">
-                        {board.categories[0].name}
-                        {board.categories.length > 1 && ` +${board.categories.length - 1}`}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <BoardCard
+              key={board.id}
+              board={board}
+              locale={locale}
+              isAuthenticated={isAuthenticated}
+              viewMode={viewMode}
+              showFollowButton={true}
+            />
           ))}
         </div>
       )}

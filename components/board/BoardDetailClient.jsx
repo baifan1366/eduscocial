@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Users, MessageCircle, Eye, Plus, Pin, Calendar, Hash } from 'lucide-react';
+import { Plus, Pin, Calendar, Hash, Filter, TrendingUp, Clock, Star, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+
 import UserAvatar from '@/components/ui/UserAvatar';
 import useGetBoard from '@/hooks/useGetBoard';
+import BoardHeader from './BoardHeader';
 
 export default function BoardDetailClient({ boardSlug, locale, isAuthenticated, user }) {
   const t = useTranslations('BoardDetail');
@@ -16,6 +19,7 @@ export default function BoardDetailClient({ boardSlug, locale, isAuthenticated, 
   const router = useRouter();
   const { data: board, isLoading, error } = useGetBoard(boardSlug);
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState('trending');
 
   // Increment view count when board loads
   useEffect(() => {
@@ -129,157 +133,194 @@ export default function BoardDetailClient({ boardSlug, locale, isAuthenticated, 
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
-      {/* Back button */}
-      <div className="mb-6">
-        <Button
-          onClick={() => router.back()}
-          variant="ghost"
-          className="text-gray-400 hover:text-white"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
+      {/* Board Header */}
+      <div className="mb-8">
+        <BoardHeader
+          board={board}
+          locale={locale}
+          isAuthenticated={isAuthenticated}
+        />
       </div>
 
-      {/* Board header */}
-      <div className="bg-[#132F4C] rounded-lg p-6 border border-[#1E3A5F] mb-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-4">
-            {board.icon && (
-              <div className="w-16 h-16 rounded-lg flex items-center justify-center text-2xl"
-                   style={{ backgroundColor: board.color || '#1E3A5F' }}>
-                {board.icon}
-              </div>
-            )}
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">{board.name}</h1>
-              <p className="text-gray-400 text-lg">{board.description}</p>
-            </div>
-          </div>
-          
-          {isAuthenticated && (
-            <Button onClick={handleCreatePost} className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Post
-            </Button>
-          )}
-        </div>
-
-        {/* Board stats */}
-        <div className="flex items-center gap-6 text-sm text-gray-400">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="w-4 h-4" />
-            <span>{board.postsCount || 0} posts</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Eye className="w-4 h-4" />
-            <span>{board.view_count || 0} views</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            <span>Created {new Date(board.created_at).toLocaleDateString()}</span>
-          </div>
-          <Badge variant={board.visibility === 'public' ? 'default' : 'secondary'}>
-            {board.visibility}
-          </Badge>
-        </div>
-      </div>
-
-      {/* Filter tabs */}
-      <div className="bg-[#132F4C] rounded-lg p-4 border border-[#1E3A5F] mb-6">
-        <div className="flex gap-2 flex-wrap">
-          {[
-            { key: 'all', label: 'All Posts' },
-            { key: 'pinned', label: 'Pinned' },
-            { key: 'recent', label: 'Recent' },
-            { key: 'general', label: 'General' },
-            { key: 'question', label: 'Questions' },
-            { key: 'poll', label: 'Polls' }
-          ].map(filter => (
-            <Button
-              key={filter.key}
-              variant={selectedFilter === filter.key ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setSelectedFilter(filter.key)}
-              className={selectedFilter === filter.key ? 'bg-blue-600 hover:bg-blue-700' : ''}
-            >
-              {filter.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {/* Posts list */}
-      <div className="space-y-4">
-        {filteredPosts.length === 0 ? (
-          <div className="bg-[#132F4C] rounded-lg p-8 text-center border border-[#1E3A5F]">
-            <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">No posts yet</h3>
-            <p className="text-gray-400 mb-4">
-              {selectedFilter === 'all' 
-                ? 'Be the first to create a post in this board!' 
-                : `No ${selectedFilter} posts found.`}
-            </p>
-            {isAuthenticated && selectedFilter === 'all' && (
-              <Button onClick={handleCreatePost} className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Create First Post
-              </Button>
-            )}
-          </div>
-        ) : (
-          filteredPosts.map(post => (
-            <Link key={post.id} href={`/${locale}/home/${post.slug}`}>
-              <div className="bg-[#132F4C] rounded-lg p-6 border border-[#1E3A5F] hover:border-blue-500/50 transition-colors cursor-pointer">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    {post.is_pinned && (
-                      <Pin className="w-4 h-4 text-yellow-400" />
-                    )}
-                    <Badge variant="outline" className="text-xs">
-                      {getPostTypeDisplay(post.post_type)}
-                    </Badge>
-                  </div>
-                  <span className="text-xs text-gray-400">
-                    {new Date(post.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-                
-                <h3 className="text-lg font-semibold text-white mb-2 hover:text-blue-400 transition-colors">
-                  {post.title}
-                </h3>
-                
-                <p className="text-gray-400 text-sm mb-4 line-clamp-2">
-                  {post.content?.substring(0, 150)}...
-                </p>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <UserAvatar 
-                      user={post.author} 
-                      isAnonymous={post.is_anonymous}
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Posts Section */}
+        <div className="lg:col-span-3">
+          <Card className="bg-[#132F4C] border-[#1E3A5F]">
+            <div className="p-6">
+              {/* Content Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-xl font-semibold text-white">Posts</h2>
+                  {isAuthenticated && (
+                    <Button
+                      onClick={handleCreatePost}
                       size="sm"
-                    />
-                    <span className="text-sm text-gray-400">
-                      {post.is_anonymous ? 'Anonymous' : (post.author?.username || 'Unknown')}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-4 text-sm text-gray-400">
-                    <div className="flex items-center gap-1">
-                      <Eye className="w-4 h-4" />
-                      <span>{post.view_count || 0}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <MessageCircle className="w-4 h-4" />
-                      <span>{post.commentsCount || 0}</span>
-                    </div>
-                  </div>
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Post
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                    <Filter className="w-4 h-4 mr-2" />
+                    Filter
+                  </Button>
                 </div>
               </div>
-            </Link>
-          ))
-        )}
+
+              {/* Post Tabs */}
+              <div className="w-full">
+                <div className="grid w-full grid-cols-3 bg-[#1E3A5F] rounded-lg p-1 mb-6">
+                  <Button
+                    variant={activeTab === 'trending' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('trending')}
+                    className={`${activeTab === 'trending' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                  >
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    Trending
+                  </Button>
+                  <Button
+                    variant={activeTab === 'latest' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('latest')}
+                    className={`${activeTab === 'latest' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                  >
+                    <Clock className="w-4 h-4 mr-2" />
+                    Latest
+                  </Button>
+                  <Button
+                    variant={activeTab === 'pinned' ? 'default' : 'ghost'}
+                    onClick={() => setActiveTab('pinned')}
+                    className={`${activeTab === 'pinned' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                  >
+                    <Pin className="w-4 h-4 mr-2" />
+                    Pinned
+                  </Button>
+                </div>
+
+                {activeTab === 'trending' && (
+                  <div>
+                    {filteredPosts.length === 0 ? (
+                      <div className="text-center py-12">
+                        <MessageCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                        <p className="text-gray-400">No posts yet</p>
+                        {isAuthenticated && (
+                          <Button
+                            onClick={handleCreatePost}
+                            className="mt-4 bg-blue-600 hover:bg-blue-700"
+                          >
+                            Create the first post
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                      {filteredPosts.map(post => (
+                        <Card key={post.id} className="bg-[#1E3A5F]/30 border-[#1E3A5F] hover:border-blue-500/50 transition-colors cursor-pointer">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                {post.is_pinned && (
+                                  <Pin className="w-4 h-4 text-yellow-400" />
+                                )}
+                                <Badge variant="outline" className="text-xs">
+                                  {getPostTypeDisplay(post.post_type)}
+                                </Badge>
+                              </div>
+                              <span className="text-xs text-gray-400">
+                                {new Date(post.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+
+                            <h3 className="text-lg font-semibold text-white mb-2 hover:text-blue-400 transition-colors">
+                              {post.title}
+                            </h3>
+
+                            <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+                              {post.content?.substring(0, 150)}...
+                            </p>
+
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <UserAvatar
+                                  user={post.author}
+                                  size="sm"
+                                  showUsername={true}
+                                  isAnonymous={post.is_anonymous}
+                                />
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-gray-400">
+                                <div className="flex items-center gap-1">
+                                  <Star className="w-3 h-3" />
+                                  <span>{post.likesCount}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <MessageCircle className="w-3 h-3" />
+                                  <span>{post.commentsCount}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'latest' && (
+                  <div className="text-center py-8 text-gray-400">
+                    Latest posts will be shown here
+                  </div>
+                )}
+
+                {activeTab === 'pinned' && (
+                  <div className="text-center py-8 text-gray-400">
+                    Pinned posts will be shown here
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Sidebar */}
+        <div className="lg:col-span-1">
+          <div className="space-y-6">
+            {/* Board Info */}
+            <Card className="bg-[#132F4C] border-[#1E3A5F]">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-white mb-3">About</h3>
+                <div className="space-y-2 text-sm text-gray-400">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>Created {new Date(board.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Hash className="w-4 h-4" />
+                    <span>#{board.slug}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Rules */}
+            <Card className="bg-[#132F4C] border-[#1E3A5F]">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-white mb-3">Rules</h3>
+                <div className="space-y-2 text-sm text-gray-400">
+                  <p>1. Be respectful to other members</p>
+                  <p>2. Stay on topic</p>
+                  <p>3. No spam or self-promotion</p>
+                  <p>4. Use appropriate post types</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

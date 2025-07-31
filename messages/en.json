@@ -723,5 +723,17 @@
     "selectEmoji": "Select an emoji",
     "noReactions": "No reactions yet",
     "reactionsCount": "{count} reactions"
+  },
+  "Comments": {
+    "writeComment": "Write a comment...",
+    "writeAnonymousComment": "Write an anonymous comment...",
+    "commentAnonymously": "Comment anonymously",
+    "replyAnonymously": "Reply anonymously",
+    "replyTo": "Reply to {username}...",
+    "replyAnonymouslyTo": "Reply anonymously to {username}...",
+    "post": "Post",
+    "cancel": "Cancel",
+    "like": "Like",
+    "reply": "Reply"
   }
 }

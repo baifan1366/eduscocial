@@ -87,6 +87,41 @@ export async function GET(request, { params }) {
       }, { status: 404 });
     }
 
+    // Check access permissions for private boards
+    if (data.visibility === 'private') {
+      const session = await getServerSession();
+
+      if (!session) {
+        return NextResponse.json({
+          error: 'Authentication required to access private board'
+        }, { status: 401 });
+      }
+
+      // Check if user is following this private board
+      const { data: followData, error: followError } = await supabase
+        .from('board_followers')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('board_id', data.id);
+
+      if (followError) {
+        console.error('Error checking follow status:', followError);
+        return NextResponse.json({
+          error: 'Failed to verify access permissions'
+        }, { status: 500 });
+      }
+
+      // If user is not following this private board, deny access
+      if (!followData || followData.length === 0) {
+        return NextResponse.json({
+          error: 'Access denied. You must follow this private board to view its content.',
+          requiresFollow: true,
+          boardName: data.name,
+          boardSlug: data.slug
+        }, { status: 403 });
+      }
+    }
+
     // Process posts data
     const posts = (data.posts || []).map(post => ({
       ...post,

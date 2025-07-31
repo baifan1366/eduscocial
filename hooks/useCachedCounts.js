@@ -53,16 +53,20 @@ export const useCachedCounts = (posts = []) => {
           return {
             ...post,
             // Use cached counts if available, otherwise fall back to original values
-            comment_count: cachedData?.commentCount !== null && cachedData?.commentCount !== undefined 
-              ? cachedData.commentCount 
+            comment_count: cachedData?.commentCount !== null && cachedData?.commentCount !== undefined
+              ? cachedData.commentCount
               : (post.commentsCount || post.comments_count || post.comment_count || 0),
-            like_count: cachedData?.likeCount !== null && cachedData?.likeCount !== undefined 
-              ? cachedData.likeCount 
+            like_count: cachedData?.likeCount !== null && cachedData?.likeCount !== undefined
+              ? cachedData.likeCount
               : (post.likesCount || post.likes_count || post.like_count || 0),
+            view_count: cachedData?.viewCount !== null && cachedData?.viewCount !== undefined
+              ? cachedData.viewCount
+              : (post.viewsCount || post.views_count || post.view_count || 0),
             // Add metadata about cache status
             _cached: {
               hasCommentCount: cachedData?.commentCount !== null && cachedData?.commentCount !== undefined,
               hasLikeCount: cachedData?.likeCount !== null && cachedData?.likeCount !== undefined,
+              hasViewCount: cachedData?.viewCount !== null && cachedData?.viewCount !== undefined,
               hasCachedData: cachedData?.hasCachedData || false
             }
           };
@@ -78,9 +82,11 @@ export const useCachedCounts = (posts = []) => {
           ...post,
           comment_count: post.commentsCount || post.comments_count || post.comment_count || 0,
           like_count: post.likesCount || post.likes_count || post.like_count || 0,
+          view_count: post.viewsCount || post.views_count || post.view_count || 0,
           _cached: {
             hasCommentCount: false,
             hasLikeCount: false,
+            hasViewCount: false,
             hasCachedData: false
           }
         }));

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getServerSession } from '@/lib/auth/serverAuth';
+import { incrementPostView } from '@/lib/redis/redisUtils';
 import { isValidSlug } from '@/lib/utils/slugUtils';
 
 /**
@@ -105,16 +106,41 @@ export async function GET(request, { params }) {
     delete post.votes;
     delete post.comments;
 
-    // Increment view count (non-blocking)
-    supabase
-      .from('posts')
-      .update({ view_count: (post.view_count || 0) + 1 })
-      .eq('id', post.id)
-      .then(() => {
-        console.log('[GET /api/posts/[id]] View count incremented for post:', post.id);
+    // Increment view count in Redis cache (non-blocking)
+    // Pass current database count to ensure Redis is initialized correctly
+    const currentViewCount = post.view_count || 0;
+    incrementPostView(post.id, currentViewCount)
+      .then((newViewCount) => {
+        console.log('[GET /api/posts/[id]] View count incremented for post:', post.id, 'From:', currentViewCount, 'To:', newViewCount);
+
+        // Sync with database every 10 views to reduce database writes
+        if (newViewCount % 10 === 0) {
+          supabase
+            .from('posts')
+            .update({ view_count: newViewCount })
+            .eq('id', post.id)
+            .then(() => {
+              console.log('[GET /api/posts/[id]] View count synced to database:', post.id, newViewCount);
+            })
+            .catch(err => {
+              console.error('[GET /api/posts/[id]] Failed to sync view count to database:', err);
+            });
+        }
       })
       .catch(err => {
-        console.error('[GET /api/posts/[id]] Failed to increment view count:', err);
+        console.error('[GET /api/posts/[id]] Failed to increment view count in cache:', err);
+
+        // Fallback to direct database update
+        supabase
+          .from('posts')
+          .update({ view_count: currentViewCount + 1 })
+          .eq('id', post.id)
+          .then(() => {
+            console.log('[GET /api/posts/[id]] View count incremented in database (fallback):', post.id);
+          })
+          .catch(dbErr => {
+            console.error('[GET /api/posts/[id]] Failed to increment view count in database (fallback):', dbErr);
+          });
       });
 
     const processedPost = {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCachedPostCommentCount, getCachedPostLikeCount } from '@/lib/redis/redisUtils';
+import { getCachedPostCommentCount, getCachedPostLikeCount, getCachedPostViewCount } from '@/lib/redis/redisUtils';
 
 /**
  * GET handler for fetching cached counts for multiple posts
@@ -38,16 +38,18 @@ export async function GET(request) {
     const cachedCounts = await Promise.all(
       postIds.map(async (postId) => {
         try {
-          const [commentCount, likeCount] = await Promise.all([
+          const [commentCount, likeCount, viewCount] = await Promise.all([
             getCachedPostCommentCount(postId),
-            getCachedPostLikeCount(postId)
+            getCachedPostLikeCount(postId),
+            getCachedPostViewCount(postId)
           ]);
 
           return {
             postId,
             commentCount,
             likeCount,
-            hasCachedData: commentCount !== null || likeCount !== null
+            viewCount,
+            hasCachedData: commentCount !== null || likeCount !== null || viewCount !== null
           };
         } catch (error) {
           console.error(`Error fetching cached counts for post ${postId}:`, error);
@@ -55,6 +57,7 @@ export async function GET(request) {
             postId,
             commentCount: null,
             likeCount: null,
+            viewCount: null,
             hasCachedData: false,
             error: error.message
           };
@@ -64,10 +67,11 @@ export async function GET(request) {
 
     // Organize results by post ID for easier lookup
     const results = {};
-    cachedCounts.forEach(({ postId, commentCount, likeCount, hasCachedData, error }) => {
+    cachedCounts.forEach(({ postId, commentCount, likeCount, viewCount, hasCachedData, error }) => {
       results[postId] = {
         commentCount,
         likeCount,
+        viewCount,
         hasCachedData,
         ...(error && { error })
       };
@@ -116,16 +120,18 @@ export async function POST(request) {
     const cachedCounts = await Promise.all(
       postIds.map(async (postId) => {
         try {
-          const [commentCount, likeCount] = await Promise.all([
+          const [commentCount, likeCount, viewCount] = await Promise.all([
             getCachedPostCommentCount(postId),
-            getCachedPostLikeCount(postId)
+            getCachedPostLikeCount(postId),
+            getCachedPostViewCount(postId)
           ]);
 
           return {
             postId,
             commentCount,
             likeCount,
-            hasCachedData: commentCount !== null || likeCount !== null
+            viewCount,
+            hasCachedData: commentCount !== null || likeCount !== null || viewCount !== null
           };
         } catch (error) {
           console.error(`Error fetching cached counts for post ${postId}:`, error);
@@ -133,6 +139,7 @@ export async function POST(request) {
             postId,
             commentCount: null,
             likeCount: null,
+            viewCount: null,
             hasCachedData: false,
             error: error.message
           };
@@ -142,10 +149,11 @@ export async function POST(request) {
 
     // Organize results by post ID for easier lookup
     const results = {};
-    cachedCounts.forEach(({ postId, commentCount, likeCount, hasCachedData, error }) => {
+    cachedCounts.forEach(({ postId, commentCount, likeCount, viewCount, hasCachedData, error }) => {
       results[postId] = {
         commentCount,
         likeCount,
+        viewCount,
         hasCachedData,
         ...(error && { error })
       };
