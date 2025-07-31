@@ -34,7 +34,7 @@ export async function POST(request) {
             .from("credit_orders")
             .select(`
                 id, business_user_id, plan_id, total_price, currency, status,
-                credit_plans!inner(id, name, original_price, discount_price, is_discounted, currency)
+                credit_plans!inner(id, name, original_price, discount_price, is_discounted, currency, credit_amount)
             `)
             .eq('id', orderId)
             .eq('business_user_id', user.id) // Ensure order belongs to current user
@@ -65,6 +65,11 @@ export async function POST(request) {
         const priceInDollars = plan.is_discounted ? plan.discount_price : plan.original_price;
         const amount = Math.round(priceInDollars * 100);
 
+        // Generate success and cancel URLs using query parameters
+        const baseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_URL;
+        const successUrl = `${baseUrl}/business/payments-and-credits/buy-credits/checkout?orderId=${orderId}&status=success`;
+        const cancelUrl = `${baseUrl}/business/payments-and-credits/buy-credits/checkout?orderId=${orderId}&status=cancel`;
+
         // Map currency codes to Stripe-supported currencies
         const currencyMapping = {
             'rm': 'myr',  // Malaysian Ringgit
@@ -76,86 +81,60 @@ export async function POST(request) {
 
         const stripeCurrency = currencyMapping[plan.currency.toLowerCase()] || 'usd';
 
-        // Filter payment method types based on currency
+        // Filter payment method types based on currency and region
         const supportedPaymentMethods = filterPaymentMethodsByCurrency(paymentMethodTypes || ['card'], stripeCurrency);
 
-        // Create payment intent with digital wallet configurations
-        const paymentIntentConfig = {
-            amount: amount,
-            currency: stripeCurrency,
+        // Create checkout session
+        const checkoutSession = await stripe.checkout.sessions.create({
             payment_method_types: supportedPaymentMethods,
+            mode: 'payment',
+            line_items: [
+                {
+                    price_data: {
+                        currency: stripeCurrency,
+                        product_data: {
+                            name: `EduSocial Credits - ${plan.name}`,
+                            description: `${plan.credit_amount} credits`,
+                        },
+                        unit_amount: amount,
+                    },
+                    quantity: 1,
+                },
+            ],
             metadata: {
                 orderId: orderId,
                 planId: plan.id,
                 userId: user.id,
             },
-            description: `EduSocial Credits - Order ID: ${orderId}`,
-        };
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+        });
 
-        // Add specific configurations for digital wallets
-        if (supportedPaymentMethods.includes('apple_pay')) {
-            paymentIntentConfig.payment_method_options = {
-                ...paymentIntentConfig.payment_method_options,
-                apple_pay: {
-                    request_three_d_secure: 'automatic',
-                },
-            };
-        }
-
-        if (supportedPaymentMethods.includes('alipay')) {
-            paymentIntentConfig.payment_method_options = {
-                ...paymentIntentConfig.payment_method_options,
-                alipay: {
-                    // Alipay specific options can be added here
-                },
-            };
-        }
-
-        if (supportedPaymentMethods.includes('grabpay')) {
-            paymentIntentConfig.payment_method_options = {
-                ...paymentIntentConfig.payment_method_options,
-                grabpay: {
-                    // GrabPay specific options can be added here
-                },
-            };
-        }
-
-        if (supportedPaymentMethods.includes('google_pay')) {
-            paymentIntentConfig.payment_method_options = {
-                ...paymentIntentConfig.payment_method_options,
-                google_pay: {
-                    // Google Pay specific options can be added here
-                },
-            };
-        }
-
-        const paymentIntent = await stripe.paymentIntents.create(paymentIntentConfig);
-
-        // Update order with payment intent ID
+        // Update order with checkout session ID
         const { error: updateError } = await supabase
             .from("credit_orders")
             .update({
-                payment_reference: paymentIntent.id,
+                payment_reference: checkoutSession.id,
                 payment_provider: 'stripe',
                 updated_at: new Date(),
             })
             .eq('id', orderId);
 
         if (updateError) {
-            console.error('Failed to update order with payment intent:', updateError);
-            // Continue anyway, as payment intent was created successfully
+            console.error('Failed to update order with checkout session:', updateError);
+            // Continue anyway, as checkout session was created successfully
         }
 
         return NextResponse.json({
             success: true,
-            client_secret: paymentIntent.client_secret,
-            payment_intent_id: paymentIntent.id,
+            checkout_session_id: checkoutSession.id,
+            checkout_url: checkoutSession.url,
         });
 
     } catch (error) {
-        console.error('Error creating payment intent:', error);
+        console.error('Error creating checkout session:', error);
         return NextResponse.json({ 
-            error: "Failed to create payment intent" 
+            error: "Failed to create checkout session" 
         }, { status: 500 });
     }
 }
@@ -163,18 +142,14 @@ export async function POST(request) {
 // Helper function to filter payment methods based on currency
 function filterPaymentMethodsByCurrency(paymentMethodTypes, currency) {
     const supportedMethods = {
-        'myr': ['card', 'fpx', 'grabpay', 'alipay', 'apple_pay', 'google_pay'],
-        'sgd': ['card', 'grabpay', 'alipay', 'apple_pay', 'google_pay'],
-        'thb': ['card', 'grabpay', 'alipay', 'apple_pay', 'google_pay'],
-        'usd': ['card', 'us_bank_account', 'alipay', 'apple_pay', 'google_pay', 'cashapp'],
-        'eur': ['card', 'sepa_debit', 'sofort', 'ideal', 'alipay', 'apple_pay', 'google_pay'],
-        'gbp': ['card', 'bacs_debit', 'alipay', 'apple_pay', 'google_pay'],
-        'cad': ['card', 'acss_debit', 'alipay', 'apple_pay', 'google_pay'],
-        'aud': ['card', 'au_becs_debit', 'alipay', 'apple_pay', 'google_pay'],
+        'myr': ['card', 'fpx', 'grabpay'],
+        'usd': ['card', 'us_bank_account'],
+        'eur': ['card', 'sepa_debit', 'sofort', 'ideal'],
+        'gbp': ['card', 'bacs_debit'],
     };
 
-    const currencyMethods = supportedMethods[currency] || ['card', 'alipay', 'apple_pay', 'google_pay'];
-
+    const currencyMethods = supportedMethods[currency] || ['card'];
+    
     // Filter requested methods to only include those supported by the currency
     return paymentMethodTypes.filter(method => currencyMethods.includes(method));
 }

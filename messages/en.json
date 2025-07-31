@@ -713,6 +713,17 @@
     "total": "Total",
     "processing": "Processing...",
     "payNow": "Pay Now",
-    "orderDetailsNotAvailable": "Order details not available"
+    "something_went_wrong": "Something went wrong",
+    "error_occurred_while_loading_checkout_page": "An error occurred while loading the checkout page",
+    "error_details_for_debugging": "Error details (for debugging)",
+    "try_again": "Try again",
+    "back_to_plans": "Back to plans",
+    "order_status_not_valid_for_checkout": "Order status '{status}' is not valid for checkout",
+    "order_already_paid": "This order has already been paid",
+    "plan_not_found_or_invalid": "Plan not found or invalid",
+    "order_not_found_or_invalid": "Order not found or invalid",
+    "no_order_id_provided": "No order ID provided",
+    "orderDetailsNotAvailable": "Order details not available",
+    "backToOrderSummary": "Back to Order Summary"
   }
 }

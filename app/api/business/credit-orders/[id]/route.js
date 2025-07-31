@@ -62,6 +62,22 @@ export async function GET(request, { params }) {
     if (error) throw error;
     if (!data) return NextResponse.json({ error: "Credit order not found" }, { status: 404 });
 
+    // Fix null status by setting it to 'pending' if it's null
+    if (data.status === null || data.status === undefined) {
+        const { data: updatedData, error: updateError } = await supabase
+            .from("credit_orders")
+            .update({ status: 'pending', updated_at: new Date() })
+            .eq('id', id)
+            .select("*")
+            .single();
+
+        if (updateError) {
+            console.error('Failed to update null status:', updateError);
+        } else {
+            data.status = 'pending'; // Update the local data
+        }
+    }
+
     return NextResponse.json({ success: true, credit_order: data });
 }
 
@@ -69,7 +85,7 @@ export async function GET(request, { params }) {
 export async function PATCH(request, { params }) {
     const { id } = await params;
     const body = await request.json();
-    const { status, stripePaymentIntentId } = body;
+    const { status, stripePaymentIntentId, payment_reference, payment_provider, error_message } = body;
 
     // Get user session for authentication
     const session = await getServerSession();
@@ -79,31 +95,67 @@ export async function PATCH(request, { params }) {
     const { user } = session;
 
     try {
-        // Validate the order belongs to the current user
+        // Validate status if provided
+        const validStatuses = ['pending', 'paid', 'cancelled', 'failed', 'refunded'];
+        if (status && !validStatuses.includes(status)) {
+            return NextResponse.json({
+                error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+            }, { status: 400 });
+        }
+
+        // First, verify the order belongs to the current user (through business_user relationship)
         const { data: existingOrder, error: fetchError } = await supabase
             .from("credit_orders")
             .select('id, business_user_id, status')
             .eq('id', id)
-            .eq('business_user_id', user.id)
             .single();
 
         if (fetchError || !existingOrder) {
-            return NextResponse.json({
-                error: "Order not found or unauthorized"
-            }, { status: 404 });
+            return NextResponse.json({ error: "Order not found" }, { status: 404 });
+        }
+
+        // Check if user owns this order (through business_user relationship)
+        const { data: businessUser, error: businessError } = await supabase
+            .from("business_users")
+            .select('id')
+            .eq('id', existingOrder.business_user_id)
+            .eq('user_id', user.id)
+            .single();
+
+        if (businessError || !businessUser) {
+            return NextResponse.json({ error: "Unauthorized to update this order" }, { status: 403 });
         }
 
         // Prepare update data
         const updateData = {
-            status: status,
             updated_at: new Date(),
         };
 
-        // Add payment-specific fields if status is paid
-        if (status === 'paid' && stripePaymentIntentId) {
+        if (status) {
+            updateData.status = status;
+
+            // Set paid_at timestamp when status changes to paid
+            if (status === 'paid' && existingOrder.status !== 'paid') {
+                updateData.paid_at = new Date();
+            }
+        }
+
+        // Handle payment reference (support both old and new parameter names)
+        if (payment_reference) {
+            updateData.payment_reference = payment_reference;
+        } else if (stripePaymentIntentId) {
             updateData.payment_reference = stripePaymentIntentId;
+        }
+
+        if (payment_provider) {
+            updateData.payment_provider = payment_provider;
+        } else if (stripePaymentIntentId) {
             updateData.payment_provider = 'stripe';
-            updateData.paid_at = new Date();
+        }
+
+        // Store error message if provided
+        if (error_message) {
+            updateData.error_message = error_message;
         }
 
         // Update the order
@@ -115,16 +167,19 @@ export async function PATCH(request, { params }) {
             .single();
 
         if (updateError) {
-            throw updateError;
+            console.error('Failed to update order:', updateError);
+            return NextResponse.json({
+                error: "Failed to update order"
+            }, { status: 500 });
         }
 
         return NextResponse.json({
             success: true,
-            credit_order: updatedOrder
+            order: updatedOrder
         });
 
     } catch (error) {
-        console.error('Error updating order status:', error);
+        console.error('Error updating order:', error);
         return NextResponse.json({
             error: error.message || "Failed to update order status"
         }, { status: 500 });

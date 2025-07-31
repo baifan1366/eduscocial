@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
 import CheckoutForm from '@/components/business/payments/CheckoutForm';
-import StripePayment from '@/components/business/payments/StripePayment';
 import { CheckoutProvider } from '@/hooks/business/payments/useCheckout';
 import CheckoutErrorBoundary from '@/components/business/payments/CheckoutErrorBoundary';
+import { useTranslations } from 'next-intl';
 
 export const metadata = {
   title: 'Checkout | EduSocial',
@@ -31,24 +31,49 @@ function CheckOutLoader() {
     );
 }  
 
-export default async function CheckOutPage({ searchParams }) {
-  const resolvedSearchParams = await searchParams;
+export default async function CheckOutPage({ searchParams, params }) {
+  const t = useTranslations('Checkout');
+  // Handle both sync and async searchParams and params
+  const resolvedSearchParams = searchParams instanceof Promise ? await searchParams : searchParams;
+
+  // Get orderId from query parameters
   const orderId = resolvedSearchParams?.orderId;
 
-  // Debug logging
-  console.log('CheckOutPage - orderId:', orderId);
+  // Validate orderId format (UUID should be 36 characters with dashes)
+  const isValidUUID = orderId && orderId.length >= 36 && orderId.includes('-');
+
+  if (!orderId) {
+    return (
+      <main className="container mx-auto py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">{t('missingOrderId')}</h1>
+          <p className="mb-4">{t('noOrderIdProvided')}</p>
+          <a href="/business/payments-and-credits/buy-credits" className="text-blue-600 hover:underline">
+            {t('returnToCreditPlans')}
+          </a>
+        </div>
+      </main>
+    );
+  }
+
+  if (!isValidUUID) {
+    console.error('Invalid or truncated orderId detected:', orderId);
+    // Try to show a recovery component that can access sessionStorage
+    return (
+      <main className="container mx-auto py-8">
+        <CheckoutErrorBoundary/>
+      </main>
+    );
+  }
 
   return (
     <main className="container mx-auto py-8">
       <CheckoutErrorBoundary>
         <CheckoutProvider orderId={orderId}>
-          <div className="flex flex-col lg:flex-row gap-8">
+          <div className="flex justify-center">
             <Suspense fallback={<CheckOutLoader />}>
-              <div className="w-full lg:w-1/2">
+              <div className="w-full max-w-2xl">
                 <CheckoutForm />
-              </div>
-              <div className="w-full lg:w-1/2">
-                <StripePayment />
               </div>
             </Suspense>
           </div>

@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useUpdateCreditOrder from "@/hooks/business/credit-order/useUpdateCreditOrder";
-import useCheckout, { useCheckoutContext } from "@/hooks/business/payments/useCheckout";
-
+import { useCheckoutContext } from "@/hooks/business/payments/useCheckout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useTranslations } from 'next-intl';
 import { Skeleton } from "@/components/ui/skeleton";
+import CustomStripeCheckout from "./CustomStripeCheckout";
 
 export default function CheckoutForm() {
     const searchParams = useSearchParams();
@@ -39,20 +39,28 @@ export default function CheckoutForm() {
         isLoading = true
     } = contextData || {};
 
-    const { mutate: checkout, isPending } = useCheckout();
     const { mutate: updateCreditOrder } = useUpdateCreditOrder();
 
     const [paymentStatus, setPaymentStatus] = useState(null);
     const [paymentProcessed, setPaymentProcessed] = useState(false);
+    const [showPaymentForm, setShowPaymentForm] = useState(false);
 
     const currentPlan = planInfo;
     const orderId = orderInfo?.id;
     const planId = orderInfo?.plan_id;
     
     useEffect(() => {
+        // Handle already paid orders - show success instead of error
+        if (status === 'already_paid') {
+            setPaymentStatus('success');
+            return;
+        }
+
         // Error handling as documented: redirect if order not found or not pending
         if (status === 'error' && (contextError || error)) {
             console.error('Checkout error:', contextError || error);
+
+            // Redirect to plans page with error
             router.push('/business/payments-and-credits/buy-credits?error=order-not-found');
             return;
         }
@@ -66,12 +74,9 @@ export default function CheckoutForm() {
             if (paymentStatusFromUrl === 'success' && orderId && !paymentProcessed) {
                 setPaymentProcessed(true);
 
+                // Update order status for UI consistency
                 // Note: Credit processing, invoice creation, and transaction recording
-                // are handled by the Stripe webhook to prevent duplicate processing.
-                // Frontend handles UI updates and safe database records.
-
-                // Optional: Update order status for UI consistency (webhook also does this)
-                // This is safe to do as it's idempotent
+                // are handled in StripePayment component when payment actually succeeds
                 updateCreditOrder({
                     orderId,
                     status: 'paid'
@@ -82,15 +87,11 @@ export default function CheckoutForm() {
     
     const handleSubmit = (e) => {
         e.preventDefault();
-        
+
         if (!currentPlan) return;
-        
-        checkout({
-            amount: currentPlan.is_discounted ? currentPlan.discount_price * 100 : currentPlan.original_price * 100,
-            currency: currentPlan.currency.toLowerCase(),
-            planId,
-            orderId
-        });
+
+        // Show the payment form instead of immediately processing checkout
+        setShowPaymentForm(true);
     }
     
     // 显示加载状态
@@ -146,14 +147,78 @@ export default function CheckoutForm() {
                     <p>{t('paymentCancelMessage')}</p>
                 </CardContent>
                 <CardFooter className="flex justify-center">
-                    <Button 
-                        variant="outline" 
-                        onClick={() => setPaymentStatus(null)}
+                    <Button
+                        variant="outline"
+                        onClick={() => {
+                            setPaymentStatus(null);
+                            setShowPaymentForm(false);
+                        }}
                     >
                         {t('tryAgain')}
                     </Button>
                 </CardFooter>
             </Card>
+        );
+    }
+
+    // Show payment form if user clicked "Proceed to Payment"
+    if (showPaymentForm) {
+        return (
+            <div className="w-full space-y-6">
+                {/* Order Summary Card */}
+                <Card className="w-full">
+                    <CardHeader>
+                        <CardTitle>{t('orderSummary')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {currentPlan && (
+                            <div className="space-y-4">
+                                <div className="flex justify-between">
+                                    <span>{t('credits')}:</span>
+                                    <span>{currentPlan.credit_amount}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>{t('price')}:</span>
+                                    <span>
+                                        {currentPlan.is_discounted ? (
+                                            <div className="flex gap-2">
+                                                <span className="line-through text-gray-400">
+                                                    {currentPlan.currency} {currentPlan.original_price}
+                                                </span>
+                                                <span className="font-bold text-orange-500">
+                                                    {currentPlan.currency} {currentPlan.discount_price}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <span className="font-bold">
+                                                {currentPlan.currency} {currentPlan.original_price}
+                                            </span>
+                                        )}
+                                    </span>
+                                </div>
+                                <div className="border-t pt-2 flex justify-between font-bold">
+                                    <span>{t('total')}:</span>
+                                    <span className="text-orange-500">
+                                        {currentPlan.currency} {currentPlan.is_discounted ? currentPlan.discount_price : currentPlan.original_price}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                    <CardFooter>
+                        <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => setShowPaymentForm(false)}
+                        >
+                            {t('backToOrderSummary')}
+                        </Button>
+                    </CardFooter>
+                </Card>
+
+                {/* Payment Form */}
+                <CustomStripeCheckout />
+            </div>
         );
     }
 
@@ -199,13 +264,12 @@ export default function CheckoutForm() {
             </CardContent>
             <CardFooter>
                 <form onSubmit={handleSubmit} className="w-full">
-                    <Button 
-                        type="submit" 
-                        className="w-full" 
-                        disabled={isPending}
+                    <Button
+                        type="submit"
+                        className="w-full"
                         variant="orange"
                     >
-                        {isPending ? t('processing') : t('proceedToPayment')}
+                        {t('proceedToPayment')}
                     </Button>
                 </form>
             </CardFooter>

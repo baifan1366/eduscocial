@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { paymentsApi, creditOrdersApi, creditPlansApi } from '@/lib/api';
+import { creditOrdersApi, creditPlansApi } from '@/lib/api';
 import queryKeys from '@/lib/queryKeys';
+import { useTranslations } from 'next-intl';
 
 // CheckoutContext as described in documentation
 const CheckoutContext = createContext(null);
@@ -11,20 +12,17 @@ const CheckoutContext = createContext(null);
 export function CheckoutProvider({ children, orderId }) {
     const [orderInfo, setOrderInfo] = useState(null);
     const [planInfo, setPlanInfo] = useState(null);
-    const [status, setStatus] = useState('loading'); // loading, ready, error
+    const [status, setStatus] = useState('loading'); // loading, ready, error, already_paid
     const [error, setError] = useState(null);
-
-    // Debug logging
-    console.log('CheckoutProvider - orderId:', orderId);
+    const t = useTranslations('Checkout');
 
     // Early return with loading state if no orderId
     if (!orderId) {
-        console.log('CheckoutProvider - No orderId provided');
         const value = useMemo(() => ({
             orderInfo: null,
             planInfo: null,
             status: 'error',
-            error: 'No order ID provided',
+            error: t('no_order_id_provided'),
             isLoading: false,
             isOrderLoading: false,
             isPlanLoading: false,
@@ -43,7 +41,18 @@ export function CheckoutProvider({ children, orderId }) {
         queryFn: async () => {
             if (!orderId) return null;
             const response = await creditOrdersApi.getById(orderId);
-            return response.credit_order;
+
+            // Handle different response structures
+            if (response.success && response.credit_order) {
+                return response.credit_order;
+            } else if (response.credit_order) {
+                return response.credit_order;
+            } else if (response.data) {
+                return response.data;
+            } else {
+                console.error('Unexpected response structure:', response);
+                return response;
+            }
         },
         enabled: !!orderId,
     });
@@ -61,23 +70,54 @@ export function CheckoutProvider({ children, orderId }) {
 
     useEffect(() => {
         if (orderError) {
-            setError('Order not found or invalid');
+            setError(t('order_not_found_or_invalid'));
             setStatus('error');
             return;
         }
 
         if (planError) {
-            setError('Plan not found or invalid');
+            setError(t('plan_not_found_or_invalid'));
             setStatus('error');
             return;
         }
 
         if (orderData) {
-            // Validate order status - allow pending, paid, completed statuses
-            const validStatuses = ['pending', 'paid', 'completed'];
-            if (!validStatuses.includes(orderData.status)) {
-                setError(`Order status '${orderData.status}' is not valid for checkout`);
+            // Get the status with fallback handling
+            let orderStatus = orderData.status;
+
+            // Handle different possible data structures
+            if (!orderStatus && orderData.credit_order) {
+                orderStatus = orderData.credit_order.status;
+            }
+            if (!orderStatus && orderData.data) {
+                orderStatus = orderData.data.status;
+            }
+
+            // Handle null or undefined status
+            if (!orderStatus) {
+                console.error('Order status is null or undefined after all fallbacks:', orderData);
+                console.error('Full order object:', JSON.stringify(orderData, null, 2));
+                setError('Order status is missing. Please contact support.');
                 setStatus('error');
+                return;
+            }
+
+            // Validate order status - allow pending orders for checkout
+            // Only pending orders should be allowed for checkout
+            // Paid orders should show success page, others should show error
+            const validStatusesForCheckout = ['pending'];
+            if (!validStatusesForCheckout.includes(orderStatus)) {
+                // If order is already paid, set a special status to indicate success
+                if (orderStatus === 'paid') {
+                    setStatus('already_paid');
+                    setError(null); // Clear any error since this is actually a success case
+                } else {
+                    // Create a more explicit error message to avoid translation issues
+                    const errorMessage = `Order status '${orderStatus}' is not valid for checkout`;
+                    console.error('Invalid order status:', errorMessage);
+                    setError(errorMessage);
+                    setStatus('error');
+                }
                 return;
             }
 
@@ -119,19 +159,5 @@ export function useCheckoutContext() {
     return context;
 }
 
-// Original useCheckout hook for payment processing
-export default function useCheckout() {
-    const queryClient = useQueryClient();
-
-    const mutation = useMutation({
-        mutationFn: async (data) => {
-            const response = await paymentsApi.checkout(data);
-            return response;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.payments.checkout });
-        },
-    });
-
-    return mutation;
-}
+// Note: The original useCheckout hook has been removed as it's no longer used.
+// All payment processing now goes through the Stripe-specific hooks and APIs.
