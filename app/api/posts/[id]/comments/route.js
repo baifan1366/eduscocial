@@ -4,6 +4,44 @@ import { getServerSession } from '@/lib/auth/serverAuth';
 import { smartEmbeddingUpdate } from '@/lib/embeddingUpdater';
 import { createCommentNotification, createReplyNotification } from '@/lib/notifications';
 import { processMentions } from '@/lib/mentionParser';
+import { isValidSlug } from '@/lib/utils/slugUtils';
+
+// UUID validation function
+const isValidUUID = (str) => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
+
+/**
+ * 根据ID或slug查询帖子
+ * @param {Object} supabase - Supabase客户端
+ * @param {string} idOrSlug - 帖子ID或slug
+ * @returns {Promise<Object>} 查询结果
+ */
+async function getPostByIdOrSlug(supabase, idOrSlug) {
+  const isUUID = isValidUUID(idOrSlug);
+  const isSlug = isValidSlug(idOrSlug);
+
+  if (!isUUID && !isSlug) {
+    return {
+      data: null,
+      error: { message: 'Invalid post ID or slug format' }
+    };
+  }
+
+  let query = supabase
+    .from('posts')
+    .select('id, title, author_id, comment_count')
+    .eq('is_deleted', false);
+
+  if (isUUID) {
+    query = query.eq('id', idOrSlug);
+  } else {
+    query = query.eq('slug', idOrSlug);
+  }
+
+  return await query.single();
+}
 
 /**
  * GET /api/posts/[id]/comments
@@ -22,20 +60,19 @@ export async function GET(request, { params }) {
     const includeDeleted = searchParams.get('includeDeleted') === 'true';
     
     const supabase = createServerSupabaseClient();
-    
-    // 验证帖子是否存在
-    const { data: post, error: postError } = await supabase
-      .from('posts')
-      .select('id')
-      .eq('id', postId)
-      .single();
-    
+
+    // 验证帖子是否存在（支持ID或slug）
+    const { data: post, error: postError } = await getPostByIdOrSlug(supabase, postId);
+
     if (postError || !post) {
       return NextResponse.json(
         { error: 'Post not found' },
         { status: 404 }
       );
     }
+
+    // 使用实际的post ID（UUID）进行后续查询
+    const actualPostId = post.id;
     
     // 构建评论查询
     let query = supabase
@@ -62,7 +99,7 @@ export async function GET(request, { params }) {
           )
         )
       `, { count: 'exact' })
-      .eq('post_id', postId)
+      .eq('post_id', actualPostId)
       .is('parent_id', null); // 只获取顶级评论，回复会通过replies关联获取
     
     // 是否包含已删除的评论
@@ -178,20 +215,33 @@ export async function POST(request, { params }) {
     
     const supabase = createServerSupabaseClient();
     const userId = session.user.id;
-    
-    // 验证帖子是否存在
-    const { data: post, error: postError } = await supabase
-      .from('posts')
-      .select('id, author_id, title')
-      .eq('id', postId)
-      .single();
-    
+
+    // 验证帖子是否存在（支持ID或slug）
+    const { data: post, error: postError } = await getPostByIdOrSlug(supabase, postId);
+
     if (postError || !post) {
       return NextResponse.json(
         { error: 'Post not found' },
         { status: 404 }
       );
     }
+
+    // 获取完整的帖子信息
+    const { data: fullPost, error: fullPostError } = await supabase
+      .from('posts')
+      .select('id, author_id, title, comment_count')
+      .eq('id', post.id)
+      .single();
+
+    if (fullPostError || !fullPost) {
+      return NextResponse.json(
+        { error: 'Post not found' },
+        { status: 404 }
+      );
+    }
+
+    // 使用实际的post ID和完整信息
+    const actualPostId = fullPost.id;
     
     // 如果是回复，验证父评论是否存在
     if (parent_id) {
@@ -199,7 +249,7 @@ export async function POST(request, { params }) {
         .from('comments')
         .select('id, post_id')
         .eq('id', parent_id)
-        .eq('post_id', postId)
+        .eq('post_id', actualPostId)
         .single();
       
       if (parentError || !parentComment) {
@@ -214,7 +264,7 @@ export async function POST(request, { params }) {
     const { data: newComment, error: createError } = await supabase
       .from('comments')
       .insert({
-        post_id: postId,
+        post_id: actualPostId,
         parent_id: parent_id || null,
         author_id: userId,
         content: content.trim(),
@@ -274,24 +324,24 @@ export async function POST(request, { params }) {
           await createReplyNotification(
             parentComment.author_id,
             userId,
-            postId,
+            actualPostId,
             parent_id,
             newComment.id,
             content.substring(0, 100) + (content.length > 100 ? '...' : '')
           );
           console.log(`[POST /api/posts/[id]/comments] Sent reply notification to ${parentComment.author_id}`);
         }
-      } else if (post.author_id !== userId) {
+      } else if (fullPost.author_id !== userId) {
         // 这是新评论，通知帖子作者
         await createCommentNotification(
-          post.author_id,
+          fullPost.author_id,
           userId,
-          postId,
+          actualPostId,
           newComment.id,
-          post.title || 'Untitled Post',
+          fullPost.title || 'Untitled Post',
           content.substring(0, 100) + (content.length > 100 ? '...' : '')
         );
-        console.log(`[POST /api/posts/[id]/comments] Sent comment notification to post author ${post.author_id}`);
+        console.log(`[POST /api/posts/[id]/comments] Sent comment notification to post author ${fullPost.author_id}`);
       }
     } catch (notificationError) {
       console.error('[POST /api/posts/[id]/comments] Failed to send notification:', notificationError);
@@ -300,7 +350,7 @@ export async function POST(request, { params }) {
 
     // 处理@提及
     try {
-      const mentionResult = await processMentions(content, postId, newComment.id, userId);
+      const mentionResult = await processMentions(content, actualPostId, newComment.id, userId);
       if (mentionResult.success && mentionResult.validMentions.length > 0) {
         console.log(`[POST /api/posts/[id]/comments] Processed ${mentionResult.validMentions.length} mentions`);
       }
@@ -311,9 +361,9 @@ export async function POST(request, { params }) {
 
     // 智能embedding更新
     try {
-      await smartEmbeddingUpdate(postId, {
+      await smartEmbeddingUpdate(actualPostId, {
         action: 'comment_created',
-        commentCount: (post.comment_count || 0) + 1
+        commentCount: (fullPost.comment_count || 0) + 1
       });
     } catch (error) {
       console.error('[POST /api/posts/[id]/comments] Error scheduling embedding update:', error);

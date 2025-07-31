@@ -743,7 +743,10 @@
     "no_order_id_provided": "No order ID provided",
     "orderDetailsNotAvailable": "Order details not available",
     "backToOrderSummary": "Back to Order Summary",
-    "buy": "Buy"
+    "buy": "Buy",
+    "missingOrderId": "Missing Order ID",
+    "noOrderIdProvided": "No order ID provided",
+    "returnToCreditPlans": "Return to Credit Plans"
   },
   "BoardDetail": {
     "pageTitle": "Board Details - EduSocial",
@@ -752,5 +755,17 @@
   "BoardsListing": {
     "pageTitle": "All Boards - EduSocial",
     "pageDescription": "Explore all discussion boards and communities"
+  },
+  "Reactions": {
+    "addReaction": "Add reaction",
+    "removeReaction": "Remove reaction",
+    "loginToReact": "Please login to react",
+    "reactionFailed": "Failed to add reaction, please try again",
+    "reactionRemoved": "Reaction removed",
+    "reactionAdded": "Reaction added",
+    "duplicateReaction": "You have already reacted this way",
+    "selectEmoji": "Select an emoji",
+    "noReactions": "No reactions yet",
+    "reactionsCount": "{count} reactions"
   }
 }

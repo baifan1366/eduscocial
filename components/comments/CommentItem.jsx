@@ -20,12 +20,13 @@ import {
 } from 'lucide-react';
 import UserAvatar from '@/components/ui/UserAvatar';
 import CommentForm from './CommentForm';
-import { useVoteComment, useDeleteComment, useUpdateComment } from '@/hooks/useComments';
+import { useVoteComment, useDeleteComment, useUpdateComment, useCommentVoteStatus } from '@/hooks/useComments';
 import useAuth from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
 import { zhTW, enUS } from 'date-fns/locale';
 import { useLocale } from 'next-intl';
 import { renderMentions } from '@/lib/mentionParser';
+import Reactions from '@/components/reactions/Reactions';
 
 export default function CommentItem({ 
   comment, 
@@ -45,6 +46,9 @@ export default function CommentItem({
   const voteCommentMutation = useVoteComment();
   const deleteCommentMutation = useDeleteComment();
   const updateCommentMutation = useUpdateComment();
+
+  // Get real-time vote status from cache
+  const { data: voteStatus } = useCommentVoteStatus(comment.id);
   
   const isAuthor = user?.id === comment.author?.id;
   const canReply = level < maxLevel;
@@ -60,14 +64,27 @@ export default function CommentItem({
       // Redirect to login
       return;
     }
-    
+
+    // Prevent voting if already voting
+    if (voteCommentMutation.isPending) {
+      return;
+    }
+
+    // If user clicks the same vote type they already voted, remove the vote
+    const actualVoteType = voteStatus?.userVote === voteType ? 'remove' : voteType;
+
     try {
       await voteCommentMutation.mutateAsync({
         commentId: comment.id,
-        voteType
+        voteType: actualVoteType
       });
     } catch (error) {
       console.error('Failed to vote:', error);
+      // Show error message to user
+      if (error.message.includes('already voted')) {
+        // Handle duplicate vote error silently or show a message
+        console.log('Duplicate vote prevented');
+      }
     }
   };
   
@@ -228,55 +245,78 @@ export default function CommentItem({
         
         {/* Comment actions */}
         {!isEditing && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              {/* Like button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleVote('like')}
-                className="text-gray-400 hover:text-red-400 p-1"
-              >
-                <Heart className="w-4 h-4 mr-1" />
-                <span className="text-xs">{comment.likesCount || 0}</span>
-              </Button>
-              
-              {/* Dislike button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleVote('dislike')}
-                className="text-gray-400 hover:text-blue-400 p-1"
-              >
-                <ThumbsDown className="w-4 h-4 mr-1" />
-                <span className="text-xs">{comment.dislikesCount || 0}</span>
-              </Button>
-              
-              {/* Reply button */}
-              {canReply && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                {/* Like button */}
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowReplyForm(!showReplyForm)}
-                  className="text-gray-400 hover:text-blue-400 p-1"
+                  onClick={() => handleVote('like')}
+                  disabled={voteCommentMutation.isPending}
+                  className={`p-1 ${
+                    voteStatus?.userVote === 'like'
+                      ? 'text-red-500 hover:text-red-600'
+                      : 'text-gray-400 hover:text-red-400'
+                  }`}
                 >
-                  <MessageCircle className="w-4 h-4 mr-1" />
-                  <span className="text-xs">{t('reply', { default: 'Reply' })}</span>
+                  <Heart className={`w-4 h-4 mr-1 ${voteStatus?.userVote === 'like' ? 'fill-current' : ''}`} />
+                  <span className="text-xs">{voteStatus?.likesCount ?? comment.likesCount ?? 0}</span>
+                </Button>
+
+                {/* Dislike button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleVote('dislike')}
+                  disabled={voteCommentMutation.isPending}
+                  className={`p-1 ${
+                    voteStatus?.userVote === 'dislike'
+                      ? 'text-blue-500 hover:text-blue-600'
+                      : 'text-gray-400 hover:text-blue-400'
+                  }`}
+                >
+                  <ThumbsDown className={`w-4 h-4 mr-1 ${voteStatus?.userVote === 'dislike' ? 'fill-current' : ''}`} />
+                  <span className="text-xs">{voteStatus?.dislikesCount ?? comment.dislikesCount ?? 0}</span>
+                </Button>
+
+                {/* Reply button */}
+                {canReply && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowReplyForm(!showReplyForm)}
+                    className="text-gray-400 hover:text-blue-400 p-1"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-1" />
+                    <span className="text-xs">{t('reply', { default: 'Reply' })}</span>
+                  </Button>
+                )}
+              </div>
+
+              {/* Replies count */}
+              {comment.replies && comment.replies.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowReplies(!showReplies)}
+                  className="text-gray-400 hover:text-white text-xs"
+                >
+                  {showReplies ? t('hideReplies', { default: 'Hide replies' }) : t('showReplies', { default: 'Show replies' })} ({comment.replies.length})
                 </Button>
               )}
             </div>
-            
-            {/* Replies count */}
-            {comment.replies && comment.replies.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowReplies(!showReplies)}
-                className="text-gray-400 hover:text-white text-xs"
-              >
-                {showReplies ? t('hideReplies', { default: 'Hide replies' }) : t('showReplies', { default: 'Show replies' })} ({comment.replies.length})
-              </Button>
-            )}
+
+            {/* Reactions */}
+            <div className="flex justify-start">
+              <Reactions
+                type="comment"
+                targetId={comment.id}
+                initialReactionCounts={comment.reaction_counts || {}}
+                initialUserReactions={[]}
+                className="scale-90"
+              />
+            </div>
           </div>
         )}
       </div>

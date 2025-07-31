@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Heart, MessageCircle, Share2, Bookmark } from 'lucide-react';
 import useGetPost from '@/hooks/useGetPost';
+import { usePostLike } from '@/hooks/usePostLike';
 import UserAvatar from '@/components/ui/UserAvatar';
 import { Button } from '@/components/ui/button';
 import CommentsList from '@/components/comments/CommentsList';
+import Reactions from '@/components/reactions/Reactions';
 
 export default function PostDetailClient({ postId, locale, isAuthenticated }) {
   const t = useTranslations('PostDetail');
@@ -17,6 +19,7 @@ export default function PostDetailClient({ postId, locale, isAuthenticated }) {
   const { data: post, isLoading, error } = useGetPost(postId);
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const postLikeMutation = usePostLike();
 
   // Helper function to get post type display
   const getPostTypeDisplay = (postType) => {
@@ -32,12 +35,22 @@ export default function PostDetailClient({ postId, locale, isAuthenticated }) {
     return typeMap[postType] || tPost('article');
   };
 
-  const handleLike = () => {
+  const handleLike = async () => {
     if (!isAuthenticated) {
       router.push(`/${locale}/login`);
       return;
     }
-    setIsLiked(!isLiked);
+
+    try {
+      await postLikeMutation.mutateAsync({
+        postId: post.id,
+        isLiked: isLiked
+      });
+
+      setIsLiked(!isLiked);
+    } catch (error) {
+      console.error('Error liking/unliking post:', error);
+    }
   };
 
   const handleBookmark = () => {
@@ -166,56 +179,70 @@ export default function PostDetailClient({ postId, locale, isAuthenticated }) {
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center justify-between border-t border-[#1E3A5F] pt-4">
-          <div className="flex items-center space-x-4">
-            <Button
-              onClick={handleLike}
-              variant="ghost"
-              size="sm"
-              className={`text-gray-400 hover:text-red-400 ${isLiked ? 'text-red-400' : ''}`}
-            >
-              <Heart className={`w-4 h-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
-              {post.likesCount || post.likes_count || 0}
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-blue-400"
-            >
-              <MessageCircle className="w-4 h-4 mr-2" />
-              {post.commentsCount || post.comments_count || 0}
-            </Button>
+        <div className="border-t border-[#1E3A5F] pt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button
+                onClick={handleLike}
+                variant="ghost"
+                size="sm"
+                className={`text-gray-400 hover:text-red-400 ${isLiked ? 'text-red-400' : ''}`}
+              >
+                <Heart className={`w-4 h-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
+                {post.likesCount || post.likes_count || 0}
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-blue-400"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                {post.commentsCount || post.comments_count || 0}
+              </Button>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={handleBookmark}
+                variant="ghost"
+                size="sm"
+                className={`text-gray-400 hover:text-yellow-400 ${isBookmarked ? 'text-yellow-400' : ''}`}
+              >
+                <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-current' : ''}`} />
+              </Button>
+
+              <Button
+                onClick={handleShare}
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-green-400"
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Button
-              onClick={handleBookmark}
-              variant="ghost"
-              size="sm"
-              className={`text-gray-400 hover:text-yellow-400 ${isBookmarked ? 'text-yellow-400' : ''}`}
-            >
-              <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-current' : ''}`} />
-            </Button>
-            
-            <Button
-              onClick={handleShare}
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-green-400"
-            >
-              <Share2 className="w-4 h-4" />
-            </Button>
+          {/* Reactions */}
+          <div className="flex justify-center">
+            <Reactions
+              type="post"
+              targetId={post.id}
+              initialReactionCounts={post.reaction_counts || {}}
+              initialUserReactions={[]}
+            />
           </div>
         </div>
       </div>
 
       {/* Comments section */}
       <div className="mt-6">
-        <CommentsList
-          postId={postId}
-          initialCommentsCount={post.commentsCount || post.comments_count || 0}
-        />
+        {post.id && (
+          <CommentsList
+            postId={post.id}
+            initialCommentsCount={post.commentsCount || post.comments_count || 0}
+          />
+        )}
       </div>
     </div>
   );
