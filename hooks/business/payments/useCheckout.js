@@ -40,21 +40,28 @@ export function CheckoutProvider({ children, orderId }) {
         queryKey: queryKeys.creditOrders.detail(orderId),
         queryFn: async () => {
             if (!orderId) return null;
-            const response = await creditOrdersApi.getById(orderId);
+            try {
+                const response = await creditOrdersApi.getById(orderId);
 
-            // Handle different response structures
-            if (response.success && response.credit_order) {
-                return response.credit_order;
-            } else if (response.credit_order) {
-                return response.credit_order;
-            } else if (response.data) {
-                return response.data;
-            } else {
-                console.error('Unexpected response structure:', response);
-                return response;
+                // Handle different response structures
+                if (response.success && response.credit_order) {
+                    return response.credit_order;
+                } else if (response.credit_order) {
+                    return response.credit_order;
+                } else if (response.data) {
+                    return response.data;
+                } else {
+                    console.error('Unexpected response structure:', response);
+                    return response;
+                }
+            } catch (error) {
+                console.error('Error fetching order:', error);
+                throw error;
             }
         },
         enabled: !!orderId,
+        retry: 1,
+        staleTime: 0, // Always fetch fresh data for checkout
     });
 
     // Fetch plan data based on order's plan_id
@@ -62,10 +69,17 @@ export function CheckoutProvider({ children, orderId }) {
         queryKey: queryKeys.creditPlans.detail(orderData?.plan_id),
         queryFn: async () => {
             if (!orderData?.plan_id) return null;
-            const response = await creditPlansApi.getByPlanId(orderData.plan_id);
-            return response; // API returns plan directly, not wrapped
+            try {
+                const response = await creditPlansApi.getByPlanId(orderData.plan_id);
+                return response; // API returns plan directly, not wrapped
+            } catch (error) {
+                console.error('Error fetching plan:', error);
+                throw error;
+            }
         },
         enabled: !!orderData?.plan_id,
+        retry: 1,
+        staleTime: 5 * 60 * 1000, // Cache plan data for 5 minutes
     });
 
     useEffect(() => {
