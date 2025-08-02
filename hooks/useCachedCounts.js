@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { getHotCommentsBatch, getCachedCountsBatch } from '@/lib/utils/requestDeduplication';
 
 /**
  * Hook to fetch and manage cached counts for posts
@@ -31,20 +32,10 @@ export const useCachedCounts = (posts = []) => {
           return;
         }
 
-        // Fetch cached counts from API
-        const response = await fetch('/api/posts/cached-counts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ postIds })
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const { results } = await response.json();
+        // Use deduplicated request for cached counts
+        console.log(`[useCachedCounts] Fetching cached counts for ${postIds.length} posts`);
+        const data = await getCachedCountsBatch(postIds);
+        const { results } = data;
 
         // Merge cached counts with original posts
         const updatedPosts = posts.map(post => {
@@ -111,7 +102,7 @@ export const useCachedCounts = (posts = []) => {
 };
 
 /**
- * Hook to fetch hot comments for posts
+ * Hook to fetch hot comments for posts using batch API
  * @param {Array} postIds - Array of post IDs
  * @returns {Object} - Object containing hot comments by post ID and loading state
  */
@@ -131,34 +122,24 @@ export const useHotComments = (postIds = []) => {
       setError(null);
 
       try {
-        // Fetch hot comments for each post
-        const promises = postIds.map(async (postId) => {
-          try {
-            const response = await fetch(`/api/posts/${postId}/hot-comments`);
-            if (response.ok) {
-              const data = await response.json();
-              return { postId, comments: data.comments || [] };
-            } else {
-              console.warn(`Failed to fetch hot comments for post ${postId}`);
-              return { postId, comments: [] };
+        // Use deduplicated batch API for better performance
+        console.log(`[useHotComments] Fetching hot comments for ${postIds.length} posts`);
+        const data = await getHotCommentsBatch(postIds);
+
+        if (data.success) {
+          // Convert results to the expected format
+          const commentsMap = {};
+          Object.entries(data.results).forEach(([postId, result]) => {
+            if (result.comments && result.comments.length > 0) {
+              commentsMap[postId] = result.comments;
             }
-          } catch (error) {
-            console.error(`Error fetching hot comments for post ${postId}:`, error);
-            return { postId, comments: [] };
-          }
-        });
+          });
 
-        const results = await Promise.all(promises);
-        
-        // Convert to object with postId as key
-        const commentsMap = {};
-        results.forEach(({ postId, comments }) => {
-          if (comments.length > 0) {
-            commentsMap[postId] = comments;
-          }
-        });
-
-        setHotComments(commentsMap);
+          setHotComments(commentsMap);
+          console.log(`[useHotComments] Loaded hot comments for ${Object.keys(commentsMap).length} posts (${data.cachedPosts} cached, ${data.fetchedPosts} fetched)`);
+        } else {
+          throw new Error(data.error || 'Failed to fetch hot comments');
+        }
       } catch (err) {
         console.error('Error fetching hot comments:', err);
         setError(err.message);

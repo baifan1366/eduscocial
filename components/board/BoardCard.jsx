@@ -207,9 +207,9 @@ export default function BoardCard({
                   {isFollowLoading ? (
                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   ) : isFollowing ? (
-                    <><Heart className="w-4 h-4 mr-1 fill-current" />Following</>
+                    <><Heart className="w-4 h-4 mr-1 fill-current" />{t('following')}</>
                   ) : (
-                    <><UserPlus className="w-4 h-4 mr-1" />Follow</>
+                    <><UserPlus className="w-4 h-4 mr-1" />{t('follow')}</>
                   )}
                 </Button>
               )}
@@ -226,9 +226,9 @@ export default function BoardCard({
                 )}
               >
                 {isPrivate ? (
-                  <><Lock className="w-3 h-3 mr-1" />Private</>
+                  <><Lock className="w-3 h-3 mr-1" />{t('private')}</>
                 ) : (
-                  <><Globe className="w-3 h-3 mr-1" />Public</>
+                  <><Globe className="w-3 h-3 mr-1" />{t('public')}</>
                 )}
               </Badge>
             </div>
@@ -244,7 +244,7 @@ export default function BoardCard({
           "group-hover:text-gray-200",
           !canAccess && "blur-sm"
         )}>
-          {board.description || 'Discover and discuss topics in this community space.'}
+          {board.description || t('noDescription')}
         </p>
 
         {/* Stats */}
@@ -284,7 +284,7 @@ export default function BoardCard({
                 ? "text-emerald-300 group-hover:text-emerald-200"
                 : "text-gray-500"
             )}>
-              {board.isActive ? 'Active' : 'Inactive'}
+              {board.isActive ? t('active') : t('inactive')}
             </span>
           </div>
         </div>
@@ -294,7 +294,7 @@ export default function BoardCard({
           <div className="p-3 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl backdrop-blur-sm">
             <p className="text-sm text-amber-300 text-center font-medium">
               <Lock className="w-4 h-4 inline mr-2" />
-              Follow this board to unlock content
+              {t('followToUnlock')}
             </p>
           </div>
         )}

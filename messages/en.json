@@ -708,6 +708,31 @@
     "pageTitle": "Board Details - EduSocial",
     "pageDescription": "Explore board discussions and posts"
   },
+  "BoardCard": {
+    "follow": "Follow",
+    "following": "Following",
+    "unfollow": "Unfollow",
+    "private": "Private",
+    "public": "Public",
+    "members": "Members",
+    "posts": "Posts",
+    "views": "Views",
+    "likes": "Likes",
+    "comments": "Comments",
+    "featured": "Featured",
+    "joinBoard": "Join Board",
+    "leaveBoard": "Leave Board",
+    "loginToFollow": "Login to Follow",
+    "loading": "Loading...",
+    "error": "Error",
+    "noDescription": "Discover and discuss topics in this community space.",
+    "createdBy": "Created by",
+    "category": "Category",
+    "visibility": "Visibility",
+    "active": "Active",
+    "inactive": "Inactive",
+    "followToUnlock": "Follow this board to unlock content"
+  },
   "BoardsListing": {
     "pageTitle": "All Boards - EduSocial",
     "pageDescription": "Explore all discussion boards and communities"

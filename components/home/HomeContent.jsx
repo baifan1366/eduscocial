@@ -12,6 +12,7 @@ import BoardsList from './BoardsList';
 import Sidebar from './Sidebar';
 import UserAvatar from '@/components/ui/UserAvatar';
 import InterestSelectionDialog from '@/components/onboarding/InterestSelectionDialog';
+import RequestMonitor from '@/components/debug/RequestMonitor';
 
 export default function HomeContent() {
   const t = useTranslations('HomePage');
@@ -134,7 +135,10 @@ export default function HomeContent() {
           isOpen={showInterestDialog}
           onClose={() => setShowInterestDialog(false)}
         />
+
+        {/* Request Monitor for development */}
+        <RequestMonitor />
       </div>
     </div>
   );
-} 
+}
