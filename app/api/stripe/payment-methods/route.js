@@ -14,6 +14,9 @@ export async function GET(request) {
         const currency = searchParams.get('currency') || 'usd';
         const country = searchParams.get('country') || 'US';
 
+        // Detect if we're in test mode based on the Stripe key
+        const isTestMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_');
+
         // Define supported payment methods by currency/region
         const paymentMethodsByRegion = {
             'myr': {
@@ -31,21 +34,21 @@ export async function GET(request) {
                         name: 'FPX',
                         description: 'Malaysian online banking',
                         icon: '/payment-icons/fpx.svg',
-                        enabled: true
+                        enabled: isTestMode // Only show in test mode unless activated
                     },
                     {
                         type: 'grabpay',
                         name: 'GrabPay',
                         description: 'Pay with GrabPay wallet',
                         icon: '/grab-pay.png',
-                        enabled: true
+                        enabled: isTestMode // Only show in test mode unless activated
                     },
                     {
                         type: 'alipay',
                         name: 'Alipay',
                         description: 'Pay with Alipay',
                         icon: '/alipay.webp',
-                        enabled: true
+                        enabled: isTestMode // Only show in test mode unless activated
                     }
                 ]
             },
@@ -64,14 +67,14 @@ export async function GET(request) {
                         name: 'US Bank Account',
                         description: 'Pay directly from your bank account',
                         icon: '/payment-icons/bank.svg',
-                        enabled: true
+                        enabled: isTestMode // Only show in test mode unless activated
                     },
                     {
                         type: 'alipay',
                         name: 'Alipay',
                         description: 'Pay with Alipay',
                         icon: '/alipay.webp',
-                        enabled: true
+                        enabled: isTestMode // Only show in test mode unless activated
                     }
                 ]
             },

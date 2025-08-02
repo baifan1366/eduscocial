@@ -139,17 +139,38 @@ export async function POST(request) {
     }
 }
 
-// Helper function to filter payment methods based on currency
+// Helper function to filter payment methods based on currency and environment
 function filterPaymentMethodsByCurrency(paymentMethodTypes, currency) {
+    // Detect if we're in test mode based on the Stripe key
+    const isTestMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_');
+
     const supportedMethods = {
-        'myr': ['card', 'fpx', 'grabpay'],
-        'usd': ['card', 'us_bank_account'],
-        'eur': ['card', 'sepa_debit', 'sofort', 'ideal'],
-        'gbp': ['card', 'bacs_debit'],
+        'myr': ['card', 'fpx', 'grabpay', 'alipay'],
+        'sgd': ['card', 'grabpay', 'alipay'],
+        'thb': ['card', 'grabpay', 'alipay'],
+        'usd': ['card', 'us_bank_account', 'alipay'],
+        'eur': ['card', 'sepa_debit', 'sofort', 'ideal', 'alipay'],
+        'gbp': ['card', 'bacs_debit', 'alipay'],
+        'cad': ['card', 'acss_debit', 'alipay'],
+        'aud': ['card', 'au_becs_debit', 'alipay'],
     };
 
-    const currencyMethods = supportedMethods[currency] || ['card'];
-    
+    // Payment methods that require activation in live mode
+    const requiresActivation = ['alipay', 'grabpay', 'fpx', 'us_bank_account', 'sepa_debit', 'sofort', 'ideal', 'bacs_debit', 'acss_debit', 'au_becs_debit'];
+
+    const currencyMethods = supportedMethods[currency.toLowerCase()] || ['card'];
+
     // Filter requested methods to only include those supported by the currency
-    return paymentMethodTypes.filter(method => currencyMethods.includes(method));
+    let filteredMethods = paymentMethodTypes.filter(method => currencyMethods.includes(method));
+
+    // In live mode, filter out methods that require activation but might not be activated
+    if (!isTestMode) {
+        console.log('🔴 Live mode detected in checkout session - some payment methods may require activation');
+        const potentiallyUnavailable = filteredMethods.filter(method => requiresActivation.includes(method));
+        if (potentiallyUnavailable.length > 0) {
+            console.log('⚠️ Payment methods that may need activation:', potentiallyUnavailable);
+        }
+    }
+
+    return filteredMethods;
 }

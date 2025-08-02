@@ -75,7 +75,7 @@ async function processPaymentSuccess(order, paymentReference, source = 'payment_
             console.log('✅ User credits updated successfully');
         }
 
-        // Create credit transaction record (check for duplicates first)
+        // Create credit transaction record with enhanced duplicate prevention
         const { data: existingTransactions } = await supabase
             .from("credit_transactions")
             .select('id')
@@ -86,22 +86,42 @@ async function processPaymentSuccess(order, paymentReference, source = 'payment_
         const existingTransaction = existingTransactions && existingTransactions.length > 0 ? existingTransactions[0] : null;
 
         if (!existingTransaction) {
-            const { error: transactionError } = await supabase
-                .from("credit_transactions")
-                .insert({
-                    business_user_id: order.business_user_id,
-                    order_id: order.id,
-                    type: 'top_up',
-                    credit_change: creditPlan.credit_amount,
-                    balance_after: newTotalCredits,
-                    description: `Credit purchase - ${creditPlan.name}`,
-                    created_at: new Date(),
-                });
+            // Add a small delay to reduce race condition probability
+            await new Promise(resolve => setTimeout(resolve, 150));
 
-            if (transactionError) {
-                console.error('❌ Failed to create credit transaction:', transactionError);
-            } 
-        } 
+            // Double-check for duplicates after delay
+            const { data: doubleCheckTransactions } = await supabase
+                .from("credit_transactions")
+                .select('id')
+                .eq('order_id', order.id)
+                .eq('business_user_id', order.business_user_id)
+                .eq('type', 'top_up');
+
+            if (!doubleCheckTransactions || doubleCheckTransactions.length === 0) {
+                const { error: transactionError } = await supabase
+                    .from("credit_transactions")
+                    .insert({
+                        business_user_id: order.business_user_id,
+                        order_id: order.id,
+                        type: 'top_up',
+                        credit_change: creditPlan.credit_amount,
+                        balance_after: newTotalCredits,
+                        description: `Credit purchase - ${creditPlan.name} (Webhook)`,
+                        created_at: new Date(),
+                    });
+
+                if (transactionError) {
+                    console.error('❌ Failed to create credit transaction:', transactionError);
+                    // Don't throw error as this is not critical for webhook processing
+                } else {
+                    console.log('✅ Credit transaction created via Webhook');
+                }
+            } else {
+                console.log('✅ Credit transaction already exists (detected in webhook double-check)');
+            }
+        } else {
+            console.log('✅ Credit transaction already exists (webhook)');
+        }
 
         // Get business profile details for invoice
         const { data: businessProfile } = await supabase

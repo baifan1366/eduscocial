@@ -160,8 +160,11 @@ export async function POST(request) {
     }
 }
 
-// Helper function to filter payment methods based on currency
+// Helper function to filter payment methods based on currency and environment
 function filterPaymentMethodsByCurrency(paymentMethodTypes, currency) {
+    // Detect if we're in test mode based on the Stripe key
+    const isTestMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_');
+
     const supportedMethods = {
         'myr': ['card', 'fpx', 'grabpay', 'alipay', 'apple_pay', 'google_pay'],
         'sgd': ['card', 'grabpay', 'alipay', 'apple_pay', 'google_pay'],
@@ -173,8 +176,23 @@ function filterPaymentMethodsByCurrency(paymentMethodTypes, currency) {
         'aud': ['card', 'au_becs_debit', 'alipay', 'apple_pay', 'google_pay'],
     };
 
+    // Payment methods that require activation in live mode
+    const requiresActivation = ['alipay', 'grabpay', 'apple_pay', 'google_pay', 'fpx', 'us_bank_account', 'sepa_debit', 'sofort', 'ideal', 'bacs_debit', 'acss_debit', 'au_becs_debit', 'cashapp'];
+
     const currencyMethods = supportedMethods[currency] || ['card', 'alipay', 'apple_pay', 'google_pay'];
 
     // Filter requested methods to only include those supported by the currency
-    return paymentMethodTypes.filter(method => currencyMethods.includes(method));
+    let filteredMethods = paymentMethodTypes.filter(method => currencyMethods.includes(method));
+
+    // In live mode, filter out methods that require activation but might not be activated
+    // For now, we'll keep them but add logging to help debug
+    if (!isTestMode) {
+        console.log('🔴 Live mode detected - some payment methods may require activation in Stripe dashboard');
+        const potentiallyUnavailable = filteredMethods.filter(method => requiresActivation.includes(method));
+        if (potentiallyUnavailable.length > 0) {
+            console.log('⚠️ Payment methods that may need activation:', potentiallyUnavailable);
+        }
+    }
+
+    return filteredMethods;
 }
