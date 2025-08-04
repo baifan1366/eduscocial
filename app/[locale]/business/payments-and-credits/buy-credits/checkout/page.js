@@ -1,5 +1,4 @@
-import { Suspense } from 'react';
-import CheckoutForm from '@/components/business/payments/CheckoutForm';
+import CheckoutPageClient from '@/components/business/payments/CheckoutPageClient';
 
 export const metadata = {
   title: 'Checkout | EduSocial',
@@ -10,54 +9,13 @@ export const metadata = {
   },
 };
 
-function CheckOutLoader() {
-    return (
-      <div className="p-6 space-y-6 animate-pulse">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="h-24 rounded-2xl shadow-md"
-              style={{ backgroundColor: i % 2 === 0 ? '#1E3A5F' : '#132F4C' }}
-            >
-              <div className="h-full w-3/4 mx-auto mt-6 bg-white/20 rounded" />
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="h-24 rounded-2xl shadow-md"
-              style={{ backgroundColor: i % 2 === 0 ? '#1E3A5F' : '#132F4C' }}
-            >
-              <div className="h-full w-3/4 mx-auto mt-6 bg-white/20 rounded" />
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="h-24 rounded-2xl shadow-md"
-              style={{ backgroundColor: i % 2 === 0 ? '#1E3A5F' : '#132F4C' }}
-            >
-              <div className="h-full w-3/4 mx-auto mt-6 bg-white/20 rounded" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-}  
+export default async function CheckOutPage({ searchParams, params }) {
+  // Handle both sync and async searchParams and params
+  const resolvedSearchParams = searchParams instanceof Promise ? await searchParams : searchParams;
 
-export default function CheckOutPage() {
-  return (
-    <main>
-      <div className="max-w-md mx-auto py-0 min-w-[100%]">
-        <Suspense fallback={<CheckOutLoader />}>
-            <CheckoutForm />
-        </Suspense>
-      </div>
-    </main>
-  );
+  // Get orderId from query parameters
+  const orderId = resolvedSearchParams?.orderId;
+
+  // Pass orderId to client component for handling
+  return <CheckoutPageClient orderId={orderId} />;
 }

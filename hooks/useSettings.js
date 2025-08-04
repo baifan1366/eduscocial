@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext } from 'react';
+import { createContext, useContext } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { settingsApi } from '@/lib/api';
+import queryKeys from '@/lib/queryKeys';
 import useAuth from '@/hooks/useAuth';
-import { usePathname } from 'next/navigation';
 
 // Default settings
 const defaultSettings = {
@@ -28,8 +30,6 @@ const defaultSettings = {
     hiddenBoards: []
   },
   preferences: {
-    theme: 'system', // system, light, dark
-    language: 'en',
     fontSize: 'medium', // small, medium, large
     reducedMotion: false,
     highContrast: false,
@@ -56,181 +56,125 @@ const SettingsContext = createContext({
   settings: defaultSettings,
   loading: true,
   updateSettings: async () => ({ success: false }),
-  updateSetting: async () => ({ success: false })
+  updateSetting: async () => ({ success: false }),
+  refetch: () => {}
 });
 
 export function SettingsProvider({ children }) {
-  const [settings, setSettings] = useState(defaultSettings);
-  const [loading, setLoading] = useState(true);
   const { user, status } = useAuth();
   const isAuthenticated = !!user;
-  const pathname = usePathname();
-  
-  // Get the locale from the pathname
-  const locale = pathname?.split('/')[1] || 'en';
+  const queryClient = useQueryClient();
 
-  // Fetch settings when user is authenticated
-  useEffect(() => {
-    const fetchSettings = async () => {
-      if (!isAuthenticated) {
-        setSettings(defaultSettings);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Use API route with locale prefix
-        const response = await fetch(`/api/users/settings`);
-        
-        if (!response.ok) {
-          // If unauthorized or any other error, use default settings
-          console.warn(`Settings API returned ${response.status}: ${response.statusText}`);
-          setSettings(defaultSettings);
-          setLoading(false);
-          return;
-        }
-        
-        const data = await response.json();
-        setSettings(data.settings || defaultSettings);
-      } catch (error) {
-        console.error('Error fetching settings:', error);
-        // Fall back to default settings on error
-        setSettings(defaultSettings);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (status !== 'loading') {
-      fetchSettings();
+  // Fetch settings using React Query
+  const {
+    data: settingsData,
+    isLoading,
+    error,
+    refetch
+  } = useQuery({
+    queryKey: queryKeys.users.settings(),
+    queryFn: async () => {
+      const response = await settingsApi.get();
+      return response.settings;
+    },
+    enabled: isAuthenticated && status !== 'loading',
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: (failureCount, error) => {
+      // Don't retry on auth errors
+      if (error?.status === 401) return false;
+      return failureCount < 2;
     }
-  }, [isAuthenticated, status]);
+  });
 
-  // Update all settings
-  const updateSettings = async (newSettings) => {
-    if (!isAuthenticated) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
-    try {
-      setLoading(true);
-      
-      // Use API route with locale prefix
-      const response = await fetch(`/api/users/settings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ settings: newSettings }),
-      });
-
-      if (!response.ok) {
-        let errorMessage = 'Failed to update settings';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (parseError) {
-          // If we can't parse the error response, use the status text
-          errorMessage = response.statusText || errorMessage;
-        }
-        throw new Error(errorMessage);
-      }
-
-      // Parse the successful response
-      const result = await response.json();
-      
-      // Update local settings only if the server confirms success
-      if (result.success) {
-        setSettings(newSettings);
-        return { success: true };
-      } else {
-        throw new Error(result.message || 'Failed to update settings');
-      }
-    } catch (error) {
+  // Update settings mutation
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (newSettings) => {
+      const response = await settingsApi.update(newSettings);
+      return response;
+    },
+    onSuccess: (data, variables) => {
+      // Update the cache with the new settings
+      queryClient.setQueryData(queryKeys.users.settings(), variables);
+      // Optionally invalidate to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.settings() });
+    },
+    onError: (error) => {
       console.error('Error updating settings:', error);
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
     }
-  };
+  });
 
-  // Update a specific setting by path (e.g., 'preferences.theme', 'general.notifications.email')
-  const updateSetting = async (path, value) => {
-    if (!isAuthenticated) {
-      return { success: false, error: 'Not authenticated' };
-    }
+  // Update single setting mutation
+  const updateSingleSettingMutation = useMutation({
+    mutationFn: async ({ path, value }) => {
+      const response = await settingsApi.updateSetting(path, value);
+      return response;
+    },
+    onSuccess: (data, variables) => {
+      // Get current settings from cache
+      const currentSettings = queryClient.getQueryData(queryKeys.users.settings()) || defaultSettings;
 
-    try {
-      // Create a deep copy of current settings
-      const newSettings = JSON.parse(JSON.stringify(settings));
-      
-      // Split the path and update the nested property
-      const keys = path.split('.');
+      // Create updated settings
+      const newSettings = JSON.parse(JSON.stringify(currentSettings));
+      const keys = variables.path.split('.');
       let current = newSettings;
-      
-      // Navigate to the nested object containing the property to update
+
       for (let i = 0; i < keys.length - 1; i++) {
         if (!current[keys[i]]) {
           current[keys[i]] = {};
         }
         current = current[keys[i]];
       }
-      
-      // Update the property
-      current[keys[keys.length - 1]] = value;
-      
-      // Save to server
-      const result = await updateSettings(newSettings);
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update setting');
-      }
-      
+
+      current[keys[keys.length - 1]] = variables.value;
+
+      // Update cache
+      queryClient.setQueryData(queryKeys.users.settings(), newSettings);
+    },
+    onError: (error) => {
+      console.error('Error updating single setting:', error);
+    }
+  });
+
+  // Get current settings (use cached data or defaults)
+  const settings = settingsData || defaultSettings;
+  const loading = isLoading || status === 'loading';
+
+  // Wrapper functions for backward compatibility
+  const updateSettings = async (newSettings) => {
+    if (!isAuthenticated) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    try {
+      await updateSettingsMutation.mutateAsync(newSettings);
       return { success: true };
     } catch (error) {
-      console.error(`Error updating setting ${path}:`, error);
       return { success: false, error: error.message };
     }
   };
 
-  // Apply theme setting to document
-  useEffect(() => {
-    if (!loading && settings?.preferences?.theme) {
-      const theme = settings.preferences.theme;
-      
-      if (theme === 'system') {
-        // Use system preference
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-        
-        // Listen for system theme changes
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const handleChange = (e) => {
-          if (e.matches) {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
-        };
-        
-        mediaQuery.addEventListener('change', handleChange);
-        return () => mediaQuery.removeEventListener('change', handleChange);
-      } else if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+  const updateSetting = async (path, value) => {
+    if (!isAuthenticated) {
+      return { success: false, error: 'Not authenticated' };
     }
-  }, [settings?.preferences?.theme, loading]);
+
+    try {
+      await updateSingleSettingMutation.mutateAsync({ path, value });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  };
 
   const value = {
     settings,
     loading,
     updateSettings,
-    updateSetting
+    updateSetting,
+    refetch,
+    // Expose mutation states for advanced usage
+    isUpdating: updateSettingsMutation.isPending || updateSingleSettingMutation.isPending,
+    updateError: updateSettingsMutation.error || updateSingleSettingMutation.error
   };
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
@@ -238,12 +182,12 @@ export function SettingsProvider({ children }) {
 
 export default function useSettings() {
   const context = useContext(SettingsContext);
-  
+
   if (process.env.NODE_ENV !== 'production' && !context) {
     console.warn(
       'useSettings() was called outside of SettingsProvider. Make sure your component is wrapped in SettingsProvider.'
     );
   }
-  
+
   return context;
-} 
+}

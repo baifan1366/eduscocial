@@ -12,6 +12,7 @@ import BoardsList from './BoardsList';
 import Sidebar from './Sidebar';
 import UserAvatar from '@/components/ui/UserAvatar';
 import InterestSelectionDialog from '@/components/onboarding/InterestSelectionDialog';
+import ThemeToggle from './ThemeToggle';
 
 export default function HomeContent() {
   const t = useTranslations('HomePage');
@@ -48,6 +49,19 @@ export default function HomeContent() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
+        {/* Header with Theme Toggle */}
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Home
+          </h1>
+          {/* Only show theme toggle for authenticated users */}
+          {isAuthenticated && (
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+            </div>
+          )}
+        </div>
+
         {/* Facebook-style layout */}
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Left Sidebar */}

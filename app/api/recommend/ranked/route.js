@@ -1,4 +1,4 @@
-import { getUserFromToken } from '@/lib/auth/serverAuth';
+import { getServerSession } from '@/lib/auth/serverAuth';
 import { vectorRecallByUserInterests } from '@/lib/vectorSearch';
 import { rankPostsPersonalized, getDefaultRankingParameters } from '@/lib/rankingSystem';
 import redis from '@/lib/redis/redis';
@@ -10,16 +10,16 @@ import redis from '@/lib/redis/redis';
 export async function GET(request) {
   try {
     // Get user authentication
-    const user = await getUserFromToken(request);
-    
-    if (!user || !user.id) {
+    const session = await getServerSession();
+
+    if (!session || !session.user || !session.user.id) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
       });
     }
-    
-    const userId = user.id;
+
+    const userId = session.user.id;
     const url = new URL(request.url);
     
     // Parse query parameters

@@ -7,6 +7,8 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useRouter } from 'next/navigation';
+import useCreateCreditOrder from '@/hooks/business/credit-order/useCreateCreditOrder';
+import { useRef } from 'react';
 
 const GridItem = ({
   area,
@@ -50,7 +52,10 @@ export default function DisplayAllCreditPlans() {
     const { data: creditPlans, isLoading } = useGetCreditPlans();
     const t = useTranslations('Credits');
     const router = useRouter();
-    const orderId = "baifan1366"
+    const { mutate, isPending } = useCreateCreditOrder();
+
+    // 添加一个ref来跟踪是否正在处理订单
+    const isProcessingRef = useRef(false);
     
     if (isLoading) {
         return (
@@ -130,9 +135,46 @@ export default function DisplayAllCreditPlans() {
                             <Button 
                                 variant="orange" 
                                 className="w-full"
-                                onClick={() => router.push(`/business/payments-and-credits/buy-credits/checkout?planId=${plan.id}&orderId=${orderId}`)}
+                                disabled={isPending || isProcessingRef.current}
+                                onClick={() => {
+                                    // 防止重复点击创建多个订单
+                                    if (isPending || isProcessingRef.current) return;
+                                    
+                                    // 立即设置处理中状态
+                                    isProcessingRef.current = true;
+                                    
+                                    // 创建订单，然后导航到结账页面
+                                    mutate({
+                                        planId: plan.id,
+                                    }, {
+                                        onSuccess: (data) => {
+                                            const orderId = data?.credit_order?.id;
+
+                                            if (orderId) {
+                                                // Store orderId in sessionStorage as backup
+                                                if (typeof window !== 'undefined') {
+                                                    sessionStorage.setItem('currentOrderId', orderId);
+                                                    sessionStorage.setItem('currentPlanId', plan.id);
+                                                }
+
+                                                // Use simple checkout URL with both orderId and planId as query params
+                                                const checkoutUrl = `/business/payments-and-credits/buy-credits/checkout?orderId=${orderId}&planId=${plan.id}`;
+                                                router.push(checkoutUrl);
+                                            } else {
+                                                console.error('cant get orderId from data:', data);
+                                                isProcessingRef.current = false; // 重置状态
+                                            }
+                                        },
+                                        onError: (error) => {
+                                            console.error('create order error:', error);
+                                            isProcessingRef.current = false; // 出错时重置状态
+                                        }
+                                    });
+                                }}
                             >
-                                {t('buy')}
+                                {(isPending || isProcessingRef.current) ? 
+                                    `${t('processing')}` : 
+                                    t('buy')}
                             </Button>
                         </div>
                     }
