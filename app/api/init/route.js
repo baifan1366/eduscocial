@@ -1,6 +1,7 @@
-import { schedulePostPublishing, scheduleUserActionProcessing, scheduleUserEmbeddingGeneration, 
-  scheduleRecommendationCacheWarming, scheduleRankingModelTraining, 
-  scheduleColdStartContentRefresh, initializeRecommendationJobs } from '@/lib/qstash';
+import { schedulePostPublishing, scheduleUserActionProcessing, scheduleUserEmbeddingGeneration,
+  scheduleRecommendationCacheWarming, scheduleRankingModelTraining,
+  scheduleColdStartContentRefresh, initializeRecommendationJobs,
+  scheduleLikeProcessing, scheduleCommentProcessing } from '@/lib/qstash';
 
 /**
  * API route to initialize scheduled jobs using QStash
@@ -141,6 +142,36 @@ export async function GET(request) {
         results.schedules.coldStart = {
           success: false,
           error: coldStartError.message
+        };
+      }
+
+      // Schedule like operations processing (every 30 seconds)
+      try {
+        const likeSchedule = await scheduleLikeProcessing('*/30 * * * * *');
+        results.schedules.likeProcessing = {
+          success: true,
+          scheduleId: likeSchedule.scheduleId,
+          message: 'Like operations processing scheduled successfully (every 30 seconds)'
+        };
+      } catch (likeError) {
+        results.schedules.likeProcessing = {
+          success: false,
+          error: likeError.message
+        };
+      }
+
+      // Schedule comment operations processing (every 30 seconds)
+      try {
+        const commentSchedule = await scheduleCommentProcessing('*/30 * * * * *');
+        results.schedules.commentProcessing = {
+          success: true,
+          scheduleId: commentSchedule.scheduleId,
+          message: 'Comment operations processing scheduled successfully (every 30 seconds)'
+        };
+      } catch (commentError) {
+        results.schedules.commentProcessing = {
+          success: false,
+          error: commentError.message
         };
       }
     }

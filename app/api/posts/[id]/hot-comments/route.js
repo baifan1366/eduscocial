@@ -84,33 +84,76 @@ export async function GET(request, { params }) {
 
     // If no cached data, fetch from database
     console.log(`[GET /api/posts/${id}/hot-comments] Fetching hot comments from database`);
-    
-    const { data: hotComments, error: commentsError } = await supabase
-      .from('comments')
-      .select(`
-        id,
-        content,
-        like_count,
-        created_at,
-        author:users!comments_author_id_fkey (
-          id,
-          username,
-          avatar_url
-        )
-      `)
-      .eq('post_id', actualPostId)
-      .eq('is_deleted', false)
-      .order('like_count', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(3);
 
-    if (commentsError) {
-      console.error('Error fetching hot comments from database:', commentsError);
+    // Get both hot and recent comments for better variety
+    const [hotCommentsResult, recentCommentsResult] = await Promise.all([
+      // Hot comments (sorted by likes)
+      supabase
+        .from('comments')
+        .select(`
+          id,
+          content,
+          like_count,
+          created_at,
+          is_anonymous,
+          author:users!comments_author_id_fkey (
+            id,
+            username,
+            avatar_url
+          )
+        `)
+        .eq('post_id', actualPostId)
+        .eq('is_deleted', false)
+        .gte('like_count', 1)
+        .order('like_count', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(10),
+
+      // Recent comments
+      supabase
+        .from('comments')
+        .select(`
+          id,
+          content,
+          like_count,
+          created_at,
+          is_anonymous,
+          author:users!comments_author_id_fkey (
+            id,
+            username,
+            avatar_url
+          )
+        `)
+        .eq('post_id', actualPostId)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .limit(10)
+    ]);
+
+    if (hotCommentsResult.error || recentCommentsResult.error) {
+      console.error('Error fetching comments from database:', hotCommentsResult.error || recentCommentsResult.error);
       return NextResponse.json({
-        error: 'Failed to fetch hot comments',
-        details: commentsError.message
+        error: 'Failed to fetch comments',
+        details: (hotCommentsResult.error || recentCommentsResult.error).message
       }, { status: 500 });
     }
+
+    // Combine and deduplicate comments
+    const allComments = [...(hotCommentsResult.data || []), ...(recentCommentsResult.data || [])];
+    const uniqueComments = allComments.filter((comment, index, self) =>
+      index === self.findIndex(c => c.id === comment.id)
+    );
+
+    // Sort by a combination of likes and recency, then take top 3
+    const hotComments = uniqueComments
+      .sort((a, b) => {
+        const aScore = (a.like_count || 0) * 0.7 + (new Date(a.created_at).getTime() / 1000000) * 0.3;
+        const bScore = (b.like_count || 0) * 0.7 + (new Date(b.created_at).getTime() / 1000000) * 0.3;
+        return bScore - aScore;
+      })
+      .slice(0, 3);
+
+
 
     // Cache the results for future requests
     if (hotComments && hotComments.length > 0) {

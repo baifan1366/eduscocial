@@ -24,6 +24,7 @@ CREATE TRIGGER update_post_media_updated_at BEFORE UPDATE ON post_media FOR EACH
 CREATE TRIGGER update_hashtags_updated_at BEFORE UPDATE ON hashtags FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_post_hashtags_updated_at BEFORE UPDATE ON post_hashtags FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_files_updated_at BEFORE UPDATE ON files FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_reactions_updated_at BEFORE UPDATE ON reactions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- 评论计数器触发器
 -- 功能：在添加或删除评论时自动更新帖子的评论计数
@@ -421,3 +422,115 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER track_post_activity AFTER INSERT ON posts FOR EACH ROW EXECUTE FUNCTION update_user_activity();
 CREATE TRIGGER track_comment_activity AFTER INSERT ON comments FOR EACH ROW EXECUTE FUNCTION update_user_activity();
+
+-- Slug生成函数
+-- 功能：从标题生成SEO友好的URL slug
+-- 应用：为帖子创建唯一的URL标识符
+CREATE OR REPLACE FUNCTION generate_slug(title TEXT)
+RETURNS TEXT AS $$
+DECLARE
+    slug TEXT;
+    counter INTEGER := 0;
+    base_slug TEXT;
+    final_slug TEXT;
+BEGIN
+    -- Convert title to lowercase and replace spaces/special chars with hyphens
+    base_slug := lower(regexp_replace(
+        regexp_replace(
+            regexp_replace(title, '[^\w\s-]', '', 'g'),  -- Remove special chars except word chars, spaces, hyphens
+            '\s+', '-', 'g'                              -- Replace spaces with hyphens
+        ),
+        '-+', '-', 'g'                                   -- Replace multiple hyphens with single hyphen
+    ));
+
+    -- Remove leading/trailing hyphens
+    base_slug := trim(base_slug, '-');
+
+    -- Limit length to 100 characters
+    base_slug := left(base_slug, 100);
+
+    -- Ensure uniqueness by adding counter if needed
+    final_slug := base_slug;
+
+    -- Add table alias to disambiguate "slug"
+    WHILE EXISTS (SELECT 1 FROM posts p WHERE p.slug = final_slug) LOOP
+        counter := counter + 1;
+        final_slug := base_slug || '-' || counter;
+    END LOOP;
+
+    RETURN final_slug;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Reactions计数更新函数
+-- 功能：在添加或删除emoji反应时自动更新帖子和评论的反应计数
+-- 应用：维护posts和comments表中的reaction_counts字段
+CREATE OR REPLACE FUNCTION update_reaction_counts()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Handle post reactions
+  IF NEW.post_id IS NOT NULL OR OLD.post_id IS NOT NULL THEN
+    DECLARE
+      target_post_id UUID;
+      reaction_counts JSONB;
+    BEGIN
+      target_post_id := COALESCE(NEW.post_id, OLD.post_id);
+
+      -- Calculate new reaction counts
+      SELECT jsonb_object_agg(emoji, count)
+      INTO reaction_counts
+      FROM (
+        SELECT emoji, COUNT(*)::int as count
+        FROM reactions
+        WHERE post_id = target_post_id
+        GROUP BY emoji
+      ) counts;
+
+      -- Update posts table
+      UPDATE posts
+      SET reaction_counts = COALESCE(reaction_counts, '{}'::jsonb),
+          updated_at = NOW()
+      WHERE id = target_post_id;
+    END;
+  END IF;
+
+  -- Handle comment reactions
+  IF NEW.comment_id IS NOT NULL OR OLD.comment_id IS NOT NULL THEN
+    DECLARE
+      target_comment_id UUID;
+      reaction_counts JSONB;
+    BEGIN
+      target_comment_id := COALESCE(NEW.comment_id, OLD.comment_id);
+
+      -- Calculate new reaction counts
+      SELECT jsonb_object_agg(emoji, count)
+      INTO reaction_counts
+      FROM (
+        SELECT emoji, COUNT(*)::int as count
+        FROM reactions
+        WHERE comment_id = target_comment_id
+        GROUP BY emoji
+      ) counts;
+
+      -- Update comments table
+      UPDATE comments
+      SET reaction_counts = COALESCE(reaction_counts, '{}'::jsonb),
+          updated_at = NOW()
+      WHERE id = target_comment_id;
+    END;
+  END IF;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+-- 创建reactions相关触发器
+CREATE TRIGGER trigger_update_reaction_counts_insert
+  AFTER INSERT ON reactions
+  FOR EACH ROW
+  EXECUTE FUNCTION update_reaction_counts();
+
+CREATE TRIGGER trigger_update_reaction_counts_delete
+  AFTER DELETE ON reactions
+  FOR EACH ROW
+  EXECUTE FUNCTION update_reaction_counts();

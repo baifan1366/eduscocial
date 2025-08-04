@@ -13,7 +13,9 @@ const Reactions = ({
   targetId, // post ID or comment ID
   initialReactionCounts = {},
   initialUserReactions = [],
-  className
+  className,
+  showCounts = true,
+  compact = false
 }) => {
   const t = useTranslations('Reactions');
   const { user } = useAuth();
@@ -90,18 +92,21 @@ const Reactions = ({
         <ReactionButton
           key={emoji}
           emoji={emoji}
-          count={count}
+          count={showCounts ? count : 0}
           isActive={userReactions.includes(emoji)}
           onClick={handleReaction}
           disabled={isLoading}
+          size={compact ? 'xs' : 'sm'}
         />
       ))}
 
       {/* Reaction选择器 */}
-      <ReactionPicker
-        onEmojiSelect={handleReaction}
-        disabled={isLoading || !user}
-      />
+      {!compact && (
+        <ReactionPicker
+          onEmojiSelect={handleReaction}
+          disabled={isLoading || !user}
+        />
+      )}
     </div>
   );
 };

@@ -52,19 +52,18 @@ export default function CommentsList({ postId, initialCommentsCount = 0 }) {
   
   if (error) {
     return (
-      <div className="bg-[#132F4C] rounded-lg p-6 border border-[#1E3A5F]">
+      <div className="bg-white/5 backdrop-blur-sm border border-red-500/20 rounded-2xl p-6">
         <div className="text-center">
           <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-white mb-2">
             {t('errorTitle', { default: 'Failed to load comments' })}
           </h3>
-          <p className="text-gray-400 mb-4">
+          <p className="text-gray-300 mb-4">
             {t('errorMessage', { default: 'There was an error loading the comments. Please try again.' })}
           </p>
-          <Button 
-            variant="outline" 
+          <Button
             onClick={() => window.location.reload()}
-            className="border-[#2E5A8A] text-gray-300 hover:text-white hover:bg-[#2E5A8A]"
+            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-4 py-2 rounded-xl transition-all duration-300"
           >
             {t('retry', { default: 'Retry' })}
           </Button>
@@ -74,22 +73,24 @@ export default function CommentsList({ postId, initialCommentsCount = 0 }) {
   }
   
   return (
-    <div className="bg-[#132F4C] rounded-lg border border-[#1E3A5F]">
+    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden">
       {/* Comments header */}
-      <div className="p-6 border-b border-[#1E3A5F]">
+      <div className="p-6 border-b border-white/10">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white flex items-center">
-            <MessageCircle className="w-5 h-5 mr-2" />
+          <h3 className="text-xl font-bold text-white flex items-center">
+            <div className="p-2 bg-blue-500/10 rounded-lg mr-3">
+              <MessageCircle className="w-5 h-5 text-blue-400" />
+            </div>
             {t('commentsTitle', { default: 'Comments' })} ({totalComments})
           </h3>
-          
+
           {/* Sort controls */}
           <div className="flex items-center space-x-2">
             <Select value={sortBy} onValueChange={handleSortChange}>
-              <SelectTrigger className="w-32 bg-[#1E3A5F] border-[#2E5A8A] text-white">
+              <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white rounded-xl">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#1E3A5F] border-[#2E5A8A]">
+              <SelectContent className="bg-[#1E3A5F] border-white/20 rounded-xl">
                 <SelectItem value="created_at" className="text-gray-300 hover:text-white">
                   {t('sortByTime', { default: 'Time' })}
                 </SelectItem>
@@ -98,12 +99,12 @@ export default function CommentsList({ postId, initialCommentsCount = 0 }) {
                 </SelectItem>
               </SelectContent>
             </Select>
-            
+
             <Button
               variant="ghost"
               size="sm"
               onClick={handleSortDirectionToggle}
-              className="text-gray-400 hover:text-white"
+              className="text-gray-400 hover:text-white p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
             >
               {sortDirection === 'asc' ? (
                 <ChevronUp className="w-4 h-4" />
@@ -113,53 +114,53 @@ export default function CommentsList({ postId, initialCommentsCount = 0 }) {
             </Button>
           </div>
         </div>
-        
+
         {/* Add comment button */}
         <Button
           onClick={() => setShowCommentForm(!showCommentForm)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-xl py-3 transition-all duration-300"
         >
           <MessageCircle className="w-4 h-4 mr-2" />
-          {showCommentForm 
+          {showCommentForm
             ? t('hideCommentForm', { default: 'Hide comment form' })
             : t('addComment', { default: 'Add a comment' })
           }
         </Button>
       </div>
-      
+
       {/* Comment form */}
       {showCommentForm && (
-        <div className="p-6 border-b border-[#1E3A5F]">
+        <div className="p-6 border-b border-white/10 bg-white/5">
           <CommentForm
             postId={postId}
             onCancel={() => setShowCommentForm(false)}
           />
         </div>
       )}
-      
+
       {/* Comments list */}
-      <div className="divide-y divide-[#1E3A5F]">
+      <div className="divide-y divide-white/10">
         {isLoading ? (
           // Loading skeleton
           <div className="p-6">
             {[...Array(3)].map((_, index) => (
               <div key={index} className="py-4">
-                <div className="bg-[#1A2332] rounded-lg p-4 animate-pulse">
+                <div className="bg-white/5 rounded-xl p-4 animate-pulse">
                   <div className="flex items-center mb-3">
-                    <div className="w-8 h-8 bg-[#2E3A4A] rounded-full"></div>
-                    <div className="ml-3 space-y-1">
-                      <div className="h-4 bg-[#2E3A4A] rounded w-20"></div>
-                      <div className="h-3 bg-[#2E3A4A] rounded w-16"></div>
+                    <div className="w-10 h-10 bg-white/10 rounded-full"></div>
+                    <div className="ml-3 space-y-2">
+                      <div className="h-4 bg-white/10 rounded-lg w-24"></div>
+                      <div className="h-3 bg-white/10 rounded-lg w-20"></div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-[#2E3A4A] rounded w-full"></div>
-                    <div className="h-4 bg-[#2E3A4A] rounded w-3/4"></div>
+                  <div className="space-y-3">
+                    <div className="h-4 bg-white/10 rounded-lg w-full"></div>
+                    <div className="h-4 bg-white/10 rounded-lg w-3/4"></div>
                   </div>
-                  <div className="flex items-center space-x-4 mt-3">
-                    <div className="h-6 bg-[#2E3A4A] rounded w-12"></div>
-                    <div className="h-6 bg-[#2E3A4A] rounded w-12"></div>
-                    <div className="h-6 bg-[#2E3A4A] rounded w-16"></div>
+                  <div className="flex items-center space-x-4 mt-4">
+                    <div className="h-8 bg-white/10 rounded-lg w-16"></div>
+                    <div className="h-8 bg-white/10 rounded-lg w-16"></div>
+                    <div className="h-8 bg-white/10 rounded-lg w-20"></div>
                   </div>
                 </div>
               </div>
@@ -168,16 +169,18 @@ export default function CommentsList({ postId, initialCommentsCount = 0 }) {
         ) : comments.length === 0 ? (
           // Empty state
           <div className="p-12 text-center">
-            <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h4 className="text-lg font-medium text-white mb-2">
+            <div className="p-4 bg-blue-500/10 rounded-full w-fit mx-auto mb-6">
+              <MessageCircle className="w-16 h-16 text-blue-400" />
+            </div>
+            <h4 className="text-xl font-bold text-white mb-3">
               {t('noComments', { default: 'No comments yet' })}
             </h4>
-            <p className="text-gray-400 mb-4">
+            <p className="text-gray-300 mb-6 text-lg">
               {t('beFirstToComment', { default: 'Be the first to share your thoughts!' })}
             </p>
             <Button
               onClick={() => setShowCommentForm(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-6 py-3 rounded-xl transition-all duration-300"
             >
               {t('addFirstComment', { default: 'Add the first comment' })}
             </Button>
@@ -194,15 +197,14 @@ export default function CommentsList({ postId, initialCommentsCount = 0 }) {
                 maxLevel={3}
               />
             ))}
-            
+
             {/* Load more button */}
             {hasNextPage && (
-              <div className="p-6 text-center border-t border-[#1E3A5F]">
+              <div className="p-6 text-center border-t border-white/10">
                 <Button
                   onClick={loadMoreComments}
                   disabled={isFetchingNextPage}
-                  variant="outline"
-                  className="border-[#2E5A8A] text-gray-300 hover:text-white hover:bg-[#2E5A8A]"
+                  className="bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white border border-white/20 rounded-xl px-6 py-3 transition-all duration-300"
                 >
                   {isFetchingNextPage ? (
                     <>

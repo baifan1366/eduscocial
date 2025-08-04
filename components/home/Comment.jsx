@@ -11,7 +11,7 @@ import Reactions from '@/components/reactions/Reactions';
 import useAuth from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-export default function FacebookStyleComment({ comment, onReply }) {
+export default function Comment({ comment, onReply }) {
   const locale = useLocale();
   const { user } = useAuth();
   const tComments = useTranslations('Comments');
@@ -188,7 +188,7 @@ export default function FacebookStyleComment({ comment, onReply }) {
         {comment.replies && comment.replies.length > 0 && (
           <div className="mt-3 space-y-3">
             {comment.replies.map((reply) => (
-              <FacebookStyleComment
+              <Comment
                 key={reply.id}
                 comment={reply}
                 onReply={onReply}

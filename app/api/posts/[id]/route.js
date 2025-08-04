@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getServerSession } from '@/lib/auth/serverAuth';
-import { incrementPostView } from '@/lib/redis/redisUtils';
+import { incrementPostView, getCachedPostLikeCount } from '@/lib/redis/redisUtils';
 import { isValidSlug } from '@/lib/utils/slugUtils';
 
 /**
@@ -82,7 +82,24 @@ export async function GET(request, { params }) {
     }
 
     // Process the post data
-    const likesCount = post.votes ? post.votes.filter(v => v.vote_type === 'like').length : 0;
+    // First try to get like count from Redis cache, fallback to database
+    let likesCount = 0;
+    try {
+      const cachedLikeCount = await getCachedPostLikeCount(post.id);
+      if (cachedLikeCount !== null && cachedLikeCount !== undefined) {
+        likesCount = cachedLikeCount;
+        console.log(`[GET /api/posts/[id]] Using cached like count for post ${post.id}: ${likesCount}`);
+      } else {
+        // Fallback to database count
+        likesCount = post.votes ? post.votes.filter(v => v.vote_type === 'like').length : 0;
+        console.log(`[GET /api/posts/[id]] Using database like count for post ${post.id}: ${likesCount}`);
+      }
+    } catch (error) {
+      console.error(`[GET /api/posts/[id]] Error getting cached like count for post ${post.id}:`, error);
+      // Fallback to database count
+      likesCount = post.votes ? post.votes.filter(v => v.vote_type === 'like').length : 0;
+    }
+
     const commentsCount = post.comments?.length || 0;
 
     // Format author data

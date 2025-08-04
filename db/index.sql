@@ -5,6 +5,10 @@ CREATE INDEX idx_posts_created_at ON posts(created_at DESC);
 CREATE INDEX idx_posts_like_count ON posts(like_count DESC);
 CREATE INDEX idx_posts_view_count ON posts(view_count DESC);
 CREATE INDEX idx_posts_is_deleted ON posts(is_deleted);
+CREATE INDEX idx_posts_slug ON posts(slug);
+CREATE INDEX idx_posts_status ON posts(status);
+CREATE INDEX idx_posts_template ON posts(template);
+CREATE INDEX idx_posts_reaction_counts ON posts USING GIN (reaction_counts);
 
 -- COMMENTS
 CREATE INDEX idx_comments_post_id ON comments(post_id);
@@ -12,12 +16,19 @@ CREATE INDEX idx_comments_parent_id ON comments(parent_id);
 CREATE INDEX idx_comments_author_id ON comments(author_id);
 CREATE INDEX idx_comments_created_at ON comments(created_at);
 CREATE INDEX idx_comments_is_deleted ON comments(is_deleted);
+CREATE INDEX idx_comments_reaction_counts ON comments USING GIN (reaction_counts);
 
 -- VOTES
 CREATE INDEX idx_votes_user_id ON votes(user_id);
 CREATE INDEX idx_votes_post_id ON votes(post_id);
 CREATE INDEX idx_votes_comment_id ON votes(comment_id);
 CREATE INDEX idx_votes_vote_type ON votes(vote_type);
+
+-- REACTIONS
+CREATE INDEX idx_reactions_post_id ON reactions(post_id);
+CREATE INDEX idx_reactions_comment_id ON reactions(comment_id);
+CREATE INDEX idx_reactions_user_id ON reactions(user_id);
+CREATE INDEX idx_reactions_emoji ON reactions(emoji);
 
 -- NOTIFICATIONS
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
@@ -26,14 +37,6 @@ CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
 CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = FALSE;
 CREATE INDEX idx_notifications_type ON notifications(type);
 
-<<<<<<< HEAD
-CREATE INDEX idx_hashtags_name ON hashtags(name);
-CREATE INDEX idx_hashtags_usage_count ON hashtags(usage_count DESC);
--- Index for faster lookups
-CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_users_email ON users(email);
-=======
 -- USERS & PROFILES
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
@@ -44,7 +47,6 @@ CREATE INDEX idx_hashtags_name ON hashtags(name);
 CREATE INDEX idx_hashtags_usage_count ON hashtags(usage_count DESC);
 CREATE INDEX idx_post_hashtags_post_id ON post_hashtags(post_id);
 CREATE INDEX idx_post_hashtags_hashtag_id ON post_hashtags(hashtag_id);
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 
 -- FAVORITES
 CREATE INDEX idx_favorites_user_id_created_at ON favorites(user_id, created_at);
@@ -61,6 +63,7 @@ CREATE INDEX idx_reports_comment_id ON reports(comment_id);
 -- MODERATION
 CREATE INDEX idx_content_moderation_content_id ON content_moderation(content_id);
 CREATE INDEX idx_content_moderation_status ON content_moderation(status);
+CREATE INDEX idx_content_moderation_content ON content_moderation(content_type, content_id);
 
 -- MATCHING
 CREATE INDEX idx_daily_matches_user_a ON daily_matches(user_a);
@@ -80,19 +83,7 @@ CREATE INDEX idx_boards_slug ON boards(slug);
 CREATE INDEX idx_board_followers_board_id ON board_followers(board_id);
 CREATE INDEX idx_board_followers_user_id ON board_followers(user_id);
 
-<<<<<<< HEAD
-CREATE INDEX idx_reports_status ON reports(status);
-CREATE INDEX idx_content_moderation_content_id ON content_moderation(content_id);
-CREATE INDEX idx_content_moderation_status ON content_moderation(status);
-
-CREATE INDEX idx_post_hashtags_hashtag_id ON post_hashtags(hashtag_id);
-CREATE INDEX idx_favorites_user_id_created_at ON favorites(user_id, created_at);
-CREATE INDEX idx_user_preferences_user_id ON user_preferences(user_id);
-
-
-=======
 -- FILES
->>>>>>> 1a55df7143f50beea384adaa2a06cefc0144e2c3
 CREATE INDEX idx_files_user_id ON files(user_id);
 CREATE INDEX idx_files_file_type ON files(file_type);
 CREATE INDEX idx_files_created_at ON files(created_at);

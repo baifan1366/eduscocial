@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import UserAvatar from '@/components/ui/UserAvatar';
 import CommentForm from './CommentForm';
+import Reactions from '@/components/reactions/Reactions';
 import { useVoteComment, useDeleteComment, useUpdateComment, useCommentVoteStatus } from '@/hooks/useComments';
 import useAuth from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
@@ -135,7 +136,7 @@ export default function CommentItem({
   
   return (
     <div className={`${level > 0 ? 'ml-8' : ''} py-4`}>
-      <div className="bg-[#132F4C] rounded-lg p-4 border border-[#1E3A5F]">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300">
         {/* Comment header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center space-x-3">
@@ -246,22 +247,54 @@ export default function CommentItem({
         {/* Comment actions */}
         {!isEditing && (
           <div className="space-y-3">
+            {/* Stats bar with integrated reactions */}
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <div className="flex items-center space-x-3">
+                {/* Like count */}
+                {(voteStatus?.likesCount ?? comment.likesCount ?? 0) > 0 && (
+                  <div className="flex items-center space-x-1">
+                    <Heart className="w-3 h-3 text-pink-400 fill-current" />
+                    <span>{voteStatus?.likesCount ?? comment.likesCount ?? 0}</span>
+                  </div>
+                )}
+
+                {/* Dislike count */}
+                {(voteStatus?.dislikesCount ?? comment.dislikesCount ?? 0) > 0 && (
+                  <div className="flex items-center space-x-1">
+                    <ThumbsDown className="w-3 h-3 text-blue-400 fill-current" />
+                    <span>{voteStatus?.dislikesCount ?? comment.dislikesCount ?? 0}</span>
+                  </div>
+                )}
+
+                {/* Reaction counts - integrated in the same line */}
+                <Reactions
+                  type="comment"
+                  targetId={comment.id}
+                  initialReactionCounts={comment.reaction_counts || {}}
+                  initialUserReactions={[]}
+                  className="scale-75"
+                  compact={true}
+                />
+              </div>
+            </div>
+
+            {/* Action buttons */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
                 {/* Like button */}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleVote('like')}
                   disabled={voteCommentMutation.isPending}
-                  className={`p-1 ${
+                  className={`flex items-center space-x-1 px-3 py-1 rounded-lg transition-all duration-300 ${
                     voteStatus?.userVote === 'like'
-                      ? 'text-red-500 hover:text-red-600'
-                      : 'text-gray-400 hover:text-red-400'
+                      ? 'text-pink-400 bg-pink-500/20 hover:text-pink-300 hover:bg-pink-500/30'
+                      : 'text-gray-400 hover:text-pink-300 hover:bg-pink-500/10'
                   }`}
                 >
-                  <Heart className={`w-4 h-4 mr-1 ${voteStatus?.userVote === 'like' ? 'fill-current' : ''}`} />
-                  <span className="text-xs">{voteStatus?.likesCount ?? comment.likesCount ?? 0}</span>
+                  <Heart className={`w-4 h-4 ${voteStatus?.userVote === 'like' ? 'fill-current' : ''}`} />
+                  <span className="text-xs font-medium">Like</span>
                 </Button>
 
                 {/* Dislike button */}
@@ -270,14 +303,14 @@ export default function CommentItem({
                   size="sm"
                   onClick={() => handleVote('dislike')}
                   disabled={voteCommentMutation.isPending}
-                  className={`p-1 ${
+                  className={`flex items-center space-x-1 px-3 py-1 rounded-lg transition-all duration-300 ${
                     voteStatus?.userVote === 'dislike'
-                      ? 'text-blue-500 hover:text-blue-600'
-                      : 'text-gray-400 hover:text-blue-400'
+                      ? 'text-blue-400 bg-blue-500/20 hover:text-blue-300 hover:bg-blue-500/30'
+                      : 'text-gray-400 hover:text-blue-300 hover:bg-blue-500/10'
                   }`}
                 >
-                  <ThumbsDown className={`w-4 h-4 mr-1 ${voteStatus?.userVote === 'dislike' ? 'fill-current' : ''}`} />
-                  <span className="text-xs">{voteStatus?.dislikesCount ?? comment.dislikesCount ?? 0}</span>
+                  <ThumbsDown className={`w-4 h-4 ${voteStatus?.userVote === 'dislike' ? 'fill-current' : ''}`} />
+                  <span className="text-xs font-medium">Dislike</span>
                 </Button>
 
                 {/* Reply button */}
@@ -286,10 +319,10 @@ export default function CommentItem({
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowReplyForm(!showReplyForm)}
-                    className="text-gray-400 hover:text-blue-400 p-1"
+                    className="flex items-center space-x-1 px-3 py-1 rounded-lg text-gray-400 hover:text-green-300 hover:bg-green-500/10 transition-all duration-300"
                   >
-                    <MessageCircle className="w-4 h-4 mr-1" />
-                    <span className="text-xs">{t('reply', { default: 'Reply' })}</span>
+                    <MessageCircle className="w-4 h-4" />
+                    <span className="text-xs font-medium">{t('reply', { default: 'Reply' })}</span>
                   </Button>
                 )}
               </div>
@@ -307,16 +340,7 @@ export default function CommentItem({
               )}
             </div>
 
-            {/* Reactions */}
-            <div className="flex justify-start">
-              <Reactions
-                type="comment"
-                targetId={comment.id}
-                initialReactionCounts={comment.reaction_counts || {}}
-                initialUserReactions={[]}
-                className="scale-90"
-              />
-            </div>
+
           </div>
         )}
       </div>

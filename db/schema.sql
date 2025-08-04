@@ -133,6 +133,7 @@ CREATE TABLE posts (
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     slug TEXT NOT NULL,
+    template TEXT,
     is_anonymous BOOLEAN DEFAULT FALSE,
     post_type TEXT DEFAULT 'general' CHECK (post_type IN ('general', 'question', 'sharing', 'poll')),
     is_pinned BOOLEAN DEFAULT FALSE,
@@ -151,7 +152,8 @@ CREATE TABLE posts (
     is_ad BOOLEAN DEFAULT FALSE,
     ad_metadata JSONB,
     ad_position INTEGER,
-    ad_target_audience JSONB
+    ad_target_audience JSONB,
+    reaction_counts JSONB DEFAULT '{}'
 );
 
 CREATE TABLE comments (
@@ -170,7 +172,8 @@ CREATE TABLE comments (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    language TEXT DEFAULT 'zh-TW'
+    language TEXT DEFAULT 'zh-TW',
+    reaction_counts JSONB DEFAULT '{}'
 );
 
 CREATE TABLE votes (
@@ -276,16 +279,6 @@ CREATE TABLE post_hashtags (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE anonymous_avatars (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  avatar_url TEXT NOT NULL,
-  description TEXT,
-  is_premium_only BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
 );
 
 CREATE TABLE anonymous_avatars (
@@ -1067,4 +1060,26 @@ CREATE TABLE credit_transactions (
   balance_after INTEGER,
   description TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Add reactions table for emoji reactions on posts and comments
+CREATE TABLE reactions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+  comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+  emoji TEXT NOT NULL, -- Store emoji unicode or name (e.g., '👍', '❤️', '😂', etc.)
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+
+  -- Ensure user can only have one reaction per post/comment with same emoji
+  CONSTRAINT unique_user_post_emoji UNIQUE (user_id, post_id, emoji),
+  CONSTRAINT unique_user_comment_emoji UNIQUE (user_id, comment_id, emoji),
+
+  -- Ensure reaction is for either post or comment, not both
+  CONSTRAINT reaction_target_check CHECK (
+    (post_id IS NOT NULL AND comment_id IS NULL) OR
+    (post_id IS NULL AND comment_id IS NOT NULL)
+  )
 );

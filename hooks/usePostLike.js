@@ -74,9 +74,14 @@ export const usePostLike = () => {
             // For paginated posts data
             return {
               ...oldData,
-              posts: oldData.posts.map(post => 
-                post.id === postId 
-                  ? { ...post, likesCount: result.likeCount, likes_count: result.likeCount }
+              posts: oldData.posts.map(post =>
+                post.id === postId
+                  ? {
+                      ...post,
+                      likesCount: result.likeCount,
+                      likes_count: result.likeCount,
+                      like_count: result.likeCount
+                    }
                   : post
               )
             };
@@ -86,9 +91,14 @@ export const usePostLike = () => {
               ...oldData,
               pages: oldData.pages.map(page => ({
                 ...page,
-                posts: page.posts?.map(post => 
-                  post.id === postId 
-                    ? { ...post, likesCount: result.likeCount, likes_count: result.likeCount }
+                posts: page.posts?.map(post =>
+                  post.id === postId
+                    ? {
+                        ...post,
+                        likesCount: result.likeCount,
+                        likes_count: result.likeCount,
+                        like_count: result.likeCount
+                      }
                     : post
                 ) || []
               }))
@@ -98,7 +108,8 @@ export const usePostLike = () => {
             return {
               ...oldData,
               likesCount: result.likeCount,
-              likes_count: result.likeCount
+              likes_count: result.likeCount,
+              like_count: result.likeCount
             };
           }
           
@@ -112,14 +123,16 @@ export const usePostLike = () => {
           return {
             ...oldData,
             likesCount: result.likeCount,
-            likes_count: result.likeCount
+            likes_count: result.likeCount,
+            like_count: result.likeCount
           };
         }
         return oldData;
       });
       
-      // Invalidate cached counts
+      // Invalidate cached counts and like status
       queryClient.invalidateQueries({ queryKey: ['posts', 'cached-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['posts', postId, 'like-status'] });
     },
     onError: (error) => {
       Toaster.error(error.message || 'Failed to update like');
@@ -128,13 +141,14 @@ export const usePostLike = () => {
 };
 
 /**
- * Hook for getting post like status (if needed)
+ * Hook for getting post like status
  */
 export const usePostLikeStatus = (postId) => {
   return useQuery({
-    queryKey: ['posts', postId, 'like'],
+    queryKey: ['posts', postId, 'like-status'],
     queryFn: () => postLikeApi.getLikeStatus(postId),
     enabled: !!postId,
     staleTime: 30 * 1000, // 30 seconds
+    refetchOnWindowFocus: false,
   });
 };

@@ -49,42 +49,82 @@ export async function POST(request) {
     // Fetch uncached posts from database in a single query
     if (uncachedPostIds.length > 0) {
       console.log(`[POST /api/posts/batch-hot-comments] Fetching ${uncachedPostIds.length} posts from database`);
-      
-      const { data: hotComments, error: commentsError } = await supabase
-        .from('comments')
-        .select(`
-          id,
-          content,
-          like_count,
-          created_at,
-          post_id,
-          author:users!comments_author_id_fkey (
-            id,
-            username,
-            avatar_url
-          )
-        `)
-        .in('post_id', uncachedPostIds)
-        .eq('is_deleted', false)
-        .order('like_count', { ascending: false })
-        .order('created_at', { ascending: false });
 
-      if (commentsError) {
-        console.error('Error fetching hot comments from database:', commentsError);
+      // Get both hot comments (by likes) and recent comments for better variety
+      const [hotCommentsResult, recentCommentsResult] = await Promise.all([
+        // Hot comments (sorted by likes)
+        supabase
+          .from('comments')
+          .select(`
+            id,
+            content,
+            like_count,
+            created_at,
+            post_id,
+            is_anonymous,
+            author:users!comments_author_id_fkey (
+              id,
+              username,
+              avatar_url
+            )
+          `)
+          .in('post_id', uncachedPostIds)
+          .eq('is_deleted', false)
+          .gte('like_count', 1) // Only comments with at least 1 like
+          .order('like_count', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(100),
+
+        // Recent comments (sorted by time)
+        supabase
+          .from('comments')
+          .select(`
+            id,
+            content,
+            like_count,
+            created_at,
+            post_id,
+            is_anonymous,
+            author:users!comments_author_id_fkey (
+              id,
+              username,
+              avatar_url
+            )
+          `)
+          .in('post_id', uncachedPostIds)
+          .eq('is_deleted', false)
+          .order('created_at', { ascending: false })
+          .limit(100)
+      ]);
+
+      if (hotCommentsResult.error || recentCommentsResult.error) {
+        console.error('Error fetching comments from database:', hotCommentsResult.error || recentCommentsResult.error);
         return NextResponse.json({
-          error: 'Failed to fetch hot comments',
-          details: commentsError.message
+          error: 'Failed to fetch comments',
+          details: (hotCommentsResult.error || recentCommentsResult.error).message
         }, { status: 500 });
       }
 
-      // Group comments by post_id and take top 3 for each post
+      // Combine and deduplicate comments
+      const allComments = [...(hotCommentsResult.data || []), ...(recentCommentsResult.data || [])];
+      const uniqueComments = allComments.filter((comment, index, self) =>
+        index === self.findIndex(c => c.id === comment.id)
+      );
+
+      // Group comments by post_id and select best mix for each post
       const commentsByPost = {};
-      hotComments?.forEach(comment => {
-        if (!commentsByPost[comment.post_id]) {
-          commentsByPost[comment.post_id] = [];
-        }
-        if (commentsByPost[comment.post_id].length < 3) {
-          commentsByPost[comment.post_id].push(comment);
+      uncachedPostIds.forEach(postId => {
+        const postComments = uniqueComments.filter(c => c.post_id === postId);
+
+        if (postComments.length > 0) {
+          // Sort by a combination of likes and recency for better variety
+          const sortedComments = postComments.sort((a, b) => {
+            const aScore = (a.like_count || 0) * 0.7 + (new Date(a.created_at).getTime() / 1000000) * 0.3;
+            const bScore = (b.like_count || 0) * 0.7 + (new Date(b.created_at).getTime() / 1000000) * 0.3;
+            return bScore - aScore;
+          });
+
+          commentsByPost[postId] = sortedComments.slice(0, 3);
         }
       });
 

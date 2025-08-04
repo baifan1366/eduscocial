@@ -7,12 +7,11 @@ import useGetHomePosts from '@/hooks/useGetHomePosts';
 import useGetBoards from '@/hooks/user/board/useGetBoards';
 import useAuth from '@/hooks/useAuth';
 import useCheckNewUser from '@/hooks/useCheckNewUser';
-import FacebookStylePostsList from './FacebookStylePostsList';
+import PostsList from './PostsList';
 import BoardsList from './BoardsList';
 import Sidebar from './Sidebar';
 import UserAvatar from '@/components/ui/UserAvatar';
 import InterestSelectionDialog from '@/components/onboarding/InterestSelectionDialog';
-import RequestMonitor from '@/components/debug/RequestMonitor';
 
 export default function HomeContent() {
   const t = useTranslations('HomePage');
@@ -111,7 +110,7 @@ export default function HomeContent() {
             )}
 
             {/* Posts Feed */}
-            <FacebookStylePostsList
+            <PostsList
               posts={posts}
               isLoading={isPostsLoading}
               error={error}
@@ -135,9 +134,6 @@ export default function HomeContent() {
           isOpen={showInterestDialog}
           onClose={() => setShowInterestDialog(false)}
         />
-
-        {/* Request Monitor for development */}
-        <RequestMonitor />
       </div>
     </div>
   );
