@@ -35,5 +35,17 @@
     "selectEmoji": "选择表情",
     "noReactions": "暂无反应",
     "reactionsCount": "{count} 个反应"
+  },
+  "Comments": {
+    "writeComment": "写评论...",
+    "writeAnonymousComment": "写匿名评论...",
+    "commentAnonymously": "匿名评论",
+    "replyAnonymously": "匿名回复",
+    "replyTo": "回复 {username}...",
+    "replyAnonymouslyTo": "匿名回复 {username}...",
+    "post": "发布",
+    "cancel": "取消",
+    "like": "点赞",
+    "reply": "回复"
   }
 }

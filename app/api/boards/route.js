@@ -64,16 +64,52 @@ export async function GET(request) {
     
     // 执行查询
     const { data, error, count } = await query;
-    
+
     if (error) {
       console.error('Get boards list error:', error);
       return NextResponse.json({ error: 'Get boards list failed' }, { status: 500 });
     }
-    
+
+    let boards = data || [];
+
+    // Get user session to check follow status and filter private boards
+    const session = await getServerSession();
+
+    if (session?.user) {
+      // Get user's followed boards
+      const { data: followedBoards, error: followError } = await supabase
+        .from('board_followers')
+        .select('board_id')
+        .eq('user_id', session.user.id);
+
+      if (!followError && followedBoards) {
+        const followedBoardIds = new Set(followedBoards.map(f => f.board_id));
+
+        // Add follow status to boards and filter private boards
+        boards = boards.map(board => ({
+          ...board,
+          isFollowing: followedBoardIds.has(board.id),
+          // Only show private boards if user is following them
+          ...(board.visibility === 'private' && !followedBoardIds.has(board.id) ? { restricted: true } : {})
+        })).filter(board => {
+          // Filter out private boards that user is not following
+          return board.visibility !== 'private' || board.isFollowing;
+        });
+      }
+    } else {
+      // For non-authenticated users, filter out private boards and add follow status
+      boards = boards
+        .filter(board => board.visibility !== 'private')
+        .map(board => ({
+          ...board,
+          isFollowing: false
+        }));
+    }
+
     // 返回结果
     return NextResponse.json({
-      boards: data || [],
-      total: count || 0,
+      boards,
+      total: boards.length,
       limit,
       offset
     });

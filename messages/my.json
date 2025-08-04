@@ -35,5 +35,17 @@
     "selectEmoji": "Pilih emoji",
     "noReactions": "Belum ada reaksi",
     "reactionsCount": "{count} reaksi"
+  },
+  "Comments": {
+    "writeComment": "Tulis komen...",
+    "writeAnonymousComment": "Tulis komen tanpa nama...",
+    "commentAnonymously": "Komen tanpa nama",
+    "replyAnonymously": "Balas tanpa nama",
+    "replyTo": "Balas kepada {username}...",
+    "replyAnonymouslyTo": "Balas tanpa nama kepada {username}...",
+    "post": "Hantar",
+    "cancel": "Batal",
+    "like": "Suka",
+    "reply": "Balas"
   }
 }
