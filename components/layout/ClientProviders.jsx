@@ -4,6 +4,7 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import { usePathname } from 'next/navigation';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { ThemeProvider } from 'next-themes';
 import { SettingsProvider } from '@/hooks/useSettings';
 import { ProfileProvider } from '@/contexts/profile-context';
 import { Toaster } from '@/components/ui/sonner';
@@ -101,15 +102,22 @@ export default function ClientProviders({ children }) {
         <PathnameProvider>
           <BusinessAuthContext.Provider value={{ isBusinessAuthenticated }}>
             <AuthProviderComponent>
-              <SettingsProvider>
-                <ProfileProvider>
-                  <ConfirmProvider>
-                    {children}
-                    <Toaster />
-                    <ReactQueryDevtools initialIsOpen={false} />
-                  </ConfirmProvider>
-                </ProfileProvider>
-              </SettingsProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                <SettingsProvider>
+                  <ProfileProvider>
+                    <ConfirmProvider>
+                      {children}
+                      <Toaster />
+                      <ReactQueryDevtools initialIsOpen={false} />
+                    </ConfirmProvider>
+                  </ProfileProvider>
+                </SettingsProvider>
+              </ThemeProvider>
             </AuthProviderComponent>
           </BusinessAuthContext.Provider>
         </PathnameProvider>
